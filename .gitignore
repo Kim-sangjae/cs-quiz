@@ -1,0 +1,22 @@
+node_modules/
+.next/
+out/
+next-env.d.ts
+tsconfig.tsbuildinfo
+
+# environment variables
+.env
+.env.local
+.env.*.local
+
+# Python artifacts
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# phase execution outputs
+phases/**/phase*-output.json
+phases/**/step*-output.json
+
+/src/generated/prisma

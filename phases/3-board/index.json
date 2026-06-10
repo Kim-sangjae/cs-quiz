@@ -1,0 +1,37 @@
+{
+  "project": "CS Quiz",
+  "phase": "3-board",
+  "steps": [
+    {
+      "step": 0,
+      "name": "board-api",
+      "status": "completed",
+      "started_at": "2026-06-10T03:57:33+0900",
+      "summary": "게시판 목록(GET+검색+필터+정렬+페이징) 및 문제 상세 API 구현 완료. ILIKE 키워드 검색 적용."
+    },
+    {
+      "step": 1,
+      "name": "board-list-ui",
+      "status": "completed",
+      "started_at": "2026-06-10T04:02:25+0900",
+      "summary": "게시판 목록 UI 구현 완료 (SearchBar, FilterBar, QuestionCard, Pagination, board/page.tsx)."
+    },
+    {
+      "step": 2,
+      "name": "board-detail",
+      "status": "completed",
+      "started_at": "2026-06-10T04:05:40+0900",
+      "summary": "게시판 상세 페이지 + 좋아요 API + 신고 API + LikeButton + ReportModal 구현 완료."
+    },
+    {
+      "step": 3,
+      "name": "board-submit",
+      "status": "completed",
+      "started_at": "2026-06-10T04:08:35+0900",
+      "summary": "게시판 문제 등록 폼 (/board/submit) 구현 완료. 카테고리·문제·보기·정답·해설 필드, 글자 수 카운터, 제출 → /board 이동.",
+      "completed_at": "2026-06-10T04:10:19+0900"
+    }
+  ],
+  "created_at": "2026-06-10T03:57:33+0900",
+  "completed_at": "2026-06-10T04:10:19+0900"
+}

@@ -1,0 +1,70 @@
+{
+  "project": "CS Quiz",
+  "phase": "0-mvp",
+  "steps": [
+    {
+      "step": 0,
+      "name": "project-setup",
+      "status": "completed",
+      "started_at": "2026-06-08T00:20:17+0900",
+      "summary": "Next.js 15 + Tailwind + Vitest 초기화 완료. src/ 디렉토리 구조 생성."
+    },
+    {
+      "step": 1,
+      "name": "core-types",
+      "status": "completed",
+      "started_at": "2026-06-08T00:35:07+0900",
+      "summary": "Category/Question/UserAnswer/QuizResult 타입 정의 + isQuizResult 가드 + 테스트 10개 통과",
+      "completed_at": "2026-06-08T00:36:34+0900"
+    },
+    {
+      "step": 2,
+      "name": "question-data",
+      "status": "completed",
+      "started_at": "2026-06-08T03:15:32+0900",
+      "completed_at": "2026-06-08T03:38:36+0900",
+      "summary": "questions.ts — 6개 카테고리 × 20문제 = 120개 작성. 무결성 테스트 13개 통과."
+    },
+    {
+      "step": 3,
+      "name": "quiz-logic",
+      "status": "completed",
+      "started_at": "2026-06-08T03:38:36+0900",
+      "completed_at": "2026-06-08T03:40:00+0900",
+      "summary": "sample.ts(Fisher-Yates) + grade.ts 순수 함수 구현. 유닛 테스트 전부 통과."
+    },
+    {
+      "step": 4,
+      "name": "ui-components",
+      "status": "completed",
+      "started_at": "2026-06-08T03:44:11+0900",
+      "completed_at": "2026-06-08T03:55:00+0900",
+      "summary": "QuizCard/Navigator/ProgressBar/ResultCard 4개 컴포넌트 구현 완료. Client Component 경계 준수."
+    },
+    {
+      "step": 5,
+      "name": "start-page",
+      "status": "completed",
+      "started_at": "2026-06-08T03:46:13+0900",
+      "completed_at": "2026-06-08T03:47:33+0900",
+      "summary": "layout.tsx(메타데이터/다크 배경) + 시작 화면(/) Server Component 구현 완료"
+    },
+    {
+      "step": 6,
+      "name": "quiz-page",
+      "status": "completed",
+      "started_at": "2026-06-08T03:47:33+0900",
+      "completed_at": "2026-06-08T04:10:00+0900",
+      "summary": "퀴즈 진행 화면(/quiz) 구현 완료. 답안 upsert, 네비게이션, sessionStorage 에러 핸들링 포함."
+    },
+    {
+      "step": 7,
+      "name": "result-page",
+      "status": "completed",
+      "started_at": "2026-06-08T03:49:44+0900",
+      "completed_at": "2026-06-08T04:50:00+0900",
+      "summary": "결과 화면(/result) 구현 완료. 점수 색상, 오답 해설 목록, sessionStorage 에러 핸들링 포함."
+    }
+  ],
+  "created_at": "2026-06-08T00:20:17+0900"
+}

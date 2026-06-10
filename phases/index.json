@@ -1,0 +1,37 @@
+{
+  "phases": [
+    {
+      "dir": "0-mvp",
+      "status": "completed"
+    },
+    {
+      "dir": "1-infra",
+      "status": "completed",
+      "failed_at": "2026-06-10T00:32:31+0900",
+      "completed_at": "2026-06-10T01:11:34+0900"
+    },
+    {
+      "dir": "2-quiz-v2",
+      "status": "completed",
+      "completed_at": "2026-06-10T03:53:31+0900"
+    },
+    {
+      "dir": "3-board",
+      "status": "completed",
+      "completed_at": "2026-06-10T04:10:19+0900"
+    },
+    {
+      "dir": "4-admin",
+      "status": "completed",
+      "completed_at": "2026-06-10T14:26:45+0900"
+    },
+    {
+      "dir": "5-social",
+      "status": "pending"
+    },
+    {
+      "dir": "6-mypage-v2",
+      "status": "pending"
+    }
+  ]
+}

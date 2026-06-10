@@ -1,0 +1,28 @@
+{
+  "project": "CS Quiz",
+  "phase": "2-quiz-v2",
+  "steps": [
+    {
+      "step": 0,
+      "name": "quiz-select",
+      "status": "completed",
+      "started_at": "2026-06-10T03:42:31+0900",
+      "summary": "퀴즈 선택 화면(/quiz) 신규 생성. 기존 퀴즈 진행 화면 → /quiz/play 이동. 카테고리별 문제 수 API 생성."
+    },
+    {
+      "step": 1,
+      "name": "session-persist",
+      "status": "completed",
+      "started_at": "2026-06-10T03:45:56+0900",
+      "summary": "QuizSession DB 저장 API 생성. /result/[sessionId] 페이지로 전환. sessionStorage 의존성 완전 제거."
+    },
+    {
+      "step": 2,
+      "name": "attempt-tracking",
+      "status": "completed",
+      "started_at": "2026-06-10T03:53:31+0900",
+      "summary": "Prisma $transaction으로 QuizSession + QuestionAttempt + Question 통계 원자적 업데이트. 사용자 스트릭 업데이트 추가."
+    }
+  ],
+  "created_at": "2026-06-10T03:42:31+0900"
+}

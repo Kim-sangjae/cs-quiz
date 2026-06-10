@@ -1,0 +1,40 @@
+{
+  "project": "CS Quiz",
+  "phase": "1-infra",
+  "steps": [
+    {
+      "step": 0,
+      "name": "db-schema",
+      "status": "completed",
+      "started_at": "2026-06-10T00:33:51+0900",
+      "completed_at": "2026-06-10T01:00:00+0900",
+      "summary": "Prisma 7 스키마 생성(7모델), prisma.config.ts(dotenv+DIRECT_URL), src/lib/prisma.ts(datasourceUrl), migrate dev --name init 완료"
+    },
+    {
+      "step": 1,
+      "name": "auth-setup",
+      "status": "completed",
+      "started_at": "2026-06-10T00:50:47+0900",
+      "completed_at": "2026-06-10T01:10:00+0900",
+      "summary": "NextAuth v5 Google Provider + Prisma Adapter 설정 완료. 미들웨어 라우트 보호 구성. Prisma 7 pg adapter(PrismaPg) 적용, NextAuth 모델(Account/Session/VerificationToken) 마이그레이션 완료."
+    },
+    {
+      "step": 2,
+      "name": "onboarding-header",
+      "status": "completed",
+      "started_at": "2026-06-10T01:02:19+0900",
+      "completed_at": "2026-06-10T01:30:00+0900",
+      "summary": "공통 Header + TanStack Query Providers + 닉네임 설정 온보딩 페이지 구현 완료."
+    },
+    {
+      "step": 3,
+      "name": "seed-data",
+      "status": "completed",
+      "started_at": "2026-06-10T01:08:43+0900",
+      "completed_at": "2026-06-10T01:11:33+0900",
+      "summary": "questions.ts 120개 → DB Question 테이블 시딩 완료 (status: OFFICIAL). npm run db:seed 스크립트 추가. DIRECT_URL로 직접 연결하는 prisma/seed.ts 생성."
+    }
+  ],
+  "created_at": "2026-06-10T00:32:30+0900",
+  "completed_at": "2026-06-10T01:11:34+0900"
+}
