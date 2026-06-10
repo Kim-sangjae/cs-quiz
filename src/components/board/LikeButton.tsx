@@ -1,7 +1,7 @@
 'use client';
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { signIn } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
 interface LikeButtonProps {
@@ -20,6 +20,7 @@ export default function LikeButton({
   const [liked, setLiked] = useState(initialLiked);
   const [count, setCount] = useState(initialCount);
   const queryClient = useQueryClient();
+  const router = useRouter();
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -49,7 +50,7 @@ export default function LikeButton({
 
   function handleClick() {
     if (!isLoggedIn) {
-      signIn('google');
+      router.push(`/api/auth/signin?callbackUrl=${encodeURIComponent(window.location.href)}`);
       return;
     }
     mutation.mutate();

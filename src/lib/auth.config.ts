@@ -19,7 +19,11 @@ export const authConfig: NextAuthConfig = {
       const needsLogin = PROTECTED.some((p) => pathname === p || pathname.startsWith(p + '/'));
       if (!needsLogin) return true;
 
-      if (!user) return false; // NextAuth가 sign-in 페이지로 리다이렉트
+      if (!user) {
+        const url = new URL('/api/auth/signin', nextUrl.origin);
+        url.searchParams.set('callbackUrl', nextUrl.href);
+        return Response.redirect(url);
+      }
 
       if (!user.nickname) {
         const url = new URL('/auth/setup-nickname', nextUrl);
