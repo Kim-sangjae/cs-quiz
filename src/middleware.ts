@@ -7,7 +7,6 @@ const { auth } = NextAuth(authConfig);
 const PROTECTED = ['/quiz', '/mypage', '/settings', '/board/submit', '/admin'];
 
 export default auth((req) => {
-  const session = req.auth;
   const { pathname } = req.nextUrl;
 
   const needsLogin = PROTECTED.some(
@@ -16,13 +15,15 @@ export default auth((req) => {
 
   if (!needsLogin) return NextResponse.next();
 
-  if (!session?.user) {
-    const url = new URL('/api/auth/signin', req.url);
+  const token = req.auth;
+
+  if (!token?.user) {
+    const url = new URL('/auth/login', req.url);
     url.searchParams.set('callbackUrl', req.nextUrl.href);
     return NextResponse.redirect(url);
   }
 
-  if (!session.user.nickname) {
+  if (!token.user.nickname) {
     const url = new URL('/auth/setup-nickname', req.url);
     url.searchParams.set('callbackUrl', req.nextUrl.href);
     return NextResponse.redirect(url);
@@ -30,7 +31,7 @@ export default auth((req) => {
 
   if (
     (pathname === '/admin' || pathname.startsWith('/admin/')) &&
-    session.user.role !== 'ADMIN'
+    token.user.role !== 'ADMIN'
   ) {
     return NextResponse.redirect(new URL('/', req.url));
   }

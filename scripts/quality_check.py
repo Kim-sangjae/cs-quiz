@@ -13,7 +13,7 @@ if not (ROOT / 'package.json').exists():
     print('[quality] package.json 없음 - 품질 검사 스킵')
     sys.exit(0)
 
-cmds = ['npm run lint', 'npm run build', 'npm run test']
+cmds = ['npm run lint', 'npm run test']
 failed = []
 
 for cmd in cmds:

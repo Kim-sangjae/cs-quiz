@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
+import { toast } from "sonner";
 import ResultCard from "@/components/ResultCard";
 import type { Category, Question } from "@/types";
 
@@ -170,11 +172,45 @@ const STATUS_STYLE: Record<string, string> = {
   BLINDED: "text-neutral-600 border-neutral-800",
 };
 
+const NICKNAME_REGEX = /^[a-zA-Z0-9가-힣]{2,12}$/;
+
 type ActiveTab = "history" | "my-questions" | "liked";
 type MyQStatus = "all" | "pending" | "approved" | "rejected";
 
 export default function MyPage() {
   const router = useRouter();
+  const { data: session, update } = useSession();
+
+  const [showNicknameForm, setShowNicknameForm] = useState(false);
+  const [nicknameInput, setNicknameInput] = useState('');
+  const [nicknameError, setNicknameError] = useState('');
+  const [nicknameSubmitting, setNicknameSubmitting] = useState(false);
+
+  async function handleNicknameChange(e: React.FormEvent) {
+    e.preventDefault();
+    if (!NICKNAME_REGEX.test(nicknameInput) || nicknameSubmitting) return;
+    setNicknameSubmitting(true);
+    setNicknameError('');
+    try {
+      const res = await fetch('/api/users/nickname', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nickname: nicknameInput }),
+      });
+      if (!res.ok) {
+        setNicknameError((await res.json().catch(() => ({}))).error === 'Same nickname'
+          ? '현재와 동일한 닉네임입니다.'
+          : res.status === 409 ? '이미 사용 중인 닉네임입니다.' : '오류가 발생했습니다.');
+        return;
+      }
+      await update({ nickname: nicknameInput });
+      setShowNicknameForm(false);
+      setNicknameInput('');
+      toast.success('닉네임이 변경되었습니다.');
+    } finally {
+      setNicknameSubmitting(false);
+    }
+  }
 
   const [sessions, setSessions] = useState<ApiSession[]>([]);
   const [stats, setStats] = useState<StatsData | null>(null);
@@ -229,7 +265,7 @@ export default function MyPage() {
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
-      <div className="flex items-center gap-4 mb-8">
+      <div className="flex items-center gap-4 mb-6">
         <button
           onClick={() => router.push("/")}
           className="text-neutral-400 hover:text-white text-sm transition-colors"
@@ -237,6 +273,47 @@ export default function MyPage() {
           ← 홈
         </button>
         <h1 className="text-xl font-semibold text-white">마이페이지</h1>
+      </div>
+
+      {/* 닉네임 변경 */}
+      <div className="bg-[#111111] border border-neutral-800 rounded-lg p-4 mb-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-xs text-neutral-500 mb-0.5">닉네임</p>
+            <p className="text-sm text-white font-medium">{session?.user?.nickname ?? '–'}</p>
+          </div>
+          <button
+            onClick={() => { setShowNicknameForm((v) => !v); setNicknameInput(''); setNicknameError(''); }}
+            className="text-xs text-neutral-400 border border-neutral-700 rounded px-3 py-1.5 hover:border-neutral-500 hover:text-white transition-colors"
+          >
+            {showNicknameForm ? '취소' : '변경'}
+          </button>
+        </div>
+
+        {showNicknameForm && (
+          <form onSubmit={handleNicknameChange} className="mt-4 flex gap-2">
+            <div className="flex-1">
+              <input
+                type="text"
+                value={nicknameInput}
+                onChange={(e) => { setNicknameInput(e.target.value); setNicknameError(''); }}
+                placeholder="새 닉네임 (2~12자, 영문·숫자·한글)"
+                maxLength={12}
+                className="w-full rounded-md border border-neutral-800 bg-[#1a1a1a] px-3 py-2 text-sm text-white placeholder-neutral-600 focus:border-neutral-600 focus:outline-none transition-colors"
+              />
+              {nicknameError && (
+                <p className="mt-1 text-xs text-red-400">{nicknameError}</p>
+              )}
+            </div>
+            <button
+              type="submit"
+              disabled={!NICKNAME_REGEX.test(nicknameInput) || nicknameSubmitting}
+              className="rounded-md bg-white text-black text-sm font-medium px-4 py-2 hover:bg-neutral-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex-shrink-0"
+            >
+              {nicknameSubmitting ? '저장 중...' : '저장'}
+            </button>
+          </form>
+        )}
       </div>
 
       {/* 요약 카드 */}

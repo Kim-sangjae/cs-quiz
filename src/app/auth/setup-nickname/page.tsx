@@ -1,8 +1,9 @@
 'use client';
 
-import { Suspense, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
+import { toast } from 'sonner';
 
 const NICKNAME_REGEX = /^[a-zA-Z0-9가-힣]{2,12}$/;
 
@@ -15,6 +16,13 @@ function SetupNicknameForm() {
   const [nickname, setNickname] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (callbackUrl !== '/') {
+      toast('사이트에서 사용하실 닉네임을 설정해주세요.', { id: 'nickname-required' });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const isValid = NICKNAME_REGEX.test(nickname);
 
