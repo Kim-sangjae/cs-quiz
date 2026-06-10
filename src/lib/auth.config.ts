@@ -1,6 +1,8 @@
 import type { NextAuthConfig } from 'next-auth';
 import Google from 'next-auth/providers/google';
 
+const PROTECTED = ['/quiz', '/mypage', '/settings', '/board/submit', '/admin'];
+
 export const authConfig: NextAuthConfig = {
   providers: [
     Google({
@@ -10,6 +12,27 @@ export const authConfig: NextAuthConfig = {
   ],
   session: { strategy: 'jwt' },
   callbacks: {
+    authorized({ auth: session, request: { nextUrl } }) {
+      const user = session?.user;
+      const pathname = nextUrl.pathname;
+
+      const needsLogin = PROTECTED.some((p) => pathname === p || pathname.startsWith(p + '/'));
+      if (!needsLogin) return true;
+
+      if (!user) return false; // NextAuth가 sign-in 페이지로 리다이렉트
+
+      if (!user.nickname) {
+        const url = new URL('/auth/setup-nickname', nextUrl);
+        url.searchParams.set('callbackUrl', nextUrl.href);
+        return Response.redirect(url);
+      }
+
+      if (pathname === '/admin' || pathname.startsWith('/admin/')) {
+        if (user.role !== 'ADMIN') return Response.redirect(new URL('/', nextUrl));
+      }
+
+      return true;
+    },
     jwt({ token, user, trigger, session }) {
       if (user) {
         token.id = user.id;

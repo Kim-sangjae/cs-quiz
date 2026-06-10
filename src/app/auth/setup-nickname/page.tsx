@@ -2,6 +2,7 @@
 
 import { Suspense, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 
 const NICKNAME_REGEX = /^[a-zA-Z0-9가-힣]{2,12}$/;
 
@@ -9,6 +10,7 @@ function SetupNicknameForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get('callbackUrl') ?? '/';
+  const { update } = useSession();
 
   const [nickname, setNickname] = useState('');
   const [error, setError] = useState('');
@@ -39,6 +41,7 @@ function SetupNicknameForm() {
         return;
       }
 
+      await update({ nickname }); // JWT 토큰에 닉네임 반영
       router.push(callbackUrl);
     } finally {
       setSubmitting(false);
