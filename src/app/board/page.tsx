@@ -1,5 +1,6 @@
 import { Prisma } from '@prisma/client';
 import { Suspense } from 'react';
+import Link from 'next/link';
 import { getServerUser } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import SearchBar from '@/components/board/SearchBar';
@@ -96,9 +97,17 @@ export default async function BoardPage({ searchParams }: PageProps) {
 
   return (
     <main className="max-w-2xl mx-auto px-4 sm:px-6 py-8">
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-white mb-1">게시판</h1>
-        <p className="text-sm text-neutral-500">커뮤니티가 등록한 CS 문제 모음</p>
+      <div className="flex items-start justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-semibold text-white mb-1">게시판</h1>
+          <p className="text-sm text-neutral-500">커뮤니티가 등록한 CS 문제 모음</p>
+        </div>
+        <Link
+          href="/board/submit"
+          className="rounded-md bg-white text-black text-sm font-medium px-4 py-2 hover:bg-neutral-200 transition-colors flex-shrink-0"
+        >
+          문제 등록
+        </Link>
       </div>
 
       <div className="flex flex-col gap-3 mb-6">

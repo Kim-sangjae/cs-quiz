@@ -53,7 +53,6 @@ async function getUserAccuracy(
     by: ["questionId"],
     where: { userId },
     _count: { _all: true },
-    _sum: { isCorrect: true } as never,
   });
 
   if (rows.length === 0) return result;

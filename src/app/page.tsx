@@ -22,14 +22,8 @@ export default async function Home() {
   return (
     <main className="min-h-screen px-4 py-16">
       <div className="max-w-2xl mx-auto">
-        <div className="flex items-center justify-between mb-2">
+        <div className="mb-2">
           <h1 className="text-2xl font-semibold text-white">CS Quiz</h1>
-          <Link
-            href="/mypage"
-            className="text-sm text-neutral-500 hover:text-neutral-300 transition-colors"
-          >
-            마이페이지
-          </Link>
         </div>
         <p className="text-neutral-400 mb-8">CS 기초 지식을 30문제로 점검하세요</p>
         <p className="text-sm text-neutral-500 mb-8">전체 {total}문제 중 30개 랜덤 출제</p>

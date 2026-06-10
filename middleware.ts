@@ -1,42 +1,39 @@
-import { auth } from '@/lib/auth';
+import NextAuth from 'next-auth';
+import { authConfig } from '@/lib/auth.config';
 import { NextResponse } from 'next/server';
+
+const { auth } = NextAuth(authConfig);
+
+const PROTECTED = ['/quiz', '/mypage', '/settings', '/board/submit'];
+const ADMIN_ONLY = ['/admin'];
 
 export default auth((req) => {
   const session = req.auth;
   const { pathname } = req.nextUrl;
 
-  const isLoggedIn = !!session;
-  const isAdmin = session?.user?.role === 'ADMIN';
-  const hasNickname = !!session?.user?.nickname;
+  const needsLogin =
+    PROTECTED.some((p) => pathname.startsWith(p)) ||
+    ADMIN_ONLY.some((p) => pathname.startsWith(p));
 
-  if (pathname === '/admin') {
-    if (!isLoggedIn || !isAdmin) {
-      return NextResponse.redirect(new URL('/', req.url));
-    }
-    return NextResponse.next();
+  if (needsLogin && !session?.user) {
+    const url = new URL('/api/auth/signin', req.url);
+    url.searchParams.set('callbackUrl', req.nextUrl.href);
+    return NextResponse.redirect(url);
   }
 
-  if (!isLoggedIn) {
-    return NextResponse.redirect(
-      new URL(
-        `/api/auth/signin?callbackUrl=${encodeURIComponent(pathname)}`,
-        req.url,
-      ),
-    );
+  if (needsLogin && session?.user && !session.user.nickname) {
+    const url = new URL('/auth/setup-nickname', req.url);
+    url.searchParams.set('callbackUrl', req.nextUrl.href);
+    return NextResponse.redirect(url);
   }
 
-  if (!hasNickname && pathname !== '/auth/setup-nickname') {
-    return NextResponse.redirect(
-      new URL(
-        `/auth/setup-nickname?callbackUrl=${encodeURIComponent(pathname)}`,
-        req.url,
-      ),
-    );
+  if (ADMIN_ONLY.some((p) => pathname.startsWith(p)) && session?.user?.role !== 'ADMIN') {
+    return NextResponse.redirect(new URL('/', req.url));
   }
 
   return NextResponse.next();
 });
 
 export const config = {
-  matcher: ['/quiz/:path*', '/board/submit', '/mypage/:path*', '/settings', '/admin'],
+  matcher: ['/quiz/:path*', '/mypage/:path*', '/settings/:path*', '/admin/:path*', '/board/submit/:path*'],
 };
