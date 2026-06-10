@@ -45,7 +45,7 @@ export default async function BoardPage({ searchParams }: PageProps) {
   } else if (statusParam === 'approved') {
     statusIn = ['APPROVED'];
   } else {
-    statusIn = isAdmin ? ['PENDING', 'APPROVED', 'BLINDED'] : ['PENDING', 'APPROVED'];
+    statusIn = isAdmin ? ['OFFICIAL', 'PENDING', 'APPROVED', 'BLINDED'] : ['OFFICIAL', 'PENDING', 'APPROVED'];
   }
 
   const where: Prisma.QuestionWhereInput = {

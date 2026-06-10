@@ -35,5 +35,5 @@ export default auth((req) => {
 });
 
 export const config = {
-  matcher: ['/quiz/:path*', '/mypage/:path*', '/settings/:path*', '/admin/:path*', '/board/submit/:path*'],
+  matcher: ['/quiz', '/quiz/:path*', '/mypage', '/mypage/:path*', '/settings', '/admin', '/admin/:path*', '/board/submit', '/board/submit/:path*'],
 };
