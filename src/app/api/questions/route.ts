@@ -32,14 +32,12 @@ export async function GET(req: NextRequest) {
   const page = Math.max(1, parseInt(searchParams.get('page') ?? '1', 10));
 
   let statusIn: string[];
-  if (statusParam === 'pending') {
-    statusIn = ['PENDING'];
-  } else if (statusParam === 'approved') {
+  if (statusParam === 'approved') {
     statusIn = ['APPROVED'];
   } else {
     statusIn = isAdmin
-      ? ['PENDING', 'APPROVED', 'BLINDED']
-      : ['PENDING', 'APPROVED'];
+      ? ['OFFICIAL', 'APPROVED', 'BLINDED']
+      : ['OFFICIAL', 'APPROVED'];
   }
 
   const where: Prisma.QuestionWhereInput = {

@@ -15,7 +15,6 @@ const CATEGORIES = [
 
 const STATUSES = [
   { value: 'all', label: '전체' },
-  { value: 'pending', label: '등록요청' },
   { value: 'approved', label: '승인' },
 ] as const;
 

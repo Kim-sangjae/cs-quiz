@@ -62,7 +62,7 @@ export default function QuestionCard({
         <span className="inline-block text-xs text-neutral-500 border border-neutral-800 rounded px-2 py-0.5">
           {CATEGORY_LABELS[category] ?? category}
         </span>
-        {status === 'APPROVED' ? (
+        {(status === 'APPROVED' || status === 'OFFICIAL') ? (
           <span className="inline-block text-xs text-green-500 border border-green-500/30 rounded px-2 py-0.5">
             승인
           </span>

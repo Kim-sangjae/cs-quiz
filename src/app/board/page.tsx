@@ -40,12 +40,10 @@ export default async function BoardPage({ searchParams }: PageProps) {
   const isAdmin = user?.role === 'ADMIN';
 
   let statusIn: string[];
-  if (statusParam === 'pending') {
-    statusIn = ['PENDING'];
-  } else if (statusParam === 'approved') {
+  if (statusParam === 'approved') {
     statusIn = ['APPROVED'];
   } else {
-    statusIn = isAdmin ? ['OFFICIAL', 'PENDING', 'APPROVED', 'BLINDED'] : ['OFFICIAL', 'PENDING', 'APPROVED'];
+    statusIn = isAdmin ? ['OFFICIAL', 'APPROVED', 'BLINDED'] : ['OFFICIAL', 'APPROVED'];
   }
 
   const where: Prisma.QuestionWhereInput = {
