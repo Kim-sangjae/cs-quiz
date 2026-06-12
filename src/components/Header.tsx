@@ -36,6 +36,14 @@ export default function Header() {
           ) : user ? (
             <>
               <NotificationBell />
+              {user.role === 'ADMIN' && (
+                <Link
+                  href="/admin"
+                  className="rounded-md border border-amber-500/40 text-xs text-amber-400 px-3 py-1.5 hover:border-amber-400 hover:text-amber-300 transition-colors"
+                >
+                  관리자
+                </Link>
+              )}
               <Link
                 href="/mypage"
                 className="text-sm text-neutral-300 hover:text-white transition-colors px-2 py-1"
