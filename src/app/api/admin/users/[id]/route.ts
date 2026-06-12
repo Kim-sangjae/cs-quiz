@@ -15,24 +15,46 @@ export async function PATCH(
   const body = await req.json() as { action: unknown };
   const { action } = body;
 
-  if (action !== 'set-admin' && action !== 'set-user') {
+  const VALID_ACTIONS = ['set-admin', 'set-user', 'deactivate', 'reactivate'];
+  if (!VALID_ACTIONS.includes(action as string)) {
     return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
   }
 
-  if (id === user.id && action === 'set-user') {
-    return NextResponse.json({ error: 'Cannot demote yourself' }, { status: 400 });
+  if (id === user.id && (action === 'set-user' || action === 'deactivate')) {
+    return NextResponse.json({ error: 'Cannot demote or deactivate yourself' }, { status: 400 });
   }
 
   const target = await prisma.user.findUnique({ where: { id } });
   if (!target) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
-  await prisma.user.update({
-    where: { id },
-    data: {
-      role: action === 'set-admin' ? 'ADMIN' : 'USER',
-      tokenVersion: { increment: 1 },
-    },
-  });
+  if (action === 'set-admin' || action === 'set-user') {
+    await prisma.user.update({
+      where: { id },
+      data: {
+        role: action === 'set-admin' ? 'ADMIN' : 'USER',
+        tokenVersion: { increment: 1 },
+      },
+    });
+  } else if (action === 'deactivate') {
+    if (target.deletedAt !== null) {
+      return NextResponse.json({ error: 'Already deactivated' }, { status: 409 });
+    }
+    await prisma.user.update({
+      where: { id },
+      data: {
+        deletedAt: new Date(),
+        tokenVersion: { increment: 1 },
+      },
+    });
+  } else if (action === 'reactivate') {
+    if (target.deletedAt === null) {
+      return NextResponse.json({ error: 'User is not deactivated' }, { status: 409 });
+    }
+    await prisma.user.update({
+      where: { id },
+      data: { deletedAt: null },
+    });
+  }
 
   return NextResponse.json({ ok: true });
 }

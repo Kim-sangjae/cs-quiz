@@ -14,8 +14,9 @@ export async function GET() {
       email: true,
       nickname: true,
       role: true,
+      deletedAt: true,
       createdAt: true,
-      _count: { select: { sessions: true } },
+      _count: { select: { quizSessions: true } },
     },
     orderBy: { createdAt: 'desc' },
   });

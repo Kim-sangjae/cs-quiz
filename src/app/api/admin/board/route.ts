@@ -4,6 +4,8 @@ import { prisma } from '@/lib/prisma';
 
 const PAGE_SIZE = 20;
 const VALID_CATEGORIES = ['ds', 'algo', 'os', 'network', 'db', 'arch'];
+const ALL_STATUSES = ['OFFICIAL', 'PENDING', 'APPROVED', 'REJECTED', 'BLINDED'] as const;
+type QuestionStatus = typeof ALL_STATUSES[number];
 
 export async function GET(req: NextRequest) {
   const user = await getServerUser();
@@ -16,10 +18,10 @@ export async function GET(req: NextRequest) {
   const cat = searchParams.get('cat') ?? 'all';
   const page = Math.max(1, parseInt(searchParams.get('page') ?? '1', 10));
 
-  const statusIn: ('APPROVED' | 'BLINDED')[] =
-    statusFilter === 'blinded' ? ['BLINDED'] :
-    statusFilter === 'approved' ? ['APPROVED'] :
-    ['APPROVED', 'BLINDED'];
+  const statusIn: QuestionStatus[] =
+    ALL_STATUSES.includes(statusFilter.toUpperCase() as QuestionStatus)
+      ? [statusFilter.toUpperCase() as QuestionStatus]
+      : [...ALL_STATUSES];
 
   const where = {
     status: { in: statusIn },
@@ -34,6 +36,9 @@ export async function GET(req: NextRequest) {
         id: true,
         category: true,
         question: true,
+        options: true,
+        answer: true,
+        explanation: true,
         status: true,
         createdAt: true,
         author: { select: { nickname: true, email: true } },

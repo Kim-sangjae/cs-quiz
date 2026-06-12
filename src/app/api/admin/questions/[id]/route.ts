@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerUser } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 
+const VALID_CATEGORIES = ['ds', 'algo', 'os', 'network', 'db', 'arch'];
+
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -12,10 +14,14 @@ export async function PATCH(
   }
 
   const { id } = await params;
-  const body = await req.json() as { action: unknown; rejectionReason?: unknown };
-  const { action, rejectionReason } = body;
+  const body = await req.json() as {
+    action: unknown;
+    rejectionReason?: unknown;
+    editData?: unknown;
+  };
+  const { action, rejectionReason, editData } = body;
 
-  const VALID_ACTIONS = ['approve', 'reject', 'blind', 'unblind', 'delete'];
+  const VALID_ACTIONS = ['approve', 'reject', 'blind', 'unblind', 'delete', 'edit'];
   if (!VALID_ACTIONS.includes(action as string)) {
     return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
   }
@@ -75,25 +81,58 @@ export async function PATCH(
     if (question.status === 'BLINDED') {
       return NextResponse.json({ error: 'Already blinded' }, { status: 409 });
     }
-    if (question.status === 'OFFICIAL') {
-      return NextResponse.json({ error: 'Cannot blind official questions' }, { status: 400 });
-    }
     await prisma.question.update({ where: { id }, data: { status: 'BLINDED' } });
   } else if (action === 'unblind') {
     if (question.status !== 'BLINDED') {
       return NextResponse.json({ error: 'Not blinded' }, { status: 409 });
     }
-    await prisma.question.update({ where: { id }, data: { status: 'APPROVED' } });
+    await prisma.question.update({
+      where: { id },
+      data: { status: question.status === 'BLINDED' ? 'APPROVED' : question.status },
+    });
   } else if (action === 'delete') {
-    if (question.status === 'OFFICIAL') {
-      return NextResponse.json({ error: 'Cannot delete official questions' }, { status: 400 });
-    }
     await prisma.$transaction(async (tx) => {
       await tx.questionAttempt.deleteMany({ where: { questionId: id } });
       await tx.like.deleteMany({ where: { questionId: id } });
       await tx.report.deleteMany({ where: { questionId: id } });
       await tx.question.delete({ where: { id } });
     });
+  } else if (action === 'edit') {
+    const d = editData as {
+      category?: unknown;
+      question?: unknown;
+      options?: unknown;
+      answer?: unknown;
+      explanation?: unknown;
+    } | undefined;
+
+    if (!d) return NextResponse.json({ error: 'editData required' }, { status: 400 });
+
+    const category = typeof d.category === 'string' && VALID_CATEGORIES.includes(d.category)
+      ? d.category : undefined;
+    const questionText = typeof d.question === 'string' && d.question.trim().length > 0
+      ? d.question.trim() : undefined;
+    const options = Array.isArray(d.options) && d.options.length === 4 &&
+      d.options.every((o) => typeof o === 'string' && o.trim().length > 0)
+      ? (d.options as string[]) : undefined;
+    const answer = typeof d.answer === 'number' && [0, 1, 2, 3].includes(d.answer)
+      ? d.answer : undefined;
+    const explanation = typeof d.explanation === 'string' && d.explanation.trim().length > 0
+      ? d.explanation.trim() : undefined;
+
+    const updateData = {
+      ...(category !== undefined ? { category } : {}),
+      ...(questionText !== undefined ? { question: questionText } : {}),
+      ...(options !== undefined ? { options } : {}),
+      ...(answer !== undefined ? { answer } : {}),
+      ...(explanation !== undefined ? { explanation } : {}),
+    };
+
+    if (Object.keys(updateData).length === 0) {
+      return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 });
+    }
+
+    await prisma.question.update({ where: { id }, data: updateData });
   }
 
   return NextResponse.json({ ok: true });
