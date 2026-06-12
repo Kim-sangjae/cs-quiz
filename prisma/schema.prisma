@@ -179,4 +179,5 @@ model Notification {
 enum NotificationType {
   QUESTION_APPROVED
   QUESTION_REJECTED
+  ROLE_CHANGED
 }

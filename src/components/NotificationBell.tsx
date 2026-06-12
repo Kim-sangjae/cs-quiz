@@ -5,14 +5,15 @@ import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 interface NotificationPayload {
-  questionId: string;
-  questionTitle: string;
+  questionId?: string;
+  questionTitle?: string;
   rejectionReason?: string;
+  newRole?: string;
 }
 
 interface Notification {
   id: string;
-  type: 'QUESTION_APPROVED' | 'QUESTION_REJECTED';
+  type: 'QUESTION_APPROVED' | 'QUESTION_REJECTED' | 'ROLE_CHANGED';
   payload: NotificationPayload;
   actionUrl: string | null;
   isRead: boolean;
@@ -29,7 +30,15 @@ function getNotificationMessage(n: Notification): string {
   if (n.type === 'QUESTION_APPROVED') {
     return `'${payload.questionTitle}' 문제가 승인되었습니다.`;
   }
-  return `'${payload.questionTitle}' 문제가 거절되었습니다. 사유: ${payload.rejectionReason ?? ''}`;
+  if (n.type === 'QUESTION_REJECTED') {
+    return `'${payload.questionTitle}' 문제가 거절되었습니다. 사유: ${payload.rejectionReason ?? ''}`;
+  }
+  if (n.type === 'ROLE_CHANGED') {
+    return payload.newRole === 'ADMIN'
+      ? '관리자 권한이 부여되었습니다. 재로그인이 필요합니다.'
+      : '일반 사용자로 권한이 변경되었습니다. 재로그인이 필요합니다.';
+  }
+  return '새 알림이 있습니다.';
 }
 
 async function fetchNotifications(): Promise<NotificationsResponse> {
@@ -128,11 +137,12 @@ export default function NotificationBell() {
                 <li key={n.id}>
                   <button
                     onClick={() => handleNotificationClick(n)}
-                    className={`w-full text-left px-4 py-3 text-sm transition-colors hover:bg-[#1a1a1a] border-b border-neutral-800 last:border-b-0 ${
+                    className={`w-full text-left px-4 py-3 text-sm transition-colors hover:bg-[#1a1a1a] border-b border-neutral-800 last:border-b-0 flex items-start gap-3 ${
                       !n.isRead ? 'bg-[#161616]' : ''
                     }`}
                   >
-                    <span className={!n.isRead ? 'text-neutral-200' : 'text-neutral-400'}>
+                    <span className={`mt-1.5 flex-shrink-0 w-1.5 h-1.5 rounded-full ${!n.isRead ? 'bg-blue-500' : 'bg-transparent'}`} />
+                    <span className={!n.isRead ? 'text-neutral-100 font-medium' : 'text-neutral-500'}>
                       {getNotificationMessage(n)}
                     </span>
                   </button>

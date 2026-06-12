@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 import Providers from "./providers";
 import Header from "@/components/Header";
+import ScrollButtons from "@/components/ScrollButtons";
+import SessionGuard from "@/components/SessionGuard";
 
 export const metadata: Metadata = {
   title: "CS Quiz",
@@ -19,6 +21,8 @@ export default function RootLayout({
         <Providers>
           <Header />
           {children}
+          <ScrollButtons />
+          <SessionGuard />
         </Providers>
       </body>
     </html>

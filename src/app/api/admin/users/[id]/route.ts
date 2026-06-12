@@ -28,12 +28,20 @@ export async function PATCH(
   if (!target) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
   if (action === 'set-admin' || action === 'set-user') {
-    await prisma.user.update({
-      where: { id },
-      data: {
-        role: action === 'set-admin' ? 'ADMIN' : 'USER',
-        tokenVersion: { increment: 1 },
-      },
+    const newRole = action === 'set-admin' ? 'ADMIN' : 'USER';
+    await prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id },
+        data: { role: newRole, tokenVersion: { increment: 1 } },
+      });
+      await tx.notification.create({
+        data: {
+          userId: id,
+          type: 'ROLE_CHANGED',
+          payload: { newRole },
+          actionUrl: null,
+        },
+      });
     });
   } else if (action === 'deactivate') {
     if (target.deletedAt !== null) {

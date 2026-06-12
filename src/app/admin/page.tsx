@@ -60,10 +60,20 @@ interface EditState {
   options: [string, string, string, string]; answer: number; explanation: string;
 }
 
+interface ConfirmState {
+  message: string;
+  onConfirm: () => void;
+}
+
 export default function AdminPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<Tab>('questions');
+  const [confirm, setConfirm] = useState<ConfirmState | null>(null);
+
+  function requestConfirm(message: string, onConfirm: () => void) {
+    setConfirm({ message, onConfirm });
+  }
 
   if (status === 'loading') return null;
   if (!session || session.user?.role !== 'ADMIN') {
@@ -97,9 +107,16 @@ export default function AdminPage() {
         ))}
       </div>
       {activeTab === 'questions' && <QuestionsTab />}
-      {activeTab === 'board' && <BoardTab />}
+      {activeTab === 'board' && <BoardTab requestConfirm={requestConfirm} />}
       {activeTab === 'reports' && <ReportsTab />}
-      {activeTab === 'users' && <UsersTab currentUserId={session.user?.id ?? ''} />}
+      {activeTab === 'users' && <UsersTab currentUserId={session.user?.id ?? ''} requestConfirm={requestConfirm} />}
+      {confirm && (
+        <ConfirmDialog
+          message={confirm.message}
+          onConfirm={() => { confirm.onConfirm(); setConfirm(null); }}
+          onCancel={() => setConfirm(null)}
+        />
+      )}
     </div>
   );
 }
@@ -111,7 +128,11 @@ function QuestionsTab() {
 
   const { data: questions = [] } = useQuery<PendingQuestion[]>({
     queryKey: ['admin', 'questions'],
-    queryFn: () => fetch('/api/admin/questions').then((r) => r.json()),
+    queryFn: async () => {
+      const r = await fetch('/api/admin/questions');
+      if (!r.ok) return [];
+      return r.json();
+    },
   });
 
   const mutation = useMutation({
@@ -206,19 +227,31 @@ function QuestionsTab() {
   );
 }
 
-function BoardTab() {
+type BoardSort = 'newest' | 'oldest' | 'attempts' | 'likes';
+
+const SORT_OPTIONS: { v: BoardSort; l: string }[] = [
+  { v: 'newest', l: '최신순' },
+  { v: 'oldest', l: '오래된순' },
+  { v: 'attempts', l: '시도 많은순' },
+  { v: 'likes', l: '좋아요순' },
+];
+
+function BoardTab({ requestConfirm }: { requestConfirm: (msg: string, fn: () => void) => void }) {
   const queryClient = useQueryClient();
   const [statusFilter, setStatusFilter] = useState('all');
   const [catFilter, setCatFilter] = useState('all');
+  const [sort, setSort] = useState<BoardSort>('newest');
+  const [searchInput, setSearchInput] = useState('');
+  const [searchQ, setSearchQ] = useState('');
   const [page, setPage] = useState(1);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [editState, setEditState] = useState<EditState | null>(null);
   const [editSaving, setEditSaving] = useState(false);
 
   const { data, isLoading } = useQuery<BoardResponse>({
-    queryKey: ['admin', 'board', statusFilter, catFilter, page],
+    queryKey: ['admin', 'board', statusFilter, catFilter, sort, searchQ, page],
     queryFn: () => {
-      const params = new URLSearchParams({ status: statusFilter, cat: catFilter, page: String(page) });
+      const params = new URLSearchParams({ status: statusFilter, cat: catFilter, sort, page: String(page), q: searchQ });
       return fetch(`/api/admin/board?${params}`).then((r) => r.json());
     },
   });
@@ -228,7 +261,6 @@ function BoardTab() {
   const totalCount = data?.totalCount ?? 0;
 
   async function handleAction(id: string, action: 'blind' | 'unblind' | 'delete') {
-    if (action === 'delete' && !window.confirm('정말 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) return;
     setActionLoading(id + ':' + action);
     try {
       await fetch(`/api/admin/questions/${id}`, {
@@ -287,6 +319,39 @@ function BoardTab() {
     <>
       <div>
         <div className="flex flex-wrap gap-2 mb-4">
+          <div className="flex w-full gap-2 mb-1">
+            <input
+              type="text"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') { setSearchQ(searchInput); setPage(1); } }}
+              placeholder="문제 내용 검색..."
+              className="flex-1 bg-[#1a1a1a] border border-neutral-700 rounded-md px-3 py-1.5 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-neutral-500"
+            />
+            <button
+              onClick={() => { setSearchQ(searchInput); setPage(1); }}
+              className="rounded-md border border-neutral-700 text-neutral-300 text-xs px-3 py-1.5 hover:text-white transition-colors"
+            >
+              검색
+            </button>
+            {searchQ && (
+              <button
+                onClick={() => { setSearchInput(''); setSearchQ(''); setPage(1); }}
+                className="rounded-md border border-neutral-800 text-neutral-500 text-xs px-3 py-1.5 hover:text-white transition-colors"
+              >
+                초기화
+              </button>
+            )}
+            <select
+              value={sort}
+              onChange={(e) => { setSort(e.target.value as BoardSort); setPage(1); }}
+              className="bg-[#1a1a1a] border border-neutral-700 rounded-md px-3 py-1.5 text-xs text-neutral-300 focus:outline-none focus:border-neutral-500"
+            >
+              {SORT_OPTIONS.map(({ v, l }) => (
+                <option key={v} value={v}>{l}</option>
+              ))}
+            </select>
+          </div>
           <div className="flex flex-wrap gap-1.5">
             {STATUS_FILTERS.map(({ v, l }) => (
               <button
@@ -302,7 +367,7 @@ function BoardTab() {
               </button>
             ))}
           </div>
-          <div className="flex flex-wrap gap-1.5 mt-1">
+          <div className="flex flex-wrap gap-1.5">
             {['all', ...CATEGORIES].map((c) => (
               <button
                 key={c}
@@ -354,7 +419,7 @@ function BoardTab() {
                     </button>
                     {q.status !== 'BLINDED' ? (
                       <button
-                        onClick={() => handleAction(q.id, 'blind')}
+                        onClick={() => requestConfirm('이 문제를 블라인드 처리하시겠습니까?', () => handleAction(q.id, 'blind'))}
                         disabled={actionLoading === q.id + ':blind' || q.status === 'OFFICIAL'}
                         className="rounded-md bg-[#1a1a1a] border border-neutral-700 text-neutral-400 text-xs px-3 py-1.5 hover:text-white transition-colors disabled:opacity-30"
                       >
@@ -362,7 +427,7 @@ function BoardTab() {
                       </button>
                     ) : (
                       <button
-                        onClick={() => handleAction(q.id, 'unblind')}
+                        onClick={() => requestConfirm('이 문제를 공개 처리하시겠습니까?', () => handleAction(q.id, 'unblind'))}
                         disabled={actionLoading === q.id + ':unblind'}
                         className="rounded-md bg-green-500/10 border border-green-500/30 text-green-400 text-xs px-3 py-1.5 hover:bg-green-500/20 transition-colors disabled:opacity-40"
                       >
@@ -370,7 +435,7 @@ function BoardTab() {
                       </button>
                     )}
                     <button
-                      onClick={() => handleAction(q.id, 'delete')}
+                      onClick={() => requestConfirm('이 문제를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.', () => handleAction(q.id, 'delete'))}
                       disabled={actionLoading === q.id + ':delete'}
                       className="rounded-md bg-red-500/10 border border-red-500/30 text-red-400 text-xs px-3 py-1.5 hover:bg-red-500/20 transition-colors disabled:opacity-40"
                     >
@@ -493,7 +558,7 @@ function BoardTab() {
                 취소
               </button>
               <button
-                onClick={saveEdit}
+                onClick={() => requestConfirm('문제를 수정하시겠습니까?', saveEdit)}
                 disabled={editSaving}
                 className="rounded-md bg-white text-black text-sm font-medium px-5 py-2 hover:bg-neutral-200 disabled:opacity-40 transition-colors"
               >
@@ -512,7 +577,7 @@ function ReportsTab() {
 
   const { data: reportGroups = [] } = useQuery<ReportGroup[]>({
     queryKey: ['admin', 'reports'],
-    queryFn: () => fetch('/api/admin/reports').then((r) => r.json()),
+    queryFn: async () => { const r = await fetch('/api/admin/reports'); if (!r.ok) return []; return r.json(); },
   });
 
   const mutation = useMutation({
@@ -592,13 +657,25 @@ function ReportsTab() {
   );
 }
 
-function UsersTab({ currentUserId }: { currentUserId: string }) {
+function UsersTab({ currentUserId, requestConfirm }: { currentUserId: string; requestConfirm: (msg: string, fn: () => void) => void }) {
   const queryClient = useQueryClient();
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [roleFilter, setRoleFilter] = useState<'all' | 'ADMIN' | 'USER'>('all');
+  const [statusFilter, setUserStatusFilter] = useState<'all' | 'active' | 'deactivated'>('all');
 
   const { data: users = [] } = useQuery<AdminUser[]>({
     queryKey: ['admin', 'users'],
-    queryFn: () => fetch('/api/admin/users').then((r) => r.json()),
+    queryFn: async () => { const r = await fetch('/api/admin/users'); if (!r.ok) return []; return r.json(); },
+  });
+
+  const filteredUsers = users.filter((u) => {
+    const q = search.trim().toLowerCase();
+    if (q && !u.nickname?.toLowerCase().includes(q) && !u.email.toLowerCase().includes(q)) return false;
+    if (roleFilter !== 'all' && u.role !== roleFilter) return false;
+    if (statusFilter === 'active' && u.deletedAt !== null) return false;
+    if (statusFilter === 'deactivated' && u.deletedAt === null) return false;
+    return true;
   });
 
   async function doAction(userId: string, action: 'set-admin' | 'set-user' | 'deactivate' | 'reactivate') {
@@ -611,7 +688,7 @@ function UsersTab({ currentUserId }: { currentUserId: string }) {
       });
       if (res.ok) {
         if (action === 'set-admin' || action === 'set-user') {
-          toast.info('사용자 권한이 변경되어 재로그인이 필요합니다.', { duration: 5000 });
+          toast.success('권한이 변경되었습니다.');
         } else if (action === 'deactivate') {
           toast.success('탈퇴 처리되었습니다.');
         } else {
@@ -627,13 +704,54 @@ function UsersTab({ currentUserId }: { currentUserId: string }) {
     }
   }
 
-  if (users.length === 0) {
-    return <p className="text-neutral-500 text-sm text-center py-8">유저가 없습니다.</p>;
-  }
-
   return (
+    <div>
+      <div className="flex flex-wrap gap-2 mb-4">
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="닉네임 또는 이메일 검색..."
+          className="flex-1 min-w-40 bg-[#1a1a1a] border border-neutral-700 rounded-md px-3 py-1.5 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-neutral-500"
+        />
+        <div className="flex gap-1.5">
+          {(['all', 'ADMIN', 'USER'] as const).map((r) => (
+            <button
+              key={r}
+              onClick={() => setRoleFilter(r)}
+              className={`rounded px-3 py-1.5 text-xs transition-colors ${
+                roleFilter === r
+                  ? 'border border-neutral-500 text-white'
+                  : 'border border-neutral-800 text-neutral-500 hover:text-neutral-300'
+              }`}
+            >
+              {r === 'all' ? '전체 역할' : r}
+            </button>
+          ))}
+        </div>
+        <div className="flex gap-1.5">
+          {([['all', '전체'], ['active', '활성'], ['deactivated', '탈퇴']] as const).map(([v, l]) => (
+            <button
+              key={v}
+              onClick={() => setUserStatusFilter(v)}
+              className={`rounded px-3 py-1.5 text-xs transition-colors ${
+                statusFilter === v
+                  ? 'border border-neutral-500 text-white'
+                  : 'border border-neutral-800 text-neutral-500 hover:text-neutral-300'
+              }`}
+            >
+              {l}
+            </button>
+          ))}
+        </div>
+      </div>
+      {filteredUsers.length === 0 && (
+        <p className="text-neutral-500 text-sm text-center py-8">
+          {users.length === 0 ? '유저가 없습니다.' : '검색 결과가 없습니다.'}
+        </p>
+      )}
     <div className="space-y-3">
-      {users.map((u) => {
+      {filteredUsers.map((u) => {
         const isDeactivated = u.deletedAt !== null;
         const isSelf = u.id === currentUserId;
         return (
@@ -671,7 +789,13 @@ function UsersTab({ currentUserId }: { currentUserId: string }) {
               <div className="flex gap-2 flex-shrink-0 flex-wrap justify-end">
                 {!isDeactivated && (
                   <button
-                    onClick={() => doAction(u.id, u.role === 'ADMIN' ? 'set-user' : 'set-admin')}
+                    onClick={() => {
+                      const isAdmin = u.role === 'ADMIN';
+                      requestConfirm(
+                        isAdmin ? `'${u.nickname ?? u.email}'을 일반 사용자로 변경하시겠습니까?` : `'${u.nickname ?? u.email}'을 관리자로 변경하시겠습니까?`,
+                        () => doAction(u.id, isAdmin ? 'set-user' : 'set-admin'),
+                      );
+                    }}
                     disabled={!!actionLoading || isSelf}
                     className={`rounded-md text-xs px-3 py-1.5 transition-colors disabled:opacity-40 ${
                       u.role === 'ADMIN'
@@ -684,7 +808,7 @@ function UsersTab({ currentUserId }: { currentUserId: string }) {
                 )}
                 {isDeactivated ? (
                   <button
-                    onClick={() => doAction(u.id, 'reactivate')}
+                    onClick={() => requestConfirm(`'${u.nickname ?? u.email}' 계정을 복구하시겠습니까?`, () => doAction(u.id, 'reactivate'))}
                     disabled={!!actionLoading}
                     className="rounded-md bg-green-500/10 border border-green-500/30 text-green-400 text-xs px-3 py-1.5 hover:bg-green-500/20 transition-colors disabled:opacity-40"
                   >
@@ -692,7 +816,7 @@ function UsersTab({ currentUserId }: { currentUserId: string }) {
                   </button>
                 ) : (
                   <button
-                    onClick={() => doAction(u.id, 'deactivate')}
+                    onClick={() => requestConfirm(`'${u.nickname ?? u.email}'을 탈퇴 처리하시겠습니까?`, () => doAction(u.id, 'deactivate'))}
                     disabled={!!actionLoading || isSelf}
                     className="rounded-md bg-red-500/10 border border-red-500/30 text-red-400 text-xs px-3 py-1.5 hover:bg-red-500/20 transition-colors disabled:opacity-40"
                   >
@@ -704,6 +828,35 @@ function UsersTab({ currentUserId }: { currentUserId: string }) {
           </div>
         );
       })}
+    </div>
+    </div>
+  );
+}
+
+function ConfirmDialog({ message, onConfirm, onCancel }: {
+  message: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+      <div className="bg-[#111111] border border-neutral-800 rounded-lg p-6 w-full max-w-sm">
+        <p className="text-sm text-neutral-200 mb-6 leading-relaxed">{message}</p>
+        <div className="flex gap-2 justify-end">
+          <button
+            onClick={onCancel}
+            className="rounded-md border border-neutral-700 text-sm text-neutral-300 px-4 py-2 hover:text-white transition-colors"
+          >
+            취소
+          </button>
+          <button
+            onClick={onConfirm}
+            className="rounded-md bg-white text-black text-sm font-medium px-4 py-2 hover:bg-neutral-200 transition-colors"
+          >
+            확인
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

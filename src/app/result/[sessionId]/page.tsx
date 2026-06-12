@@ -5,6 +5,11 @@ import { useRouter } from "next/navigation";
 import type { Question, UserAnswer } from "@/types";
 import ResultCard from "@/components/ResultCard";
 
+const CATEGORY_LABEL: Record<string, string> = {
+  ds: '자료구조', algo: '알고리즘', os: '운영체제',
+  network: '네트워크', db: '데이터베이스', arch: '컴퓨터 구조',
+};
+
 interface SessionData {
   session: { score: number; submittedAt: string };
   questions: Question[];
@@ -19,6 +24,7 @@ export default function ResultPage({
   const { sessionId } = use(params);
   const router = useRouter();
   const [data, setData] = useState<SessionData | null>(null);
+  const [wrongIdx, setWrongIdx] = useState(0);
 
   useEffect(() => {
     fetch(`/api/quiz/sessions/${sessionId}`)
@@ -83,16 +89,55 @@ export default function ResultPage({
             모든 문제를 맞혔습니다! 🎉
           </p>
         ) : (
-          <div className="space-y-4">
-            {wrongItems.map((item) => (
-              <ResultCard
-                key={item.question.id}
-                questionNumber={item.questionNumber}
-                question={item.question}
-                userSelected={item.userAnswer!.selected}
-              />
-            ))}
-          </div>
+          <>
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-sm text-neutral-400">
+                오답 <span className="text-white font-medium">{wrongIdx + 1}</span> / {wrongItems.length}
+              </p>
+              <div className="flex gap-1 flex-wrap justify-end max-w-[60%]">
+                {wrongItems.map((item, i) => (
+                  <button
+                    key={item.question.id}
+                    onClick={() => setWrongIdx(i)}
+                    title={`Q.${item.questionNumber} ${CATEGORY_LABEL[item.question.category] ?? item.question.category}`}
+                    className={`w-6 h-6 rounded text-[10px] transition-colors ${
+                      i === wrongIdx
+                        ? 'bg-white text-black font-bold'
+                        : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700'
+                    }`}
+                  >
+                    {item.questionNumber}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <ResultCard
+              questionNumber={wrongItems[wrongIdx].questionNumber}
+              question={wrongItems[wrongIdx].question}
+              userSelected={wrongItems[wrongIdx].userAnswer!.selected}
+            />
+
+            <div className="flex items-center justify-between mt-4">
+              <button
+                onClick={() => setWrongIdx((i) => Math.max(0, i - 1))}
+                disabled={wrongIdx === 0}
+                className="rounded-md border border-neutral-700 text-sm text-neutral-300 px-4 py-2 hover:border-neutral-500 hover:text-white disabled:opacity-30 transition-colors"
+              >
+                ← 이전
+              </button>
+              <span className="text-xs text-neutral-600">
+                Q.{wrongItems[wrongIdx].questionNumber} · {CATEGORY_LABEL[wrongItems[wrongIdx].question.category] ?? wrongItems[wrongIdx].question.category}
+              </span>
+              <button
+                onClick={() => setWrongIdx((i) => Math.min(wrongItems.length - 1, i + 1))}
+                disabled={wrongIdx === wrongItems.length - 1}
+                className="rounded-md border border-neutral-700 text-sm text-neutral-300 px-4 py-2 hover:border-neutral-500 hover:text-white disabled:opacity-30 transition-colors"
+              >
+                다음 →
+              </button>
+            </div>
+          </>
         )}
       </div>
 

@@ -7,6 +7,15 @@ const VALID_CATEGORIES = ['ds', 'algo', 'os', 'network', 'db', 'arch'];
 const ALL_STATUSES = ['OFFICIAL', 'PENDING', 'APPROVED', 'REJECTED', 'BLINDED'] as const;
 type QuestionStatus = typeof ALL_STATUSES[number];
 
+type SortKey = 'newest' | 'oldest' | 'attempts' | 'likes';
+
+const ORDER_BY: Record<SortKey, object> = {
+  newest: { createdAt: 'desc' },
+  oldest: { createdAt: 'asc' },
+  attempts: { attemptCount: 'desc' },
+  likes: { likes: { _count: 'desc' } },
+};
+
 export async function GET(req: NextRequest) {
   const user = await getServerUser();
   if (!user || user.role !== 'ADMIN') {
@@ -17,6 +26,9 @@ export async function GET(req: NextRequest) {
   const statusFilter = searchParams.get('status') ?? 'all';
   const cat = searchParams.get('cat') ?? 'all';
   const page = Math.max(1, parseInt(searchParams.get('page') ?? '1', 10));
+  const q = searchParams.get('q')?.trim() ?? '';
+  const sort = (searchParams.get('sort') ?? 'newest') as SortKey;
+  const orderBy = ORDER_BY[sort] ?? ORDER_BY.newest;
 
   const statusIn: QuestionStatus[] =
     ALL_STATUSES.includes(statusFilter.toUpperCase() as QuestionStatus)
@@ -26,6 +38,7 @@ export async function GET(req: NextRequest) {
   const where = {
     status: { in: statusIn },
     ...(cat !== 'all' && VALID_CATEGORIES.includes(cat) ? { category: cat } : {}),
+    ...(q.length > 0 ? { question: { contains: q, mode: 'insensitive' as const } } : {}),
   };
 
   const [totalCount, questions] = await Promise.all([
@@ -43,7 +56,7 @@ export async function GET(req: NextRequest) {
         createdAt: true,
         author: { select: { nickname: true, email: true } },
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy,
       skip: (page - 1) * PAGE_SIZE,
       take: PAGE_SIZE,
     }),

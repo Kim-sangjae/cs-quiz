@@ -16,19 +16,18 @@ export default function Navigator({
   const answeredSet = new Set(answeredIndices);
 
   return (
-    <div className="grid grid-cols-10 gap-1 sm:grid-cols-[repeat(15,minmax(0,1fr))]">
+    <div className="flex flex-wrap gap-1">
       {Array.from({ length: total }, (_, i) => {
         const isCurrent = i === currentIndex;
         const isAnswered = answeredSet.has(i);
 
-        let cls =
-          'w-8 h-8 rounded text-xs font-medium transition-colors ';
+        let cls = 'w-7 h-7 rounded text-[11px] font-medium transition-colors ';
         if (isCurrent) {
-          cls += 'bg-white text-black';
+          cls += 'bg-white text-black ring-2 ring-white/30';
         } else if (isAnswered) {
-          cls += 'bg-neutral-700 text-white';
+          cls += 'bg-emerald-600 text-white hover:bg-emerald-500';
         } else {
-          cls += 'bg-neutral-900 text-neutral-500 hover:bg-neutral-800';
+          cls += 'bg-neutral-900 text-neutral-500 border border-neutral-800 hover:bg-neutral-800 hover:text-neutral-300';
         }
 
         return (
