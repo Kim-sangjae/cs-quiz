@@ -45,12 +45,8 @@ python scripts/execute.py {phase} --push # 실행 후 push
 - **정답 prop 전달 금지**: `answer` 필드는 `grade.ts` 제출 시점에만 접근
 - **셔플은 Fisher-Yates만**: `Array.sort(() => Math.random() - 0.5)` 사용 금지
 - **TDD**: 새 순수 함수 구현 시 테스트 먼저
-- **API 인증**: 모든 POST/PATCH는 세션 검증 → 미인증 401
-- **admin API**: `/api/admin/*`는 `role === 'ADMIN'` 추가 검증 → 미인증 403
-- **Prisma $transaction**: quiz 제출 시 QuizSession + QuestionAttempt + Question 통계를 단일 트랜잭션으로
-- **Prisma 7 URL 관리**: `schema.prisma`에 `url`/`directUrl` 없음. `prisma.config.ts`에서 `datasource.url = process.env.DIRECT_URL` (마이그레이션용), `src/lib/prisma.ts`에서 `new PrismaPg({ connectionString: process.env.DATABASE_URL })`로 런타임 연결
-- **.env.local 절대 커밋 금지**: `.gitignore`에 있으나 실수로 커밋되면 GitHub Push Protection에 차단됨. `git add -A` 대신 파일 명시적 지정
 - **커밋**: conventional commits (`feat:`, `fix:`, `refactor:`, `chore:`)
+- API 인증·Prisma·JWT 무효화 규칙 → ./docs/BACKEND.md
 
 ---
 
@@ -72,9 +68,14 @@ phases 0~6 전부 완료. 아래 기능이 모두 구현된 상태다.
 
 ## Documentation
 
-작업 유형별로 필요한 문서만 읽는다.
+세션 시작 시 이 파일(CLAUDE.md)만 읽는다. 작업에 따라 아래 문서를 추가로 읽는다.
 
-- 기능 명세·엣지케이스 → @./docs/PRD.md
-- 디렉토리 구조·렌더링 전략·미들웨어·스키마 → @./docs/ARCHITECTURE.md
-- UI 색상·컴포넌트 토큰·안티패턴 → @./docs/UI_GUIDE.md
-- 기술 결정 근거 → @./docs/ADR.md
+| 작업 유형 | 읽을 문서 |
+|-----------|----------|
+| 새 페이지·컴포넌트·라우트 추가, 파일 위치 확인 | `./docs/ARCHITECTURE.md` |
+| UI 색상·레이아웃·컴포넌트 스타일, 안티패턴 확인 | `./docs/UI_GUIDE.md` |
+| API 엔드포인트 추가·수정, DB 스키마 변경, 인증·JWT 관련 | `./docs/BACKEND.md` |
+| 기능 명세·접근 제어 정책·엣지케이스 확인 | `./docs/PRD.md` |
+| 기술 결정 배경·트레이드오프가 궁금할 때 | `./docs/ADR.md` |
+
+**규칙**: 필요 없는 문서는 읽지 않는다. 여러 작업이 섞인 경우에만 여러 문서를 읽는다.

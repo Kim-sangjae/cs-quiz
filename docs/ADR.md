@@ -84,18 +84,9 @@ MVP 속도 최우선. 외부 의존성 최소화. 작동하는 최소 구현을 
 
 ---
 
-### ADR-012: 풀이 히스토리 저장에 localStorage 사용
-**결정**: 퀴즈 완료 시 `QuizResult`를 `localStorage['cs-quiz-history']`에 누적 저장 (최근 20회)  
-**이유**:
-- sessionStorage: 탭 닫으면 소멸 → 히스토리 보존 불가
-- 외부 DB/서버: 인프라 추가 필요, MVP 범위 초과
-- localStorage: 브라우저 닫아도 유지, 추가 인프라 없음, 기기 단위 히스토리로 충분
-
-**트레이드오프**:
-- 기기/브라우저 간 동기화 불가
-- 브라우저 캐시 삭제 시 히스토리 소멸
-- `questions[].answer` 필드가 localStorage에 포함됨 — 이미 클라이언트 번들에 노출된 데이터이므로 보안 수준 동일
-- 최대 20회로 제한 (무한 누적 방지)
+### ADR-012: ~~풀이 히스토리 저장에 localStorage 사용~~ (phase 6에서 DB로 대체)
+**결정**: ~~퀴즈 완료 시 `QuizResult`를 `localStorage['cs-quiz-history']`에 누적 저장~~  
+**→ 대체됨**: phase 6-mypage-v2에서 QuizSession DB 저장으로 전환. 히스토리는 `/api/quiz/sessions`, 오답노트는 `/api/mypage/wrong-answers`에서 조회.
 
 ---
 

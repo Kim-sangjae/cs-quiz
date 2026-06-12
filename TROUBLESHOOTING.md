@@ -28,9 +28,18 @@
 
 ---
 
-## Prisma / DB
+## Claude Code 토큰 소비
 
 | 문제 | 원인 | 해결 |
 |------|------|------|
+| 대화 시작부터 토큰을 많이 소비함 | `CLAUDE.md`의 `@./docs/*.md` 문법은 대화 시작 시 해당 파일을 컨텍스트에 자동 주입함. PRD·ARCHITECTURE·UI_GUIDE·ADR 4개 파일이 매 대화마다 ~22,000 토큰 선점 | `@` 접두사 제거 → 필요한 파일만 작업 중 수동으로 Read |
+| 수정 후 다음 대화부터 반영됨 | 현재 세션은 이미 주입된 상태라 영향 없음 | 새 대화를 시작하면 해결됨 |
+
+---
+
+## Prisma / DB
+
+| 문제                                     | 원인 | 해결 |
+|----------------------------------------|------|------|
 | `Unknown argument 'name'` (createUser) | PrismaAdapter가 `name`, `emailVerified`, `image`를 넘기는데 User 스키마에 없음 | `name String?`, `emailVerified DateTime?` 스키마 추가 + 마이그레이션. `image` → `avatarUrl` 매핑은 `createUser` 오버라이드로 처리 |
-| 마이그레이션 후에도 같은 에러 | Prisma Client가 구버전 캐시 사용 중 | `npx prisma generate` 후 서버 재시작 |
+| 마이그레claude이션 후에도 같은 에러                 | Prisma Client가 구버전 캐시 사용 중 | `npx prisma generate` 후 서버 재시작 |
