@@ -28,7 +28,10 @@ export async function PATCH(
 
   await prisma.user.update({
     where: { id },
-    data: { role: action === 'set-admin' ? 'ADMIN' : 'USER' },
+    data: {
+      role: action === 'set-admin' ? 'ADMIN' : 'USER',
+      tokenVersion: { increment: 1 },
+    },
   });
 
   return NextResponse.json({ ok: true });

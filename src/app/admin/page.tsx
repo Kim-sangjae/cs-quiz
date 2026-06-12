@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 
 type Tab = 'questions' | 'board' | 'reports' | 'users';
 
@@ -445,12 +446,18 @@ function UsersTab() {
   async function toggleRole(userId: string, currentRole: string) {
     setActionLoading(userId);
     try {
-      await fetch(`/api/admin/users/${userId}`, {
+      const res = await fetch(`/api/admin/users/${userId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: currentRole === 'ADMIN' ? 'set-user' : 'set-admin' }),
       });
-      queryClient.invalidateQueries({ queryKey: ['admin', 'users'] });
+      if (res.ok) {
+        toast.info('사용자 권한이 변경되어 재로그인이 필요합니다.', { duration: 5000 });
+        queryClient.invalidateQueries({ queryKey: ['admin', 'users'] });
+      } else {
+        const data = await res.json() as { error?: string };
+        toast.error(data.error ?? '권한 변경에 실패했습니다.');
+      }
     } finally {
       setActionLoading(null);
     }

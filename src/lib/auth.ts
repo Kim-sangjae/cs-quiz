@@ -21,6 +21,39 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       }) as unknown as AdapterUser;
     },
   },
+  callbacks: {
+    async jwt({ token, user, trigger, session }) {
+      if (user) {
+        token.id = user.id;
+        token.nickname = (user as { nickname?: string | null }).nickname ?? null;
+        token.role = (user as { role?: string }).role ?? 'USER';
+        token.tokenVersion = (user as { tokenVersion?: number }).tokenVersion ?? 0;
+      }
+      if (trigger === 'update' && (session as { nickname?: string })?.nickname !== undefined) {
+        token.nickname = (session as { nickname: string }).nickname;
+      }
+      if (!user && token.id) {
+        const dbUser = await prisma.user.findUnique({
+          where: { id: token.id as string },
+          select: { tokenVersion: true, role: true, nickname: true },
+        });
+        if (!dbUser || dbUser.tokenVersion !== (token.tokenVersion as number)) {
+          return null;
+        }
+        token.role = dbUser.role;
+        token.nickname = dbUser.nickname;
+      }
+      return token;
+    },
+    session({ session, token }) {
+      if (token && session.user) {
+        session.user.id = token.id as string;
+        session.user.nickname = (token.nickname as string | null) ?? null;
+        session.user.role = (token.role as 'USER' | 'ADMIN') ?? 'USER';
+      }
+      return session;
+    },
+  },
 });
 
 export async function getServerUser() {

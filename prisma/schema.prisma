@@ -14,6 +14,7 @@ model User {
   nickname      String?   @unique
   avatarUrl     String?
   role          Role      @default(USER)
+  tokenVersion  Int       @default(0)
   streakCount  Int       @default(0)
   lastQuizDate DateTime?
   createdAt    DateTime  @default(now())
