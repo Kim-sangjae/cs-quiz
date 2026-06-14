@@ -28,6 +28,7 @@ model User {
   likes         Like[]
   reports       Report[]
   notifications Notification[]
+  inquiries     Inquiry[]
 }
 
 model Account {
@@ -180,4 +181,34 @@ enum NotificationType {
   QUESTION_APPROVED
   QUESTION_REJECTED
   ROLE_CHANGED
+  INQUIRY_REPLIED
+}
+
+enum InquiryType {
+  BUG_REPORT
+  ACCOUNT_ISSUE
+  CONTENT_ISSUE
+  SUGGESTION
+  OTHER
+}
+
+enum InquiryStatus {
+  PENDING
+  IN_PROGRESS
+  RESOLVED
+}
+
+model Inquiry {
+  id         String        @id @default(cuid())
+  userId     String
+  type       InquiryType
+  title      String
+  content    String
+  status     InquiryStatus @default(PENDING)
+  adminReply String?
+  repliedAt  DateTime?
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
 }

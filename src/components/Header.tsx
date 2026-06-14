@@ -28,6 +28,12 @@ export default function Header() {
           >
             게시판
           </Link>
+          <Link
+            href="/inquiry"
+            className="text-sm text-neutral-400 hover:text-white transition-colors"
+          >
+            문의
+          </Link>
         </nav>
 
         <div className="flex items-center gap-2 flex-shrink-0">

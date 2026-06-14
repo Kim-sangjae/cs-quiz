@@ -4,7 +4,7 @@ import { NextResponse } from 'next/server';
 
 const { auth } = NextAuth(authConfig);
 
-const PROTECTED = ['/quiz', '/mypage', '/settings', '/board/submit', '/admin'];
+const PROTECTED = ['/quiz', '/mypage', '/settings', '/board/submit', '/admin', '/inquiry'];
 
 export default auth((req) => {
   const { pathname } = req.nextUrl;
@@ -50,5 +50,7 @@ export const config = {
     '/admin/:path*',
     '/board/submit',
     '/board/submit/:path*',
+    '/inquiry',
+    '/inquiry/:path*',
   ],
 };

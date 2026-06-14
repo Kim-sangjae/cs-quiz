@@ -6,7 +6,7 @@ import { useSession } from 'next-auth/react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
-type Tab = 'questions' | 'board' | 'reports' | 'users';
+type Tab = 'questions' | 'board' | 'reports' | 'users' | 'inquiries';
 
 const CATEGORY_LABEL: Record<string, string> = {
   ds: '자료구조', algo: '알고리즘', os: '운영체제',
@@ -86,6 +86,7 @@ export default function AdminPage() {
     { key: 'board', label: '게시판 관리' },
     { key: 'reports', label: '신고 접수' },
     { key: 'users', label: '유저 관리' },
+    { key: 'inquiries', label: '문의 관리' },
   ];
 
   return (
@@ -110,6 +111,7 @@ export default function AdminPage() {
       {activeTab === 'board' && <BoardTab requestConfirm={requestConfirm} />}
       {activeTab === 'reports' && <ReportsTab />}
       {activeTab === 'users' && <UsersTab currentUserId={session.user?.id ?? ''} requestConfirm={requestConfirm} />}
+      {activeTab === 'inquiries' && <InquiriesTab />}
       {confirm && (
         <ConfirmDialog
           message={confirm.message}
@@ -829,6 +831,144 @@ function UsersTab({ currentUserId, requestConfirm }: { currentUserId: string; re
         );
       })}
     </div>
+    </div>
+  );
+}
+
+const INQUIRY_TYPE_LABEL: Record<string, string> = {
+  BUG_REPORT: '버그 신고', ACCOUNT_ISSUE: '계정 문제',
+  CONTENT_ISSUE: '콘텐츠 오류', SUGGESTION: '기능 제안', OTHER: '기타',
+};
+const INQUIRY_STATUS_CONFIG: Record<string, { label: string; cls: string }> = {
+  PENDING:     { label: '대기 중',   cls: 'text-amber-400 border-amber-500/30' },
+  IN_PROGRESS: { label: '처리 중',   cls: 'text-blue-400 border-blue-500/30' },
+  RESOLVED:    { label: '해결 완료', cls: 'text-green-400 border-green-500/30' },
+};
+
+interface AdminInquiry {
+  id: string; type: string; title: string; content: string;
+  status: string; adminReply: string | null; repliedAt: string | null; createdAt: string;
+  user: { id: string; nickname: string | null; email: string };
+}
+
+function InquiriesTab() {
+  const queryClient = useQueryClient();
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [replyDraft, setReplyDraft] = useState<Record<string, string>>({});
+  const [statusDraft, setStatusDraft] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState<string | null>(null);
+
+  const { data: inquiries = [], isLoading } = useQuery<AdminInquiry[]>({
+    queryKey: ['admin', 'inquiries'],
+    queryFn: async () => { const r = await fetch('/api/admin/inquiries'); if (!r.ok) return []; return r.json(); },
+  });
+
+  async function handleSave(inq: AdminInquiry) {
+    setSaving(inq.id);
+    try {
+      const reply = replyDraft[inq.id] ?? inq.adminReply ?? '';
+      const status = statusDraft[inq.id] ?? inq.status;
+      const res = await fetch(`/api/admin/inquiries/${inq.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ adminReply: reply, status }),
+      });
+      if (res.ok) {
+        toast.success('저장되었습니다.');
+        queryClient.invalidateQueries({ queryKey: ['admin', 'inquiries'] });
+        setReplyDraft((d) => { const n = { ...d }; delete n[inq.id]; return n; });
+        setStatusDraft((d) => { const n = { ...d }; delete n[inq.id]; return n; });
+      } else {
+        toast.error('저장에 실패했습니다.');
+      }
+    } finally {
+      setSaving(null);
+    }
+  }
+
+  if (isLoading) return <p className="text-neutral-500 text-sm text-center py-8">로딩 중...</p>;
+  if (inquiries.length === 0) return <p className="text-neutral-500 text-sm text-center py-8">접수된 문의가 없습니다.</p>;
+
+  return (
+    <div className="space-y-3">
+      {inquiries.map((inq) => {
+        const expanded = expandedId === inq.id;
+        const sc = INQUIRY_STATUS_CONFIG[inq.status] ?? { label: inq.status, cls: 'text-neutral-400 border-neutral-700' };
+        const currentReply = replyDraft[inq.id] ?? inq.adminReply ?? '';
+        const currentStatus = statusDraft[inq.id] ?? inq.status;
+
+        return (
+          <div key={inq.id} className="bg-[#111111] border border-neutral-800 rounded-xl overflow-hidden">
+            <button
+              onClick={() => setExpandedId(expanded ? null : inq.id)}
+              className="w-full text-left px-5 py-4 hover:bg-[#1a1a1a] transition-colors"
+            >
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-xs text-neutral-500 border border-neutral-800 rounded-full px-2 py-0.5">
+                  {INQUIRY_TYPE_LABEL[inq.type] ?? inq.type}
+                </span>
+                <span className={`text-xs border rounded-full px-2 py-0.5 ${sc.cls}`}>{sc.label}</span>
+                {inq.adminReply && (
+                  <span className="text-xs text-emerald-400 border border-emerald-500/30 rounded-full px-2 py-0.5">답변 완료</span>
+                )}
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-medium text-white">{inq.title}</p>
+                  <p className="text-xs text-neutral-500 mt-0.5">
+                    {inq.user.nickname ?? inq.user.email} · {new Date(inq.createdAt).toLocaleDateString('ko-KR')}
+                  </p>
+                </div>
+                <svg
+                  width={14} height={14} viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"
+                  className={`flex-shrink-0 text-neutral-600 transition-transform ${expanded ? 'rotate-180' : ''}`}
+                >
+                  <path d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
+            </button>
+
+            {expanded && (
+              <div className="border-t border-neutral-800 px-5 py-5 space-y-5">
+                <div>
+                  <p className="text-xs text-neutral-500 mb-1.5">문의 내용</p>
+                  <p className="text-sm text-neutral-300 leading-relaxed whitespace-pre-wrap">{inq.content}</p>
+                </div>
+
+                <div className="border-t border-neutral-800 pt-4 space-y-3">
+                  <div className="flex items-center gap-3">
+                    <p className="text-xs text-neutral-400 font-medium">답변 및 상태</p>
+                    <select
+                      value={currentStatus}
+                      onChange={(e) => setStatusDraft((d) => ({ ...d, [inq.id]: e.target.value }))}
+                      className="bg-[#1a1a1a] border border-neutral-700 rounded-md px-2 py-1 text-xs text-neutral-300 focus:outline-none focus:border-neutral-500"
+                    >
+                      <option value="PENDING">대기 중</option>
+                      <option value="IN_PROGRESS">처리 중</option>
+                      <option value="RESOLVED">해결 완료</option>
+                    </select>
+                  </div>
+                  <textarea
+                    value={currentReply}
+                    onChange={(e) => setReplyDraft((d) => ({ ...d, [inq.id]: e.target.value }))}
+                    rows={4}
+                    placeholder="답변을 입력하세요..."
+                    className="w-full bg-[#1a1a1a] border border-neutral-700 rounded-lg px-3 py-2.5 text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-neutral-500 resize-none"
+                  />
+                  <button
+                    onClick={() => handleSave(inq)}
+                    disabled={saving === inq.id}
+                    className="rounded-md bg-white text-black text-xs font-semibold px-4 py-2 hover:bg-neutral-200 disabled:opacity-40 transition-colors"
+                  >
+                    {saving === inq.id ? '저장 중...' : '저장'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }

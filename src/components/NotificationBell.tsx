@@ -9,11 +9,12 @@ interface NotificationPayload {
   questionTitle?: string;
   rejectionReason?: string;
   newRole?: string;
+  inquiryTitle?: string;
 }
 
 interface Notification {
   id: string;
-  type: 'QUESTION_APPROVED' | 'QUESTION_REJECTED' | 'ROLE_CHANGED';
+  type: 'QUESTION_APPROVED' | 'QUESTION_REJECTED' | 'ROLE_CHANGED' | 'INQUIRY_REPLIED';
   payload: NotificationPayload;
   actionUrl: string | null;
   isRead: boolean;
@@ -35,8 +36,11 @@ function getNotificationMessage(n: Notification): string {
   }
   if (n.type === 'ROLE_CHANGED') {
     return payload.newRole === 'ADMIN'
-      ? '관리자 권한이 부여되었습니다. 재로그인이 필요합니다.'
-      : '일반 사용자로 권한이 변경되었습니다. 재로그인이 필요합니다.';
+      ? '관리자 권한이 부여되었습니다.'
+      : '일반 사용자로 권한이 변경되었습니다.';
+  }
+  if (n.type === 'INQUIRY_REPLIED') {
+    return `'${payload.inquiryTitle}' 문의에 답변이 등록되었습니다.`;
   }
   return '새 알림이 있습니다.';
 }

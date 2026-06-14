@@ -10,7 +10,10 @@ export default function SessionGuard() {
 
   useEffect(() => {
     if (prevStatus.current === 'authenticated' && status === 'unauthenticated') {
-      setShow(true);
+      // 서버가 살아있을 때만 표시 (서버 다운이면 네트워크 에러로 catch)
+      fetch('/api/auth/session')
+        .then(() => setShow(true))
+        .catch(() => { /* 서버 다운 — 모달 표시 안 함 */ });
     }
     prevStatus.current = status;
   }, [status]);
