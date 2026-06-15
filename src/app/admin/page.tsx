@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -74,6 +74,13 @@ export default function AdminPage() {
   const [activeTab, setActiveTab] = useState<Tab>('questions');
   const [confirm, setConfirm] = useState<ConfirmState | null>(null);
 
+  const { data: badge } = useQuery<{ questions: number; reports: number; inquiries: number }>({
+    queryKey: ['admin', 'badge'],
+    queryFn: () => fetch('/api/admin/badge').then((r) => r.json()),
+    refetchInterval: 60_000,
+    staleTime: 30_000,
+  });
+
   function requestConfirm(message: string, onConfirm: () => void) {
     setConfirm({ message, onConfirm });
   }
@@ -84,12 +91,12 @@ export default function AdminPage() {
     return null;
   }
 
-  const tabs: { key: Tab; label: string }[] = [
-    { key: 'questions', label: '승인 대기' },
+  const tabs: { key: Tab; label: string; count?: number }[] = [
+    { key: 'questions', label: '승인 대기', count: badge?.questions },
     { key: 'board', label: '게시판 관리' },
-    { key: 'reports', label: '신고 접수' },
+    { key: 'reports', label: '신고 접수', count: badge?.reports },
     { key: 'users', label: '유저 관리' },
-    { key: 'inquiries', label: '문의 관리' },
+    { key: 'inquiries', label: '문의 관리', count: badge?.inquiries },
     { key: 'logs', label: '활동 로그' },
   ];
 
@@ -101,13 +108,18 @@ export default function AdminPage() {
           <button
             key={t.key}
             onClick={() => setActiveTab(t.key)}
-            className={`px-4 py-2 text-sm font-medium whitespace-nowrap transition-colors ${
+            className={`relative px-4 py-2 text-sm font-medium whitespace-nowrap transition-colors ${
               activeTab === t.key
                 ? 'text-white border-b-2 border-white'
                 : 'text-neutral-400 hover:text-white'
             }`}
           >
             {t.label}
+            {!!t.count && (
+              <span className="ml-1.5 inline-flex items-center justify-center min-w-[18px] h-[18px] rounded-full bg-red-500 text-[10px] font-bold text-white px-1">
+                {t.count > 9 ? '9+' : t.count}
+              </span>
+            )}
           </button>
         ))}
       </div>
@@ -654,6 +666,8 @@ function BoardTab({ requestConfirm }: { requestConfirm: (msg: string, fn: () => 
 
 function ReportsTab() {
   const queryClient = useQueryClient();
+  const [reasonFilter, setReasonFilter] = useState<string>('');
+  const [sortOrder, setSortOrder] = useState<'count' | 'asc'>('count');
 
   const { data: reportGroups = [] } = useQuery<ReportGroup[]>({
     queryKey: ['admin', 'reports'],
@@ -669,16 +683,38 @@ function ReportsTab() {
       }).then((r) => r.json()),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin', 'reports'] });
+      queryClient.invalidateQueries({ queryKey: ['admin', 'badge'] });
     },
   });
 
-  if (reportGroups.length === 0) {
-    return <p className="text-neutral-500 text-sm text-center py-8">처리할 신고가 없습니다.</p>;
-  }
+  const filtered = reportGroups
+    .filter((g) => !reasonFilter || g.reports.some((r) => r.reason === reasonFilter))
+    .sort((a, b) => sortOrder === 'count' ? b.reportCount - a.reportCount : a.reportCount - b.reportCount);
 
   return (
     <div className="space-y-4">
-      {reportGroups.map((group) => (
+      <div className="flex items-center gap-3 flex-wrap">
+        <select
+          value={reasonFilter}
+          onChange={(e) => setReasonFilter(e.target.value)}
+          className="bg-[#1a1a1a] border border-neutral-700 rounded-md px-3 py-1.5 text-sm text-white focus:outline-none focus:border-neutral-500"
+        >
+          <option value="">전체 사유</option>
+          {Object.entries(REASON_LABEL).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+        </select>
+        <select
+          value={sortOrder}
+          onChange={(e) => setSortOrder(e.target.value as 'count' | 'asc')}
+          className="bg-[#1a1a1a] border border-neutral-700 rounded-md px-3 py-1.5 text-sm text-white focus:outline-none focus:border-neutral-500"
+        >
+          <option value="count">신고 많은 순</option>
+          <option value="asc">신고 적은 순</option>
+        </select>
+        <span className="text-xs text-neutral-500">{filtered.length}건</span>
+      </div>
+      {filtered.length === 0 ? (
+        <p className="text-neutral-500 text-sm text-center py-8">처리할 신고가 없습니다.</p>
+      ) : filtered.map((group) => (
         <div key={group.question.id} className="bg-[#111111] border border-neutral-800 rounded-lg p-5">
           <div className="flex items-start justify-between gap-4 mb-3">
             <div className="flex items-center gap-2">
@@ -935,11 +971,21 @@ function InquiriesTab() {
   const [replyDraft, setReplyDraft] = useState<Record<string, string>>({});
   const [statusDraft, setStatusDraft] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<string>('');
+  const [typeFilter, setTypeFilter] = useState<string>('');
+  const [sortOrder, setSortInquiryOrder] = useState<'newest' | 'oldest'>('newest');
 
   const { data: inquiries = [], isLoading } = useQuery<AdminInquiry[]>({
     queryKey: ['admin', 'inquiries'],
     queryFn: async () => { const r = await fetch('/api/admin/inquiries'); if (!r.ok) return []; return r.json(); },
   });
+
+  const filtered = inquiries
+    .filter((i) => (!statusFilter || i.status === statusFilter) && (!typeFilter || i.type === typeFilter))
+    .sort((a, b) => {
+      const diff = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      return sortOrder === 'newest' ? -diff : diff;
+    });
 
   async function handleSave(inq: AdminInquiry) {
     setSaving(inq.id);
@@ -965,11 +1011,42 @@ function InquiriesTab() {
   }
 
   if (isLoading) return <p className="text-neutral-500 text-sm text-center py-8">로딩 중...</p>;
-  if (inquiries.length === 0) return <p className="text-neutral-500 text-sm text-center py-8">접수된 문의가 없습니다.</p>;
 
   return (
     <div className="space-y-3">
-      {inquiries.map((inq) => {
+      <div className="flex items-center gap-3 flex-wrap">
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="bg-[#1a1a1a] border border-neutral-700 rounded-md px-3 py-1.5 text-sm text-white focus:outline-none focus:border-neutral-500"
+        >
+          <option value="">전체 상태</option>
+          <option value="PENDING">대기 중</option>
+          <option value="IN_PROGRESS">처리 중</option>
+          <option value="RESOLVED">해결 완료</option>
+        </select>
+        <select
+          value={typeFilter}
+          onChange={(e) => setTypeFilter(e.target.value)}
+          className="bg-[#1a1a1a] border border-neutral-700 rounded-md px-3 py-1.5 text-sm text-white focus:outline-none focus:border-neutral-500"
+        >
+          <option value="">전체 유형</option>
+          {Object.entries(INQUIRY_TYPE_LABEL).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+        </select>
+        <select
+          value={sortOrder}
+          onChange={(e) => setSortInquiryOrder(e.target.value as 'newest' | 'oldest')}
+          className="bg-[#1a1a1a] border border-neutral-700 rounded-md px-3 py-1.5 text-sm text-white focus:outline-none focus:border-neutral-500"
+        >
+          <option value="newest">최신순</option>
+          <option value="oldest">오래된순</option>
+        </select>
+        <span className="text-xs text-neutral-500">{filtered.length}건</span>
+      </div>
+      {filtered.length === 0 ? (
+        <p className="text-neutral-500 text-sm text-center py-8">접수된 문의가 없습니다.</p>
+      ) : null}
+      {filtered.map((inq) => {
         const expanded = expandedId === inq.id;
         const sc = INQUIRY_STATUS_CONFIG[inq.status] ?? { label: inq.status, cls: 'text-neutral-400 border-neutral-700' };
         const currentReply = replyDraft[inq.id] ?? inq.adminReply ?? '';
@@ -1131,6 +1208,83 @@ interface LogsResponse {
   pageCount: number;
 }
 
+function UserCombobox({ users, value, onChange }: { users: AdminUser[]; value: string; onChange: (id: string) => void }) {
+  const [inputVal, setInputVal] = useState('');
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  const selectedUser = users.find((u) => u.id === value);
+  const displayVal = selectedUser ? (selectedUser.nickname ?? selectedUser.email) : '';
+
+  const filtered = inputVal.trim()
+    ? users.filter((u) =>
+        (u.nickname ?? '').toLowerCase().includes(inputVal.toLowerCase()) ||
+        u.email.toLowerCase().includes(inputVal.toLowerCase())
+      ).slice(0, 20)
+    : users.slice(0, 20);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  function select(id: string, label: string) {
+    onChange(id);
+    setInputVal(label);
+    setOpen(false);
+  }
+
+  function clear() {
+    onChange('');
+    setInputVal('');
+    setOpen(false);
+  }
+
+  return (
+    <div ref={ref} className="relative">
+      <div className="flex items-center bg-[#1a1a1a] border border-neutral-700 rounded-md px-3 py-1.5 gap-1.5 focus-within:border-neutral-500">
+        <input
+          type="text"
+          placeholder={value ? displayVal : '유저 검색…'}
+          value={open ? inputVal : (displayVal || inputVal)}
+          onChange={(e) => { setInputVal(e.target.value); setOpen(true); }}
+          onFocus={() => { setInputVal(''); setOpen(true); }}
+          className="bg-transparent text-sm text-white placeholder-neutral-500 focus:outline-none w-32"
+        />
+        {value && (
+          <button onClick={clear} className="text-neutral-600 hover:text-white text-xs leading-none">✕</button>
+        )}
+      </div>
+      {open && (
+        <div className="absolute z-20 top-full mt-1 left-0 w-56 bg-[#1a1a1a] border border-neutral-700 rounded-md shadow-xl max-h-52 overflow-y-auto">
+          <button
+            onMouseDown={() => clear()}
+            className="w-full text-left px-3 py-2 text-xs text-neutral-500 hover:bg-neutral-800 transition-colors"
+          >
+            전체 유저
+          </button>
+          {filtered.map((u) => (
+            <button
+              key={u.id}
+              onMouseDown={() => select(u.id, u.nickname ?? u.email)}
+              className="w-full text-left px-3 py-2 text-xs text-neutral-300 hover:bg-neutral-800 transition-colors flex items-center gap-2"
+            >
+              <span>{u.nickname ?? u.email}</span>
+              {u.role === 'ADMIN' && <span className="text-amber-500/70 text-[10px]">관리자</span>}
+            </button>
+          ))}
+          {filtered.length === 0 && (
+            <p className="px-3 py-2 text-xs text-neutral-600">결과 없음</p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function LogsTab() {
   const [page, setPage] = useState(1);
   const [actionFilter, setActionFilter] = useState('');
@@ -1183,18 +1337,11 @@ function LogsTab() {
             <option key={v} value={v}>{l}</option>
           ))}
         </select>
-        <select
+        <UserCombobox
+          users={users}
           value={actorFilter}
-          onChange={(e) => { setActorFilter(e.target.value); setPage(1); }}
-          className="bg-[#1a1a1a] border border-neutral-700 rounded-md px-3 py-1.5 text-sm text-white focus:outline-none focus:border-neutral-500"
-        >
-          <option value="">전체 유저</option>
-          {users.map((u) => (
-            <option key={u.id} value={u.id}>
-              {u.nickname ?? u.email}
-            </option>
-          ))}
-        </select>
+          onChange={(id) => { setActorFilter(id); setPage(1); }}
+        />
         <span className="text-xs text-neutral-500">총 {total}건</span>
         {isFetching && <span className="text-xs text-neutral-600">로딩 중...</span>}
       </div>
