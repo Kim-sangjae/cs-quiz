@@ -12,8 +12,12 @@ export async function GET(req: NextRequest) {
   const page = Math.max(1, parseInt(searchParams.get('page') ?? '1', 10));
   const limit = 50;
   const action = searchParams.get('action') ?? '';
+  const actorId = searchParams.get('actorId') ?? '';
 
-  const where = action ? { action } : {};
+  const where = {
+    ...(action ? { action } : {}),
+    ...(actorId ? { actorId } : {}),
+  };
 
   const [logs, total] = await Promise.all([
     prisma.auditLog.findMany({

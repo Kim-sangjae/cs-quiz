@@ -1134,12 +1134,20 @@ interface LogsResponse {
 function LogsTab() {
   const [page, setPage] = useState(1);
   const [actionFilter, setActionFilter] = useState('');
+  const [actorFilter, setActorFilter] = useState('');
+
+  const { data: users = [] } = useQuery<AdminUser[]>({
+    queryKey: ['admin', 'users'],
+    queryFn: async () => { const r = await fetch('/api/admin/users'); if (!r.ok) return []; return r.json(); },
+    staleTime: 60_000,
+  });
 
   const { data, isFetching } = useQuery<LogsResponse>({
-    queryKey: ['admin', 'logs', page, actionFilter],
+    queryKey: ['admin', 'logs', page, actionFilter, actorFilter],
     queryFn: async () => {
       const params = new URLSearchParams({ page: String(page) });
       if (actionFilter) params.set('action', actionFilter);
+      if (actorFilter) params.set('actorId', actorFilter);
       const r = await fetch(`/api/admin/logs?${params}`);
       if (!r.ok) return { logs: [], total: 0, page: 1, pageCount: 1 };
       return r.json();
@@ -1173,6 +1181,18 @@ function LogsTab() {
           <option value="">전체 액션</option>
           {Object.entries(ACTION_LABEL).map(([v, l]) => (
             <option key={v} value={v}>{l}</option>
+          ))}
+        </select>
+        <select
+          value={actorFilter}
+          onChange={(e) => { setActorFilter(e.target.value); setPage(1); }}
+          className="bg-[#1a1a1a] border border-neutral-700 rounded-md px-3 py-1.5 text-sm text-white focus:outline-none focus:border-neutral-500"
+        >
+          <option value="">전체 유저</option>
+          {users.map((u) => (
+            <option key={u.id} value={u.id}>
+              {u.nickname ?? u.email}
+            </option>
           ))}
         </select>
         <span className="text-xs text-neutral-500">총 {total}건</span>
