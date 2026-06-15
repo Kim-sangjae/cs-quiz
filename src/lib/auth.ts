@@ -3,6 +3,7 @@ import type { AdapterUser } from 'next-auth/adapters';
 import { PrismaAdapter } from '@auth/prisma-adapter';
 import { prisma } from './prisma';
 import { authConfig } from './auth.config';
+import { writeLog } from './audit';
 
 const prismaAdapter = PrismaAdapter(prisma);
 
@@ -22,6 +23,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
   },
   callbacks: {
+    async signIn({ user }) {
+      if (user?.id) {
+        writeLog({ actorId: user.id, actorRole: (user as { role?: string }).role ?? 'USER', action: 'LOGIN' });
+      }
+      return true;
+    },
     async jwt({ token, user, trigger, session }) {
       if (user) {
         token.id = user.id;

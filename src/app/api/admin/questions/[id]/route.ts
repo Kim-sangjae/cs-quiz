@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerUser } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { generateEmbedding, toVectorString } from '@/lib/embedding';
+import { writeLog } from '@/lib/audit';
 
 const VALID_CATEGORIES = ['ds', 'algo', 'os', 'network', 'db', 'arch'];
 
@@ -56,6 +57,7 @@ export async function PATCH(
         }
       });
 
+      writeLog({ actorId: user.id, actorRole: user.role, action: 'QUESTION_APPROVE', targetType: 'Question', targetId: id, payload: { questionTitle } });
       // 승인 후 비동기로 임베딩 생성 — 실패해도 승인은 유지됨
       const opts = question.options as string[];
       const answerText = opts?.[question.answer] ?? '';
@@ -72,6 +74,7 @@ export async function PATCH(
           ? rejectionReason.trim()
           : '검토 결과 등록 기준에 맞지 않습니다.';
 
+      writeLog({ actorId: user.id, actorRole: user.role, action: 'QUESTION_REJECT', targetType: 'Question', targetId: id, payload: { questionTitle, reason } });
       await prisma.$transaction(async (tx) => {
         await tx.question.update({
           where: { id },
@@ -94,6 +97,7 @@ export async function PATCH(
       return NextResponse.json({ error: 'Already blinded' }, { status: 409 });
     }
     await prisma.question.update({ where: { id }, data: { status: 'BLINDED' } });
+    writeLog({ actorId: user.id, actorRole: user.role, action: 'QUESTION_BLIND', targetType: 'Question', targetId: id, payload: { questionTitle } });
   } else if (action === 'unblind') {
     if (question.status !== 'BLINDED') {
       return NextResponse.json({ error: 'Not blinded' }, { status: 409 });
@@ -102,6 +106,7 @@ export async function PATCH(
       where: { id },
       data: { status: question.status === 'BLINDED' ? 'APPROVED' : question.status },
     });
+    writeLog({ actorId: user.id, actorRole: user.role, action: 'QUESTION_UNBLIND', targetType: 'Question', targetId: id, payload: { questionTitle } });
   } else if (action === 'delete') {
     await prisma.$transaction(async (tx) => {
       await tx.questionAttempt.deleteMany({ where: { questionId: id } });
@@ -109,6 +114,7 @@ export async function PATCH(
       await tx.report.deleteMany({ where: { questionId: id } });
       await tx.question.delete({ where: { id } });
     });
+    writeLog({ actorId: user.id, actorRole: user.role, action: 'QUESTION_DELETE', targetType: 'Question', targetId: id, payload: { questionTitle } });
   } else if (action === 'edit') {
     const d = editData as {
       category?: unknown;
@@ -145,6 +151,7 @@ export async function PATCH(
     }
 
     await prisma.question.update({ where: { id }, data: updateData });
+    writeLog({ actorId: user.id, actorRole: user.role, action: 'QUESTION_EDIT', targetType: 'Question', targetId: id, payload: { questionTitle, fields: Object.keys(updateData) } });
   }
 
   return NextResponse.json({ ok: true });

@@ -6,7 +6,7 @@ import { useSession } from 'next-auth/react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
-type Tab = 'questions' | 'board' | 'reports' | 'users' | 'inquiries';
+type Tab = 'questions' | 'board' | 'reports' | 'users' | 'inquiries' | 'logs';
 
 const CATEGORY_LABEL: Record<string, string> = {
   ds: '자료구조', algo: '알고리즘', os: '운영체제',
@@ -90,6 +90,7 @@ export default function AdminPage() {
     { key: 'reports', label: '신고 접수' },
     { key: 'users', label: '유저 관리' },
     { key: 'inquiries', label: '문의 관리' },
+    { key: 'logs', label: '활동 로그' },
   ];
 
   return (
@@ -115,6 +116,7 @@ export default function AdminPage() {
       {activeTab === 'reports' && <ReportsTab />}
       {activeTab === 'users' && <UsersTab currentUserId={session.user?.id ?? ''} requestConfirm={requestConfirm} />}
       {activeTab === 'inquiries' && <InquiriesTab />}
+      {activeTab === 'logs' && <LogsTab />}
       {confirm && (
         <ConfirmDialog
           message={confirm.message}
@@ -1073,6 +1075,169 @@ function ConfirmDialog({ message, onConfirm, onCancel }: {
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+const ACTION_LABEL: Record<string, string> = {
+  LOGIN: '로그인',
+  QUESTION_APPROVE: '문제 승인',
+  QUESTION_REJECT: '문제 거절',
+  QUESTION_BLIND: '문제 블라인드',
+  QUESTION_UNBLIND: '블라인드 해제',
+  QUESTION_DELETE: '문제 삭제',
+  QUESTION_EDIT: '문제 수정',
+  REPORT_BLIND: '신고→블라인드',
+  REPORT_DISMISS: '신고 무시',
+  USER_ROLE_CHANGE: '권한 변경',
+  USER_DEACTIVATE: '계정 비활성화',
+  USER_REACTIVATE: '계정 복구',
+  INQUIRY_REPLY: '문의 답변',
+  INQUIRY_STATUS_CHANGE: '문의 상태 변경',
+};
+
+const ACTION_COLOR: Record<string, string> = {
+  LOGIN: 'text-blue-400 border-blue-500/30',
+  QUESTION_APPROVE: 'text-green-400 border-green-500/30',
+  QUESTION_REJECT: 'text-red-400 border-red-500/30',
+  QUESTION_BLIND: 'text-orange-400 border-orange-500/30',
+  QUESTION_UNBLIND: 'text-neutral-400 border-neutral-600',
+  QUESTION_DELETE: 'text-red-500 border-red-600/40',
+  QUESTION_EDIT: 'text-sky-400 border-sky-500/30',
+  REPORT_BLIND: 'text-orange-400 border-orange-500/30',
+  REPORT_DISMISS: 'text-neutral-400 border-neutral-600',
+  USER_ROLE_CHANGE: 'text-amber-400 border-amber-500/30',
+  USER_DEACTIVATE: 'text-red-400 border-red-500/30',
+  USER_REACTIVATE: 'text-green-400 border-green-500/30',
+  INQUIRY_REPLY: 'text-sky-400 border-sky-500/30',
+  INQUIRY_STATUS_CHANGE: 'text-neutral-400 border-neutral-600',
+};
+
+interface AuditLogItem {
+  id: string;
+  actorRole: string | null;
+  action: string;
+  targetType: string | null;
+  targetId: string | null;
+  payload: Record<string, unknown> | null;
+  createdAt: string;
+  actor: { email: string; nickname: string | null } | null;
+}
+
+interface LogsResponse {
+  logs: AuditLogItem[];
+  total: number;
+  page: number;
+  pageCount: number;
+}
+
+function LogsTab() {
+  const [page, setPage] = useState(1);
+  const [actionFilter, setActionFilter] = useState('');
+
+  const { data, isFetching } = useQuery<LogsResponse>({
+    queryKey: ['admin', 'logs', page, actionFilter],
+    queryFn: async () => {
+      const params = new URLSearchParams({ page: String(page) });
+      if (actionFilter) params.set('action', actionFilter);
+      const r = await fetch(`/api/admin/logs?${params}`);
+      if (!r.ok) return { logs: [], total: 0, page: 1, pageCount: 1 };
+      return r.json();
+    },
+    staleTime: 10_000,
+  });
+
+  const logs = data?.logs ?? [];
+  const pageCount = data?.pageCount ?? 1;
+  const total = data?.total ?? 0;
+
+  function payloadSummary(log: AuditLogItem): string {
+    if (!log.payload) return '';
+    const p = log.payload;
+    if (p.questionTitle) return String(p.questionTitle).slice(0, 40);
+    if (p.targetEmail) return String(p.targetEmail);
+    if (p.title) return String(p.title).slice(0, 40);
+    if (p.newRole) return `→ ${String(p.newRole)}`;
+    if (p.reason) return String(p.reason).slice(0, 40);
+    return '';
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-3 flex-wrap">
+        <select
+          value={actionFilter}
+          onChange={(e) => { setActionFilter(e.target.value); setPage(1); }}
+          className="bg-[#1a1a1a] border border-neutral-700 rounded-md px-3 py-1.5 text-sm text-white focus:outline-none focus:border-neutral-500"
+        >
+          <option value="">전체 액션</option>
+          {Object.entries(ACTION_LABEL).map(([v, l]) => (
+            <option key={v} value={v}>{l}</option>
+          ))}
+        </select>
+        <span className="text-xs text-neutral-500">총 {total}건</span>
+        {isFetching && <span className="text-xs text-neutral-600">로딩 중...</span>}
+      </div>
+
+      {logs.length === 0 && !isFetching ? (
+        <p className="text-neutral-500 text-sm text-center py-8">로그가 없습니다.</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="text-neutral-500 border-b border-neutral-800">
+                <th className="text-left py-2 pr-4 font-medium">시각</th>
+                <th className="text-left py-2 pr-4 font-medium">액션</th>
+                <th className="text-left py-2 pr-4 font-medium">행위자</th>
+                <th className="text-left py-2 font-medium">대상 / 메모</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-neutral-900">
+              {logs.map((log) => (
+                <tr key={log.id} className="hover:bg-neutral-900/40 transition-colors">
+                  <td className="py-2.5 pr-4 text-neutral-600 whitespace-nowrap">
+                    {new Date(log.createdAt).toLocaleString('ko-KR', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                  </td>
+                  <td className="py-2.5 pr-4 whitespace-nowrap">
+                    <span className={`border rounded px-1.5 py-0.5 ${ACTION_COLOR[log.action] ?? 'text-neutral-400 border-neutral-700'}`}>
+                      {ACTION_LABEL[log.action] ?? log.action}
+                    </span>
+                  </td>
+                  <td className="py-2.5 pr-4 text-neutral-300 whitespace-nowrap">
+                    {log.actor?.nickname ?? log.actor?.email ?? '—'}
+                    {log.actorRole === 'ADMIN' && (
+                      <span className="ml-1 text-amber-500/70">관리자</span>
+                    )}
+                  </td>
+                  <td className="py-2.5 text-neutral-500 max-w-[240px] truncate">
+                    {payloadSummary(log)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {pageCount > 1 && (
+        <div className="flex items-center gap-2 pt-2">
+          <button
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={page === 1}
+            className="rounded border border-neutral-700 text-neutral-400 text-xs px-3 py-1.5 hover:text-white disabled:opacity-30 transition-colors"
+          >
+            이전
+          </button>
+          <span className="text-xs text-neutral-500">{page} / {pageCount}</span>
+          <button
+            onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
+            disabled={page === pageCount}
+            className="rounded border border-neutral-700 text-neutral-400 text-xs px-3 py-1.5 hover:text-white disabled:opacity-30 transition-colors"
+          >
+            다음
+          </button>
+        </div>
+      )}
     </div>
   );
 }

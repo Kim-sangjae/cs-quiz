@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerUser } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { writeLog } from '@/lib/audit';
 import type { InquiryStatus } from '@prisma/client';
 
 const VALID_STATUSES: InquiryStatus[] = ['PENDING', 'IN_PROGRESS', 'RESOLVED'];
@@ -45,6 +46,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       });
     }
   });
+
+  if (hasNewReply && wasUnreplied) {
+    writeLog({ actorId: user.id, actorRole: user.role, action: 'INQUIRY_REPLY', targetType: 'Inquiry', targetId: id, payload: { title: existing.title } });
+  } else if (status) {
+    writeLog({ actorId: user.id, actorRole: user.role, action: 'INQUIRY_STATUS_CHANGE', targetType: 'Inquiry', targetId: id, payload: { title: existing.title, status } });
+  }
 
   return NextResponse.json({ ok: true });
 }

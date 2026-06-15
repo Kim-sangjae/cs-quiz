@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerUser } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { writeLog } from '@/lib/audit';
 
 export async function PATCH(
   req: NextRequest,
@@ -36,11 +37,13 @@ export async function PATCH(
         data: { status: 'REVIEWED' },
       });
     });
+    writeLog({ actorId: user.id, actorRole: user.role, action: 'REPORT_BLIND', targetType: 'Question', targetId: questionId });
   } else {
     await prisma.report.updateMany({
       where: { questionId, status: 'PENDING' },
       data: { status: 'REVIEWED' },
     });
+    writeLog({ actorId: user.id, actorRole: user.role, action: 'REPORT_DISMISS', targetType: 'Question', targetId: questionId });
   }
 
   return NextResponse.json({ ok: true });

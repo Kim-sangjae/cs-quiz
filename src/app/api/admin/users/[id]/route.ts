@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerUser } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { writeLog } from '@/lib/audit';
 
 export async function PATCH(
   req: NextRequest,
@@ -43,6 +44,7 @@ export async function PATCH(
         },
       });
     });
+    writeLog({ actorId: user.id, actorRole: user.role, action: 'USER_ROLE_CHANGE', targetType: 'User', targetId: id, payload: { targetEmail: target.email, newRole } });
   } else if (action === 'deactivate') {
     if (target.deletedAt !== null) {
       return NextResponse.json({ error: 'Already deactivated' }, { status: 409 });
@@ -54,6 +56,7 @@ export async function PATCH(
         tokenVersion: { increment: 1 },
       },
     });
+    writeLog({ actorId: user.id, actorRole: user.role, action: 'USER_DEACTIVATE', targetType: 'User', targetId: id, payload: { targetEmail: target.email } });
   } else if (action === 'reactivate') {
     if (target.deletedAt === null) {
       return NextResponse.json({ error: 'User is not deactivated' }, { status: 409 });
@@ -62,6 +65,7 @@ export async function PATCH(
       where: { id },
       data: { deletedAt: null },
     });
+    writeLog({ actorId: user.id, actorRole: user.role, action: 'USER_REACTIVATE', targetType: 'User', targetId: id, payload: { targetEmail: target.email } });
   }
 
   return NextResponse.json({ ok: true });
