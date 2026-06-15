@@ -207,14 +207,31 @@ export default function BoardSubmitPage() {
         <div>
           <div className="flex items-center justify-between mb-2">
             <label className="text-sm text-neutral-400">보기</label>
-            <button
-              type="button"
-              onClick={handleGenerateOptions}
-              disabled={generating || !question.trim() || answer === null || !options[answer]?.trim()}
-              className="text-xs text-neutral-400 border border-neutral-700 rounded-md px-3 py-1.5 hover:text-white hover:border-neutral-500 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-            >
-              {generating ? '생성 중...' : '✦ 보기 + 해설 자동 생성'}
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleGenerateOptions}
+                disabled={generating || !question.trim() || answer === null || !options[answer]?.trim()}
+                className="text-xs text-neutral-400 border border-neutral-700 rounded-md px-3 py-1.5 hover:text-white hover:border-neutral-500 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              >
+                {generating ? '생성 중...' : '✦ 보기 + 해설 자동 생성'}
+              </button>
+              <div className="relative group">
+                <span className="flex items-center justify-center w-4 h-4 rounded-full border border-neutral-700 text-neutral-500 text-[10px] cursor-help hover:border-neutral-500 hover:text-neutral-300 transition-colors select-none">
+                  ?
+                </span>
+                <div className="absolute bottom-full right-0 mb-2 w-64 bg-[#0a0a0a] border border-neutral-700 rounded-lg p-3 shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+                  <p className="text-xs font-medium text-white mb-1.5">AI 자동 생성</p>
+                  <p className="text-xs text-neutral-400 leading-relaxed">문제와 정답 보기를 입력하면 AI가 오답 3개와 해설을 자동으로 작성해줍니다.</p>
+                  <div className="mt-2 pt-2 border-t border-neutral-800 space-y-0.5 text-[11px] text-neutral-600">
+                    <p>1. 문제 입력</p>
+                    <p>2. 정답 라디오 선택</p>
+                    <p>3. 정답 보기 텍스트 입력</p>
+                    <p>→ 버튼 활성화</p>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
           {answer !== null && !options[answer]?.trim() && question.trim() && (
             <p className="text-xs text-neutral-600 mb-2">정답 보기를 먼저 입력하면 나머지 오답을 자동으로 생성합니다.</p>

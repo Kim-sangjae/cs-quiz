@@ -31,6 +31,7 @@ const STATUS_CLASS: Record<string, string> = {
 
 interface PendingQuestion {
   id: string; category: string; question: string; createdAt: string;
+  options: string[]; answer: number; explanation: string | null;
   author: { nickname: string | null; email: string } | null;
 }
 interface SimilarQuestion {
@@ -154,7 +155,103 @@ export default function AdminPage() {
   );
 }
 
+interface QuestionPreviewData {
+  id: string; category: string; question: string;
+  options: string[]; answer: number; explanation: string | null;
+  createdAt: string;
+  author: { nickname: string | null; email?: string } | null;
+}
+
+function QuestionPreviewModal({ id, prefilled, onClose }: {
+  id: string;
+  prefilled?: QuestionPreviewData;
+  onClose: () => void;
+}) {
+  const [q, setQ] = useState<QuestionPreviewData | null>(prefilled ?? null);
+  const [loading, setLoading] = useState(!prefilled);
+
+  useEffect(() => {
+    if (prefilled) return;
+    fetch(`/api/questions/${id}`)
+      .then((r) => r.json())
+      .then((data) => { setQ(data); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, [id, prefilled]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  const OPTION_LABELS = ['A', 'B', 'C', 'D'];
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="bg-[#111111] border border-neutral-700 rounded-xl w-full max-w-lg max-h-[85vh] overflow-y-auto shadow-2xl">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-neutral-800 sticky top-0 bg-[#111111]">
+          <div className="flex items-center gap-2">
+            {q && (
+              <span className="text-xs text-neutral-500 border border-neutral-800 rounded px-2 py-0.5">
+                {CATEGORY_LABEL[q.category] ?? q.category}
+              </span>
+            )}
+            <span className="text-sm font-medium text-white">문제 상세</span>
+          </div>
+          <button onClick={onClose} className="text-neutral-500 hover:text-white transition-colors text-lg leading-none">✕</button>
+        </div>
+
+        {loading && <p className="text-neutral-500 text-sm text-center py-10">불러오는 중...</p>}
+        {!loading && !q && <p className="text-neutral-500 text-sm text-center py-10">문제를 찾을 수 없습니다.</p>}
+        {q && (
+          <div className="px-5 py-5 space-y-5">
+            <p className="text-sm text-neutral-100 leading-relaxed">{q.question}</p>
+
+            <div className="space-y-2">
+              {(q.options as string[]).map((opt, i) => (
+                <div
+                  key={i}
+                  className={`flex items-start gap-3 px-3 py-2.5 rounded-lg border text-sm transition-colors ${
+                    i === q.answer
+                      ? 'border-green-500/40 bg-green-500/10 text-green-300'
+                      : 'border-neutral-800 text-neutral-400'
+                  }`}
+                >
+                  <span className="font-mono text-xs flex-shrink-0 mt-0.5 font-bold">
+                    {OPTION_LABELS[i]}
+                  </span>
+                  <span className="leading-relaxed">{opt}</span>
+                  {i === q.answer && (
+                    <span className="ml-auto text-xs text-green-400 flex-shrink-0">정답</span>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {q.explanation && (
+              <div className="bg-neutral-900 rounded-lg px-4 py-3">
+                <p className="text-xs text-neutral-500 mb-1">해설</p>
+                <p className="text-sm text-neutral-300 leading-relaxed">{q.explanation}</p>
+              </div>
+            )}
+
+            <div className="text-xs text-neutral-600 flex items-center gap-3 pt-1 border-t border-neutral-800">
+              <span>{q.author?.nickname ?? q.author?.email ?? '(알 수 없음)'}</span>
+              <span>{new Date(q.createdAt).toLocaleDateString('ko-KR')}</span>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function SimilarQuestionsPanel({ questionText }: { questionText: string }) {
+  const [previewId, setPreviewId] = useState<string | null>(null);
+
   const { data: similar = [], isFetching } = useQuery<SimilarQuestion[]>({
     queryKey: ['similar', questionText],
     queryFn: async () => {
@@ -172,29 +269,32 @@ function SimilarQuestionsPanel({ questionText }: { questionText: string }) {
     return <p className="text-xs text-neutral-600 mt-3">유사한 문제가 없습니다.</p>;
   }
   return (
-    <div className="mt-3 rounded-lg border border-amber-500/20 bg-amber-500/5 p-3">
-      <p className="text-xs text-amber-400 mb-2 font-medium">유사 문제 {similar.length}건</p>
-      <ul className="space-y-1.5">
-        {similar.map((sq) => (
-          <li key={sq.id} className="flex items-start gap-2">
-            <span className="text-xs text-neutral-600 border border-neutral-800 rounded px-1.5 py-0.5 flex-shrink-0">
-              {CATEGORY_LABEL[sq.category] ?? sq.category}
-            </span>
-            <a
-              href={`/board/${sq.id}`}
-              target="_blank"
-              rel="noreferrer"
-              className="text-xs text-neutral-400 hover:text-white transition-colors leading-relaxed"
-            >
-              {sq.question.length > 80 ? sq.question.slice(0, 80) + '…' : sq.question}
-            </a>
-            <span className="text-xs text-neutral-700 flex-shrink-0">
-              {Math.round(sq.sim * 100)}%
-            </span>
-          </li>
-        ))}
-      </ul>
-    </div>
+    <>
+      <div className="mt-3 rounded-lg border border-amber-500/20 bg-amber-500/5 p-3">
+        <p className="text-xs text-amber-400 mb-2 font-medium">유사 문제 {similar.length}건</p>
+        <ul className="space-y-1.5">
+          {similar.map((sq) => (
+            <li key={sq.id} className="flex items-start gap-2">
+              <span className="text-xs text-neutral-600 border border-neutral-800 rounded px-1.5 py-0.5 flex-shrink-0">
+                {CATEGORY_LABEL[sq.category] ?? sq.category}
+              </span>
+              <button
+                onClick={() => setPreviewId(sq.id)}
+                className="text-xs text-neutral-400 hover:text-white transition-colors leading-relaxed text-left"
+              >
+                {sq.question.length > 80 ? sq.question.slice(0, 80) + '…' : sq.question}
+              </button>
+              <span className="text-xs text-neutral-700 flex-shrink-0">
+                {Math.round(sq.sim * 100)}%
+              </span>
+            </li>
+          ))}
+        </ul>
+      </div>
+      {previewId && (
+        <QuestionPreviewModal id={previewId} onClose={() => setPreviewId(null)} />
+      )}
+    </>
   );
 }
 
@@ -209,6 +309,7 @@ function QuestionsTab({ prevSeenAt }: { prevSeenAt: string | null }) {
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [rejectionReason, setRejectionReason] = useState(REJECTION_REASONS[0]);
   const [showSimilarId, setShowSimilarId] = useState<string | null>(null);
+  const [previewQuestion, setPreviewQuestion] = useState<PendingQuestion | null>(null);
 
   const { data: questions = [] } = useQuery<PendingQuestion[]>({
     queryKey: ['admin', 'questions'],
@@ -320,18 +421,23 @@ function QuestionsTab({ prevSeenAt }: { prevSeenAt: string | null }) {
               >
                 유사 문제
               </button>
-              <a
-                href={`/board/${q.id}`}
-                target="_blank"
-                rel="noreferrer"
+              <button
+                onClick={() => setPreviewQuestion(q)}
                 className="rounded-md border border-neutral-800 text-neutral-500 text-xs px-3 py-1.5 hover:text-white transition-colors"
               >
                 상세 보기
-              </a>
+              </button>
             </div>
           )}
         </div>
       ))}
+      {previewQuestion && (
+        <QuestionPreviewModal
+          id={previewQuestion.id}
+          prefilled={previewQuestion}
+          onClose={() => setPreviewQuestion(null)}
+        />
+      )}
     </div>
   );
 }

@@ -10,7 +10,11 @@ export async function GET() {
 
   const questions = await prisma.question.findMany({
     where: { status: 'PENDING' },
-    include: { author: { select: { nickname: true, email: true } } },
+    select: {
+      id: true, category: true, question: true,
+      options: true, answer: true, explanation: true, createdAt: true,
+      author: { select: { nickname: true, email: true } },
+    },
     orderBy: { createdAt: 'asc' },
   });
 
