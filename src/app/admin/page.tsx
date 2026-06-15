@@ -172,8 +172,14 @@ function SimilarQuestionsPanel({ questionText }: { questionText: string }) {
 
 function QuestionsTab() {
   const queryClient = useQueryClient();
+  const REJECTION_REASONS = [
+    '이미 등록된 문제와 유사합니다.',
+    '문제 또는 보기가 불명확합니다.',
+    '출제 범위에 맞지 않는 주제입니다.',
+  ];
+
   const [rejectingId, setRejectingId] = useState<string | null>(null);
-  const [rejectionReason, setRejectionReason] = useState('');
+  const [rejectionReason, setRejectionReason] = useState(REJECTION_REASONS[0]);
   const [showSimilarId, setShowSimilarId] = useState<string | null>(null);
 
   const { data: questions = [] } = useQuery<PendingQuestion[]>({
@@ -195,7 +201,7 @@ function QuestionsTab() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin', 'questions'] });
       setRejectingId(null);
-      setRejectionReason('');
+      setRejectionReason(REJECTION_REASONS[0]);
     },
   });
 
@@ -223,15 +229,26 @@ function QuestionsTab() {
           </p>
           {showSimilarId === q.id && <SimilarQuestionsPanel questionText={q.question} />}
           {rejectingId === q.id ? (
-            <div className="space-y-2 mt-4">
-              <input
-                type="text"
-                placeholder="거절 이유 (비워두면 기본 메시지 사용)"
-                value={rejectionReason}
-                onChange={(e) => setRejectionReason(e.target.value)}
-                className="w-full bg-[#1a1a1a] border border-neutral-700 rounded-md px-3 py-2 text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-neutral-500"
-              />
-              <div className="flex gap-2">
+            <div className="space-y-3 mt-4 bg-[#1a1a1a] border border-neutral-800 rounded-lg p-4">
+              <p className="text-xs text-neutral-400 font-medium">거절 사유 선택</p>
+              <div className="space-y-2">
+                {REJECTION_REASONS.map((reason) => (
+                  <label key={reason} className="flex items-center gap-2 cursor-pointer group">
+                    <input
+                      type="radio"
+                      name={`rejection-${q.id}`}
+                      value={reason}
+                      checked={rejectionReason === reason}
+                      onChange={() => setRejectionReason(reason)}
+                      className="accent-red-400"
+                    />
+                    <span className="text-xs text-neutral-300 group-hover:text-white transition-colors">
+                      {reason}
+                    </span>
+                  </label>
+                ))}
+              </div>
+              <div className="flex gap-2 pt-1">
                 <button
                   onClick={() => mutation.mutate({ id: q.id, action: 'reject', reason: rejectionReason })}
                   disabled={mutation.isPending}
@@ -240,7 +257,7 @@ function QuestionsTab() {
                   거절 확인
                 </button>
                 <button
-                  onClick={() => { setRejectingId(null); setRejectionReason(''); }}
+                  onClick={() => { setRejectingId(null); setRejectionReason(REJECTION_REASONS[0]); }}
                   className="rounded-md border border-neutral-700 text-neutral-400 text-xs px-3 py-1.5 hover:text-white transition-colors"
                 >
                   취소
