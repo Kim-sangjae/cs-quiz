@@ -2,7 +2,25 @@
 
 import Link from 'next/link';
 import { useSession, signIn, signOut } from 'next-auth/react';
+import { useQuery } from '@tanstack/react-query';
 import NotificationBell from './NotificationBell';
+
+function AdminBadge() {
+  const { data } = useQuery<{ total: number }>({
+    queryKey: ['admin', 'badge'],
+    queryFn: () => fetch('/api/admin/badge').then((r) => r.json()),
+    refetchInterval: 60_000,
+    staleTime: 30_000,
+  });
+
+  if (!data || data.total === 0) return null;
+
+  return (
+    <span className="absolute -top-1 -right-1 min-w-[16px] h-4 rounded-full bg-red-500 text-[10px] font-bold text-white flex items-center justify-center px-1 leading-none">
+      {data.total > 9 ? '9+' : data.total}
+    </span>
+  );
+}
 
 export default function Header() {
   const { data: session, status } = useSession();
@@ -45,9 +63,10 @@ export default function Header() {
               {user.role === 'ADMIN' && (
                 <Link
                   href="/admin"
-                  className="rounded-md border border-amber-500/40 text-xs text-amber-400 px-3 py-1.5 hover:border-amber-400 hover:text-amber-300 transition-colors"
+                  className="relative rounded-md border border-amber-500/40 text-xs text-amber-400 px-3 py-1.5 hover:border-amber-400 hover:text-amber-300 transition-colors"
                 >
                   관리자
+                  <AdminBadge />
                 </Link>
               )}
               <Link
