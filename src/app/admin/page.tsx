@@ -1416,10 +1416,112 @@ function UserCombobox({ users, value, onChange }: { users: AdminUser[]; value: s
   );
 }
 
+const PAYLOAD_LABEL: Record<string, string> = {
+  questionTitle: '문제',
+  targetEmail: '대상 이메일',
+  title: '제목',
+  newRole: '변경된 권한',
+  reason: '사유',
+  status: '상태',
+  fields: '수정 필드',
+};
+
+function LogDetailPanel({ log, onClose }: { log: AuditLogItem; onClose: () => void }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  const payloadEntries = log.payload
+    ? Object.entries(log.payload).filter(([, v]) => v !== null && v !== undefined)
+    : [];
+
+  function renderValue(key: string, val: unknown): string {
+    if (Array.isArray(val)) return val.join(', ');
+    return String(val);
+  }
+
+  return (
+    <div className="fixed top-0 right-0 h-full w-80 bg-[#0f0f0f] border-l border-neutral-800 z-50 flex flex-col shadow-2xl">
+      {/* 헤더 */}
+      <div className="flex items-center justify-between px-5 py-4 border-b border-neutral-800 flex-shrink-0">
+        <span className={`text-xs border rounded px-2 py-1 font-medium ${ACTION_COLOR[log.action] ?? 'text-neutral-400 border-neutral-700'}`}>
+          {ACTION_LABEL[log.action] ?? log.action}
+        </span>
+        <button onClick={onClose} className="text-neutral-500 hover:text-white transition-colors text-lg leading-none">✕</button>
+      </div>
+
+      {/* 내용 */}
+      <div className="flex-1 overflow-y-auto px-5 py-5 space-y-5">
+        {/* 시각 */}
+        <div>
+          <p className="text-[10px] text-neutral-600 uppercase tracking-wider mb-1">시각</p>
+          <p className="text-sm text-neutral-200">
+            {new Date(log.createdAt).toLocaleString('ko-KR', {
+              year: 'numeric', month: '2-digit', day: '2-digit',
+              hour: '2-digit', minute: '2-digit', second: '2-digit',
+            })}
+          </p>
+        </div>
+
+        {/* 행위자 */}
+        <div>
+          <p className="text-[10px] text-neutral-600 uppercase tracking-wider mb-1">행위자</p>
+          {log.actor ? (
+            <div className="space-y-0.5">
+              <p className="text-sm text-neutral-200">{log.actor.nickname ?? '(닉네임 없음)'}</p>
+              <p className="text-xs text-neutral-500">{log.actor.email}</p>
+              {log.actorRole === 'ADMIN' && (
+                <span className="text-[10px] text-amber-400 border border-amber-500/30 rounded px-1.5 py-0.5">관리자</span>
+              )}
+            </div>
+          ) : (
+            <p className="text-sm text-neutral-500">—</p>
+          )}
+        </div>
+
+        {/* 대상 */}
+        {(log.targetType || log.targetId) && (
+          <div>
+            <p className="text-[10px] text-neutral-600 uppercase tracking-wider mb-1">대상</p>
+            <div className="space-y-0.5">
+              {log.targetType && <p className="text-xs text-neutral-400">{log.targetType}</p>}
+              {log.targetId && (
+                <p className="text-xs text-neutral-600 font-mono break-all">{log.targetId}</p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* 상세 payload */}
+        {payloadEntries.length > 0 && (
+          <div>
+            <p className="text-[10px] text-neutral-600 uppercase tracking-wider mb-2">상세 내용</p>
+            <div className="space-y-3">
+              {payloadEntries.map(([key, val]) => (
+                <div key={key}>
+                  <p className="text-[10px] text-neutral-600 mb-0.5">
+                    {PAYLOAD_LABEL[key] ?? key}
+                  </p>
+                  <p className="text-sm text-neutral-300 break-words leading-relaxed">
+                    {renderValue(key, val)}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function LogsTab() {
   const [page, setPage] = useState(1);
   const [actionFilter, setActionFilter] = useState('');
   const [actorFilter, setActorFilter] = useState('');
+  const [selectedLog, setSelectedLog] = useState<AuditLogItem | null>(null);
 
   const { data: users = [] } = useQuery<AdminUser[]>({
     queryKey: ['admin', 'users'],
@@ -1447,95 +1549,118 @@ function LogsTab() {
   function payloadSummary(log: AuditLogItem): string {
     if (!log.payload) return '';
     const p = log.payload;
-    if (p.questionTitle) return String(p.questionTitle).slice(0, 40);
+    if (p.questionTitle) return String(p.questionTitle);
     if (p.targetEmail) return String(p.targetEmail);
-    if (p.title) return String(p.title).slice(0, 40);
+    if (p.title) return String(p.title);
     if (p.newRole) return `→ ${String(p.newRole)}`;
-    if (p.reason) return String(p.reason).slice(0, 40);
+    if (p.reason) return String(p.reason);
     return '';
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-3 flex-wrap">
-        <select
-          value={actionFilter}
-          onChange={(e) => { setActionFilter(e.target.value); setPage(1); }}
-          className="bg-[#1a1a1a] border border-neutral-700 rounded-md px-3 py-1.5 text-sm text-white focus:outline-none focus:border-neutral-500"
-        >
-          <option value="">전체 액션</option>
-          {Object.entries(ACTION_LABEL).map(([v, l]) => (
-            <option key={v} value={v}>{l}</option>
-          ))}
-        </select>
-        <UserCombobox
-          users={users}
-          value={actorFilter}
-          onChange={(id) => { setActorFilter(id); setPage(1); }}
-        />
-        <span className="text-xs text-neutral-500">총 {total}건</span>
-        {isFetching && <span className="text-xs text-neutral-600">로딩 중...</span>}
+    <>
+      <div className="space-y-4">
+        <div className="flex items-center gap-3 flex-wrap">
+          <select
+            value={actionFilter}
+            onChange={(e) => { setActionFilter(e.target.value); setPage(1); }}
+            className="bg-[#1a1a1a] border border-neutral-700 rounded-md px-3 py-1.5 text-sm text-white focus:outline-none focus:border-neutral-500"
+          >
+            <option value="">전체 액션</option>
+            {Object.entries(ACTION_LABEL).map(([v, l]) => (
+              <option key={v} value={v}>{l}</option>
+            ))}
+          </select>
+          <UserCombobox
+            users={users}
+            value={actorFilter}
+            onChange={(id) => { setActorFilter(id); setPage(1); }}
+          />
+          <span className="text-xs text-neutral-500">총 {total}건</span>
+          {isFetching && <span className="text-xs text-neutral-600">로딩 중...</span>}
+          {selectedLog && (
+            <button
+              onClick={() => setSelectedLog(null)}
+              className="ml-auto text-xs text-neutral-500 hover:text-white transition-colors"
+            >
+              패널 닫기 ✕
+            </button>
+          )}
+        </div>
+
+        {logs.length === 0 && !isFetching ? (
+          <p className="text-neutral-500 text-sm text-center py-8">로그가 없습니다.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="text-neutral-500 border-b border-neutral-800">
+                  <th className="text-left py-2 pr-4 font-medium">시각</th>
+                  <th className="text-left py-2 pr-4 font-medium">액션</th>
+                  <th className="text-left py-2 pr-4 font-medium">행위자</th>
+                  <th className="text-left py-2 font-medium">대상 / 메모</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-neutral-900">
+                {logs.map((log) => (
+                  <tr
+                    key={log.id}
+                    onClick={() => setSelectedLog(log)}
+                    className={`cursor-pointer transition-colors ${
+                      selectedLog?.id === log.id
+                        ? 'bg-neutral-800/60'
+                        : 'hover:bg-neutral-900/40'
+                    }`}
+                  >
+                    <td className="py-2.5 pr-4 text-neutral-600 whitespace-nowrap">
+                      {new Date(log.createdAt).toLocaleString('ko-KR', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                    </td>
+                    <td className="py-2.5 pr-4 whitespace-nowrap">
+                      <span className={`border rounded px-1.5 py-0.5 ${ACTION_COLOR[log.action] ?? 'text-neutral-400 border-neutral-700'}`}>
+                        {ACTION_LABEL[log.action] ?? log.action}
+                      </span>
+                    </td>
+                    <td className="py-2.5 pr-4 text-neutral-300 whitespace-nowrap">
+                      {log.actor?.nickname ?? log.actor?.email ?? '—'}
+                      {log.actorRole === 'ADMIN' && (
+                        <span className="ml-1 text-amber-500/70">관리자</span>
+                      )}
+                    </td>
+                    <td className="py-2.5 text-neutral-500 max-w-[200px] truncate">
+                      {payloadSummary(log)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {pageCount > 1 && (
+          <div className="flex items-center gap-2 pt-2">
+            <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page === 1}
+              className="rounded border border-neutral-700 text-neutral-400 text-xs px-3 py-1.5 hover:text-white disabled:opacity-30 transition-colors"
+            >
+              이전
+            </button>
+            <span className="text-xs text-neutral-500">{page} / {pageCount}</span>
+            <button
+              onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
+              disabled={page === pageCount}
+              className="rounded border border-neutral-700 text-neutral-400 text-xs px-3 py-1.5 hover:text-white disabled:opacity-30 transition-colors"
+            >
+              다음
+            </button>
+          </div>
+        )}
       </div>
 
-      {logs.length === 0 && !isFetching ? (
-        <p className="text-neutral-500 text-sm text-center py-8">로그가 없습니다.</p>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs">
-            <thead>
-              <tr className="text-neutral-500 border-b border-neutral-800">
-                <th className="text-left py-2 pr-4 font-medium">시각</th>
-                <th className="text-left py-2 pr-4 font-medium">액션</th>
-                <th className="text-left py-2 pr-4 font-medium">행위자</th>
-                <th className="text-left py-2 font-medium">대상 / 메모</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-neutral-900">
-              {logs.map((log) => (
-                <tr key={log.id} className="hover:bg-neutral-900/40 transition-colors">
-                  <td className="py-2.5 pr-4 text-neutral-600 whitespace-nowrap">
-                    {new Date(log.createdAt).toLocaleString('ko-KR', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-                  </td>
-                  <td className="py-2.5 pr-4 whitespace-nowrap">
-                    <span className={`border rounded px-1.5 py-0.5 ${ACTION_COLOR[log.action] ?? 'text-neutral-400 border-neutral-700'}`}>
-                      {ACTION_LABEL[log.action] ?? log.action}
-                    </span>
-                  </td>
-                  <td className="py-2.5 pr-4 text-neutral-300 whitespace-nowrap">
-                    {log.actor?.nickname ?? log.actor?.email ?? '—'}
-                    {log.actorRole === 'ADMIN' && (
-                      <span className="ml-1 text-amber-500/70">관리자</span>
-                    )}
-                  </td>
-                  <td className="py-2.5 text-neutral-500 max-w-[240px] truncate">
-                    {payloadSummary(log)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {pageCount > 1 && (
-        <div className="flex items-center gap-2 pt-2">
-          <button
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-            disabled={page === 1}
-            className="rounded border border-neutral-700 text-neutral-400 text-xs px-3 py-1.5 hover:text-white disabled:opacity-30 transition-colors"
-          >
-            이전
-          </button>
-          <span className="text-xs text-neutral-500">{page} / {pageCount}</span>
-          <button
-            onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
-            disabled={page === pageCount}
-            className="rounded border border-neutral-700 text-neutral-400 text-xs px-3 py-1.5 hover:text-white disabled:opacity-30 transition-colors"
-          >
-            다음
-          </button>
-        </div>
-      )}
-    </div>
+      {/* 슬라이드 패널 */}
+      <div className={`fixed top-0 right-0 h-full w-80 z-50 transition-transform duration-200 ease-in-out ${selectedLog ? 'translate-x-0' : 'translate-x-full'}`}>
+        {selectedLog && <LogDetailPanel log={selectedLog} onClose={() => setSelectedLog(null)} />}
+      </div>
+    </>
   );
 }

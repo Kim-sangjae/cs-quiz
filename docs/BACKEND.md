@@ -9,6 +9,7 @@
 ## Prisma
 
 - **$transaction**: 퀴즈 제출 시 QuizSession + QuestionAttempt + Question 통계를 단일 트랜잭션으로
+- **pgvector**: `Question.embedding` 컬럼은 Prisma가 `vector` 타입을 미지원 → `$queryRaw` / `$executeRaw`로 직접 SQL 작성 (`src/lib/embedding.ts`, `questions/similar`, `admin/questions/[id]`)
 - **URL 관리**: `schema.prisma`에 `url`/`directUrl` 없음
   - `prisma.config.ts` → `datasource.url = process.env.DIRECT_URL` (마이그레이션용)
   - `src/lib/prisma.ts` → `new PrismaPg({ connectionString: process.env.DATABASE_URL })` (런타임)
@@ -21,13 +22,15 @@
 
 | 모델 | 설명 |
 |------|------|
-| `User` | email, nickname, role(USER/ADMIN), tokenVersion, deletedAt(소프트딜리트) |
-| `Question` | category, options(Json), answer(0-3), status(OFFICIAL/PENDING/APPROVED/REJECTED/BLINDED), attemptCount/correctCount(역정규화) |
+| `User` | email, nickname, role(USER/ADMIN), tokenVersion, deletedAt(소프트딜리트), adminLastSeenAt(관리자 패널 마지막 방문), streakCount, lastQuizDate |
+| `Question` | category, options(Json), answer(0-3), status(OFFICIAL/PENDING/APPROVED/REJECTED/BLINDED), rejectionReason, attemptCount/correctCount(역정규화), embedding(vector(1536)) |
 | `QuizSession` | userId, category, questionIds(Json), answers(Json), score |
 | `QuestionAttempt` | userId, questionId, sessionId, selected, isCorrect |
 | `Like` | @@id([userId, questionId]) |
 | `Report` | reason(INAPPROPRIATE/ERROR/DUPLICATE/OTHER), status(PENDING/REVIEWED) |
-| `Notification` | type(QUESTION_APPROVED/QUESTION_REJECTED), payload(Json), isRead |
+| `Notification` | type(QUESTION_APPROVED/QUESTION_REJECTED/ROLE_CHANGED/INQUIRY_REPLIED), payload(Json), isRead |
+| `Inquiry` | userId, type(BUG_REPORT/ACCOUNT_ISSUE/CONTENT_ISSUE/SUGGESTION/OTHER), title, content, status(PENDING/IN_PROGRESS/RESOLVED), adminReply, repliedAt |
+| `AuditLog` | actorId, actorRole, action(LOGIN/QUESTION_APPROVE/REJECT/BLIND 등), targetType, targetId, payload(Json) |
 | `Account`, `Session`, `VerificationToken` | NextAuth PrismaAdapter 전용 |
 
 **역정규화**: `Question.attemptCount`, `correctCount`는 퀴즈 제출 $transaction에서 원자적 업데이트.
@@ -55,6 +58,7 @@ NEXTAUTH_SECRET=       # openssl rand -base64 32
 NEXTAUTH_URL=          # http://localhost:3000 (dev)
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
+OPENAI_API_KEY=        # 보기 자동 생성(gpt-4o-mini) + 유사 문제 임베딩(text-embedding-3-small)
 ```
 
 - **.env.local 절대 커밋 금지**: `git add -A` 대신 파일 명시적 지정

@@ -15,6 +15,9 @@ src/
 │   │   ├── page.tsx                      # 목록
 │   │   ├── [id]/page.tsx                 # 상세
 │   │   └── submit/page.tsx               # 문제 등록
+│   ├── inquiry/
+│   │   ├── page.tsx                      # 1:1 문의 목록 (내 문의)
+│   │   └── new/page.tsx                  # 문의 등록
 │   ├── admin/page.tsx                    # 관리자 패널
 │   ├── mypage/
 │   │   ├── page.tsx
@@ -26,6 +29,8 @@ src/
 │       ├── users/nickname/route.ts
 │       ├── questions/
 │       │   ├── route.ts                  # GET(목록+검색), POST(등록)
+│       │   ├── similar/route.ts          # GET?q= — pgvector 코사인 유사도 검색
+│       │   ├── generate-options/route.ts # POST — GPT로 오답 보기 + 해설 생성
 │       │   └── [id]/
 │       │       ├── route.ts
 │       │       ├── like/route.ts
@@ -35,6 +40,9 @@ src/
 │       │   └── [id]/route.ts
 │       ├── rankings/route.ts
 │       ├── notifications/route.ts
+│       ├── inquiries/
+│       │   ├── route.ts                  # GET(내 문의 목록), POST(등록)
+│       │   └── [id]/route.ts             # GET(상세)
 │       ├── mypage/
 │       │   ├── stats/route.ts
 │       │   ├── sessions/route.ts
@@ -42,11 +50,16 @@ src/
 │       │   ├── my-questions/route.ts
 │       │   └── liked-questions/route.ts
 │       └── admin/
+│           ├── badge/route.ts            # GET — 미처리 건수 + newTotal(방문 후 초기화)
+│           ├── badge/seen/route.ts       # POST — adminLastSeenAt 갱신
 │           ├── questions/route.ts
 │           ├── questions/[id]/route.ts
 │           ├── board/route.ts
 │           ├── reports/route.ts
 │           ├── reports/[id]/route.ts
+│           ├── inquiries/route.ts        # GET — 전체 문의 목록
+│           ├── inquiries/[id]/route.ts   # PATCH — 답변/상태 변경
+│           ├── logs/route.ts             # GET — 감사 로그 (페이지네이션, 필터)
 │           └── users/
 │               ├── route.ts
 │               └── [id]/route.ts
@@ -64,6 +77,8 @@ src/
 │   ├── auth.ts          # NextAuth + getServerUser() — DB 접근, 서버 전용
 │   ├── auth.config.ts   # Edge-safe config — 미들웨어 전용
 │   ├── prisma.ts        # Prisma client singleton
+│   ├── audit.ts         # writeLog() — fire-and-forget 감사 로그 기록
+│   ├── embedding.ts     # OpenAI text-embedding-3-small 호출 유틸
 │   ├── sample.ts        # Fisher-Yates 랜덤 샘플링
 │   ├── grade.ts         # 채점 (순수 함수)
 │   └── guard.ts         # QuizResult 타입 가드
@@ -86,6 +101,8 @@ src/
 | `app/board/page.tsx` | Server + Client 검색바 | URL params SSR |
 | `app/board/[id]/page.tsx` | Server + Client 버튼 | 좋아요/신고만 Client |
 | `app/board/submit/page.tsx` | Client | 폼 상태 |
+| `app/inquiry/page.tsx` | Client | TanStack Query |
+| `app/inquiry/new/page.tsx` | Client | 폼 상태 |
 | `app/admin/page.tsx` | Client | TanStack Query |
 | `app/mypage/page.tsx` | Client | DB fetching |
 | `components/Header.tsx` | Client | useSession, useRouter |
