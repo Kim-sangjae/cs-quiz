@@ -10,34 +10,33 @@ export async function GET() {
 
   const reports = await prisma.report.findMany({
     where: { status: 'PENDING' },
-    include: {
-      question: {
-        select: {
-          id: true,
-          category: true,
-          question: true,
-          status: true,
-        },
-      },
+    select: {
+      id: true,
+      reason: true,
+      description: true,
+      questionId: true,
+      createdAt: true,
+      question: { select: { id: true, category: true, question: true, status: true } },
       reporter: { select: { nickname: true } },
     },
     orderBy: { createdAt: 'asc' },
   });
 
-  // Group by questionId, sort by reportCount descending
   const map = new Map<string, {
     question: typeof reports[number]['question'];
     reportCount: number;
+    latestReportAt: string;
     reports: typeof reports;
   }>();
 
   for (const report of reports) {
     const key = report.questionId;
     if (!map.has(key)) {
-      map.set(key, { question: report.question, reportCount: 0, reports: [] });
+      map.set(key, { question: report.question, reportCount: 0, latestReportAt: report.createdAt.toISOString(), reports: [] });
     }
     const entry = map.get(key)!;
     entry.reportCount += 1;
+    entry.latestReportAt = report.createdAt.toISOString();
     entry.reports.push(report);
   }
 

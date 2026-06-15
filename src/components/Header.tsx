@@ -6,18 +6,18 @@ import { useQuery } from '@tanstack/react-query';
 import NotificationBell from './NotificationBell';
 
 function AdminBadge() {
-  const { data } = useQuery<{ total: number }>({
+  const { data } = useQuery<{ newTotal: number }>({
     queryKey: ['admin', 'badge'],
     queryFn: () => fetch('/api/admin/badge').then((r) => r.json()),
     refetchInterval: 60_000,
     staleTime: 30_000,
   });
 
-  if (!data || data.total === 0) return null;
+  if (!data || data.newTotal === 0) return null;
 
   return (
     <span className="absolute -top-1 -right-1 min-w-[16px] h-4 rounded-full bg-red-500 text-[10px] font-bold text-white flex items-center justify-center px-1 leading-none">
-      {data.total > 9 ? '9+' : data.total}
+      {data.newTotal > 9 ? '9+' : data.newTotal}
     </span>
   );
 }

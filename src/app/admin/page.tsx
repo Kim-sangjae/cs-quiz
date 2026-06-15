@@ -42,7 +42,7 @@ interface ReportItem {
 }
 interface ReportGroup {
   question: { id: string; category: string; question: string; status: string };
-  reportCount: number; reports: ReportItem[];
+  reportCount: number; latestReportAt: string; reports: ReportItem[];
 }
 interface BoardQuestion {
   id: string; category: string; question: string;
@@ -71,8 +71,10 @@ interface ConfirmState {
 export default function AdminPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<Tab>('questions');
   const [confirm, setConfirm] = useState<ConfirmState | null>(null);
+  const [prevSeenAt, setPrevSeenAt] = useState<string | null>(null);
 
   const { data: badge } = useQuery<{ questions: number; reports: number; inquiries: number }>({
     queryKey: ['admin', 'badge'],
@@ -80,6 +82,18 @@ export default function AdminPage() {
     refetchInterval: 60_000,
     staleTime: 30_000,
   });
+
+  // 관리자 패널 진입 시 seen 처리 — 헤더 배지 초기화 + 이전 seenAt 캡처
+  useEffect(() => {
+    fetch('/api/admin/badge/seen', { method: 'POST' })
+      .then((r) => r.json())
+      .then(({ prevSeenAt: prev }: { prevSeenAt: string | null }) => {
+        setPrevSeenAt(prev);
+        queryClient.invalidateQueries({ queryKey: ['admin', 'badge'] });
+      })
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function requestConfirm(message: string, onConfirm: () => void) {
     setConfirm({ message, onConfirm });
@@ -123,11 +137,11 @@ export default function AdminPage() {
           </button>
         ))}
       </div>
-      {activeTab === 'questions' && <QuestionsTab />}
+      {activeTab === 'questions' && <QuestionsTab prevSeenAt={prevSeenAt} />}
       {activeTab === 'board' && <BoardTab requestConfirm={requestConfirm} />}
-      {activeTab === 'reports' && <ReportsTab />}
+      {activeTab === 'reports' && <ReportsTab prevSeenAt={prevSeenAt} />}
       {activeTab === 'users' && <UsersTab currentUserId={session.user?.id ?? ''} requestConfirm={requestConfirm} />}
-      {activeTab === 'inquiries' && <InquiriesTab />}
+      {activeTab === 'inquiries' && <InquiriesTab prevSeenAt={prevSeenAt} />}
       {activeTab === 'logs' && <LogsTab />}
       {confirm && (
         <ConfirmDialog
@@ -184,7 +198,7 @@ function SimilarQuestionsPanel({ questionText }: { questionText: string }) {
   );
 }
 
-function QuestionsTab() {
+function QuestionsTab({ prevSeenAt }: { prevSeenAt: string | null }) {
   const queryClient = useQueryClient();
   const REJECTION_REASONS = [
     '이미 등록된 문제와 유사합니다.',
@@ -237,6 +251,9 @@ function QuestionsTab() {
             <span className="text-xs text-neutral-600">
               {new Date(q.createdAt).toLocaleDateString('ko-KR')}
             </span>
+            {prevSeenAt && new Date(q.createdAt) > new Date(prevSeenAt) && (
+              <span className="text-[10px] font-bold text-amber-400 border border-amber-500/40 rounded px-1.5 py-0.5">NEW</span>
+            )}
           </div>
           <p className="text-sm text-neutral-200 mb-4 leading-relaxed">
             {q.question.length > 120 ? q.question.slice(0, 120) + '…' : q.question}
@@ -664,7 +681,7 @@ function BoardTab({ requestConfirm }: { requestConfirm: (msg: string, fn: () => 
   );
 }
 
-function ReportsTab() {
+function ReportsTab({ prevSeenAt }: { prevSeenAt: string | null }) {
   const queryClient = useQueryClient();
   const [reasonFilter, setReasonFilter] = useState<string>('');
   const [sortOrder, setSortOrder] = useState<'count' | 'asc'>('count');
@@ -726,6 +743,9 @@ function ReportsTab() {
                 <span className="text-xs text-red-400 border border-red-500/30 rounded px-1.5 py-0.5">
                   블라인드됨
                 </span>
+              )}
+              {prevSeenAt && new Date(group.latestReportAt) > new Date(prevSeenAt) && (
+                <span className="text-[10px] font-bold text-amber-400 border border-amber-500/40 rounded px-1.5 py-0.5">NEW</span>
               )}
             </div>
             <a
@@ -965,7 +985,7 @@ interface AdminInquiry {
   user: { id: string; nickname: string | null; email: string };
 }
 
-function InquiriesTab() {
+function InquiriesTab({ prevSeenAt }: { prevSeenAt: string | null }) {
   const queryClient = useQueryClient();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [replyDraft, setReplyDraft] = useState<Record<string, string>>({});
@@ -1069,7 +1089,12 @@ function InquiriesTab() {
               </div>
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-sm font-medium text-white">{inq.title}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-medium text-white">{inq.title}</p>
+                    {prevSeenAt && new Date(inq.createdAt) > new Date(prevSeenAt) && (
+                      <span className="text-[10px] font-bold text-amber-400 border border-amber-500/40 rounded px-1.5 py-0.5">NEW</span>
+                    )}
+                  </div>
                   <p className="text-xs text-neutral-500 mt-0.5">
                     {inq.user.nickname ?? inq.user.email} · {new Date(inq.createdAt).toLocaleDateString('ko-KR')}
                   </p>
