@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerUser } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { generateEmbedding, toVectorString } from '@/lib/embedding';
 
 const VALID_CATEGORIES = ['ds', 'algo', 'os', 'network', 'db', 'arch'];
 
@@ -28,7 +29,7 @@ export async function PATCH(
 
   const question = await prisma.question.findUnique({
     where: { id },
-    select: { id: true, authorId: true, question: true, status: true },
+    select: { id: true, authorId: true, question: true, options: true, answer: true, status: true },
   });
 
   if (!question) return NextResponse.json({ error: 'Not found' }, { status: 404 });
@@ -54,6 +55,17 @@ export async function PATCH(
           });
         }
       });
+
+      // 승인 후 비동기로 임베딩 생성 — 실패해도 승인은 유지됨
+      const opts = question.options as string[];
+      const answerText = opts?.[question.answer] ?? '';
+      const textToEmbed = answerText ? `${question.question} ${answerText}` : question.question;
+      generateEmbedding(textToEmbed).then(async (embedding) => {
+        const vectorStr = toVectorString(embedding);
+        await prisma.$executeRaw`
+          UPDATE "Question" SET embedding = ${vectorStr}::vector WHERE id = ${id}
+        `;
+      }).catch(() => { /* 백필 API로 나중에 처리 가능 */ });
     } else {
       const reason =
         typeof rejectionReason === 'string' && rejectionReason.trim().length > 0

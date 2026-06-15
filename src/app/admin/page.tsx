@@ -33,6 +33,9 @@ interface PendingQuestion {
   id: string; category: string; question: string; createdAt: string;
   author: { nickname: string | null; email: string } | null;
 }
+interface SimilarQuestion {
+  id: string; question: string; category: string; sim: number;
+}
 interface ReportItem {
   id: string; reason: string; description: string | null;
   reporter: { nickname: string | null };
@@ -123,10 +126,55 @@ export default function AdminPage() {
   );
 }
 
+function SimilarQuestionsPanel({ questionText }: { questionText: string }) {
+  const { data: similar = [], isFetching } = useQuery<SimilarQuestion[]>({
+    queryKey: ['similar', questionText],
+    queryFn: async () => {
+      const r = await fetch(`/api/questions/similar?q=${encodeURIComponent(questionText)}`);
+      if (!r.ok) return [];
+      return r.json();
+    },
+    staleTime: 60_000,
+  });
+
+  if (isFetching) {
+    return <p className="text-xs text-neutral-600 mt-3">유사 문제 검색 중...</p>;
+  }
+  if (similar.length === 0) {
+    return <p className="text-xs text-neutral-600 mt-3">유사한 문제가 없습니다.</p>;
+  }
+  return (
+    <div className="mt-3 rounded-lg border border-amber-500/20 bg-amber-500/5 p-3">
+      <p className="text-xs text-amber-400 mb-2 font-medium">유사 문제 {similar.length}건</p>
+      <ul className="space-y-1.5">
+        {similar.map((sq) => (
+          <li key={sq.id} className="flex items-start gap-2">
+            <span className="text-xs text-neutral-600 border border-neutral-800 rounded px-1.5 py-0.5 flex-shrink-0">
+              {CATEGORY_LABEL[sq.category] ?? sq.category}
+            </span>
+            <a
+              href={`/board/${sq.id}`}
+              target="_blank"
+              rel="noreferrer"
+              className="text-xs text-neutral-400 hover:text-white transition-colors leading-relaxed"
+            >
+              {sq.question.length > 80 ? sq.question.slice(0, 80) + '…' : sq.question}
+            </a>
+            <span className="text-xs text-neutral-700 flex-shrink-0">
+              {Math.round(sq.sim * 100)}%
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function QuestionsTab() {
   const queryClient = useQueryClient();
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
+  const [showSimilarId, setShowSimilarId] = useState<string | null>(null);
 
   const { data: questions = [] } = useQuery<PendingQuestion[]>({
     queryKey: ['admin', 'questions'],
@@ -173,8 +221,9 @@ function QuestionsTab() {
           <p className="text-sm text-neutral-200 mb-4 leading-relaxed">
             {q.question.length > 120 ? q.question.slice(0, 120) + '…' : q.question}
           </p>
+          {showSimilarId === q.id && <SimilarQuestionsPanel questionText={q.question} />}
           {rejectingId === q.id ? (
-            <div className="space-y-2">
+            <div className="space-y-2 mt-4">
               <input
                 type="text"
                 placeholder="거절 이유 (비워두면 기본 메시지 사용)"
@@ -199,7 +248,7 @@ function QuestionsTab() {
               </div>
             </div>
           ) : (
-            <div className="flex gap-2">
+            <div className="flex gap-2 mt-4">
               <button
                 onClick={() => mutation.mutate({ id: q.id, action: 'approve' })}
                 disabled={mutation.isPending}
@@ -212,6 +261,16 @@ function QuestionsTab() {
                 className="rounded-md bg-[#1a1a1a] border border-neutral-700 text-neutral-400 text-xs px-3 py-1.5 hover:text-white transition-colors"
               >
                 거절
+              </button>
+              <button
+                onClick={() => setShowSimilarId(showSimilarId === q.id ? null : q.id)}
+                className={`rounded-md border text-xs px-3 py-1.5 transition-colors ${
+                  showSimilarId === q.id
+                    ? 'border-amber-500/40 text-amber-400 hover:border-amber-500'
+                    : 'border-neutral-800 text-neutral-500 hover:text-white'
+                }`}
+              >
+                유사 문제
               </button>
               <a
                 href={`/board/${q.id}`}

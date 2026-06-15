@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useSession, signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 
@@ -15,6 +15,18 @@ const CATEGORIES = [
 
 const OPTION_LABELS = ['A', 'B', 'C', 'D'] as const;
 
+const CATEGORY_LABEL: Record<string, string> = {
+  ds: '자료구조', algo: '알고리즘', os: '운영체제',
+  network: '네트워크', db: '데이터베이스', arch: '컴퓨터구조',
+};
+
+interface SimilarQuestion {
+  id: string;
+  question: string;
+  category: string;
+  sim: number;
+}
+
 export default function BoardSubmitPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -27,6 +39,10 @@ export default function BoardSubmitPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
+  const [similarQuestions, setSimilarQuestions] = useState<SimilarQuestion[]>([]);
+  const similarTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [generating, setGenerating] = useState(false);
+
   const isComplete =
     category !== '' &&
     question.length > 0 &&
@@ -35,6 +51,49 @@ export default function BoardSubmitPage() {
     answer !== null &&
     explanation.length > 0 &&
     explanation.length <= 500;
+
+  function handleQuestionChange(value: string) {
+    setQuestion(value);
+    if (similarTimer.current) clearTimeout(similarTimer.current);
+    if (value.trim().length < 5) {
+      setSimilarQuestions([]);
+      return;
+    }
+    similarTimer.current = setTimeout(async () => {
+      try {
+        const r = await fetch(`/api/questions/similar?q=${encodeURIComponent(value)}`);
+        if (r.ok) setSimilarQuestions(await r.json() as SimilarQuestion[]);
+      } catch {
+        // 네트워크 오류 시 조용히 무시
+      }
+    }, 600);
+  }
+
+  async function handleGenerateOptions() {
+    if (!question.trim() || !options[answer ?? -1]?.trim()) return;
+    setGenerating(true);
+    try {
+      const correctAnswer = options[answer!];
+      const r = await fetch('/api/questions/generate-options', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question, answer: correctAnswer }),
+      });
+      if (!r.ok) return;
+      const data = await r.json() as { distractors: string[]; explanation: string };
+      const { distractors, explanation: generatedExplanation } = data;
+      const next = ['', '', '', ''];
+      next[answer!] = correctAnswer;
+      let di = 0;
+      for (let i = 0; i < 4; i++) {
+        if (i !== answer!) next[i] = distractors[di++] ?? '';
+      }
+      setOptions(next);
+      if (generatedExplanation) setExplanation(generatedExplanation);
+    } finally {
+      setGenerating(false);
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -115,16 +174,51 @@ export default function BoardSubmitPage() {
           </div>
           <textarea
             value={question}
-            onChange={(e) => setQuestion(e.target.value)}
+            onChange={(e) => handleQuestionChange(e.target.value)}
             placeholder="문제를 입력하세요"
             rows={4}
             className="w-full rounded-md border border-neutral-800 bg-[#1a1a1a] px-3 py-2.5 text-sm text-neutral-200 placeholder-neutral-600 focus:outline-none focus:border-neutral-600 resize-none"
           />
+          {similarQuestions.length > 0 && (
+            <div className="mt-2 rounded-lg border border-amber-500/20 bg-amber-500/5 p-3">
+              <p className="text-xs text-amber-400 mb-2 font-medium">비슷한 문제가 이미 있습니다</p>
+              <ul className="space-y-1.5">
+                {similarQuestions.map((sq) => (
+                  <li key={sq.id} className="flex items-start gap-2">
+                    <span className="text-xs text-neutral-600 border border-neutral-800 rounded px-1.5 py-0.5 flex-shrink-0">
+                      {CATEGORY_LABEL[sq.category] ?? sq.category}
+                    </span>
+                    <a
+                      href={`/board/${sq.id}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-xs text-neutral-400 hover:text-white transition-colors leading-relaxed"
+                    >
+                      {sq.question.length > 80 ? sq.question.slice(0, 80) + '…' : sq.question}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
 
         {/* 보기 A~D */}
         <div>
-          <label className="block text-sm text-neutral-400 mb-2">보기</label>
+          <div className="flex items-center justify-between mb-2">
+            <label className="text-sm text-neutral-400">보기</label>
+            <button
+              type="button"
+              onClick={handleGenerateOptions}
+              disabled={generating || !question.trim() || answer === null || !options[answer]?.trim()}
+              className="text-xs text-neutral-400 border border-neutral-700 rounded-md px-3 py-1.5 hover:text-white hover:border-neutral-500 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              {generating ? '생성 중...' : '✦ 보기 + 해설 자동 생성'}
+            </button>
+          </div>
+          {answer !== null && !options[answer]?.trim() && question.trim() && (
+            <p className="text-xs text-neutral-600 mb-2">정답 보기를 먼저 입력하면 나머지 오답을 자동으로 생성합니다.</p>
+          )}
           <div className="space-y-2">
             {OPTION_LABELS.map((label, i) => (
               <div key={label} className="flex items-center gap-3">

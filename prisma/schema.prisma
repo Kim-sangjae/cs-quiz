@@ -84,6 +84,7 @@ model Question {
   rejectionReason String?
   attemptCount    Int            @default(0)
   correctCount    Int            @default(0)
+  embedding       Unsupported("vector(1536)")?
   createdAt       DateTime       @default(now())
 
   author   User?             @relation(fields: [authorId], references: [id])
