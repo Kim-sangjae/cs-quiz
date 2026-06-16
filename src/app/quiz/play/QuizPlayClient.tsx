@@ -30,6 +30,22 @@ export default function QuizPlayClient({ questions, category, isReview }: Props)
     return () => window.removeEventListener("beforeunload", handler);
   }, [answers.length, isSubmitting]);
 
+  useEffect(() => {
+    const handleLinkClick = (e: MouseEvent) => {
+      if (answers.length === 0 || isSubmitting) return;
+      const anchor = (e.target as HTMLElement).closest("a");
+      if (!anchor) return;
+      const href = anchor.getAttribute("href");
+      if (!href || href.startsWith("#") || /^https?:\/\//.test(href)) return;
+      if (!window.confirm("퀴즈를 종료하면 현재까지의 답변이 사라집니다. 계속하시겠습니까?")) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+    document.addEventListener("click", handleLinkClick, true);
+    return () => document.removeEventListener("click", handleLinkClick, true);
+  }, [answers.length, isSubmitting]);
+
   function handleSelect(questionId: string, selected: 0 | 1 | 2 | 3): void {
     setAnswers((prev) => {
       const existing = prev.findIndex((a) => a.questionId === questionId);
