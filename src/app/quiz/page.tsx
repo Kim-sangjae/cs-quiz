@@ -155,19 +155,35 @@ function QuizCard({
     );
   }
 
+  const isWeak = accuracy !== null && accuracy < 60;
+  const accuracyColor =
+    accuracy === null ? '' :
+    accuracy < 60 ? 'text-red-400' :
+    accuracy < 75 ? 'text-yellow-400' :
+    'text-emerald-400';
+
   return (
     <Link
       href={`/quiz/play?category=${cat}`}
-      className="block bg-[#111111] border border-neutral-800 rounded-lg p-5 hover:border-neutral-600 hover:bg-[#1a1a1a] transition-colors"
+      className={`block bg-[#111111] border rounded-lg p-5 hover:bg-[#1a1a1a] transition-colors ${
+        isWeak ? 'border-red-900/50 hover:border-red-800/60' : 'border-neutral-800 hover:border-neutral-600'
+      }`}
     >
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-sm font-medium text-white">{label}</p>
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-medium text-white">{label}</p>
+            {isWeak && (
+              <span className="text-[10px] text-red-400 border border-red-900/60 rounded px-1.5 py-0.5">
+                약점
+              </span>
+            )}
+          </div>
           <p className="text-xs text-neutral-500 mt-1">{count}문제</p>
         </div>
         {accuracy !== null && (
-          <span className="text-xs text-neutral-400 border border-neutral-800 rounded px-2 py-0.5">
-            내 정답률 {accuracy}%
+          <span className={`text-xs border border-neutral-800 rounded px-2 py-0.5 ${accuracyColor}`}>
+            {accuracy}%
           </span>
         )}
       </div>
