@@ -199,6 +199,35 @@ function sortSessions(sessions: ApiSession[], sort: HistorySort): ApiSession[] {
   return arr;
 }
 
+type MyQSort = "newest" | "oldest" | "likes";
+const MY_Q_SORT_LABELS: Record<MyQSort, string> = {
+  newest: "최신순",
+  oldest: "오래된순",
+  likes: "좋아요순",
+};
+
+function filterAndSortMyQ(questions: MyQuestion[], search: string, sort: MyQSort): MyQuestion[] {
+  let result = questions;
+  if (search.trim()) {
+    const s = search.trim().toLowerCase();
+    result = result.filter((q) => q.question.toLowerCase().includes(s));
+  }
+  const arr = [...result];
+  if (sort === "oldest") arr.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  else if (sort === "likes") arr.sort((a, b) => b._count.likes - a._count.likes);
+  return arr;
+}
+
+function filterLiked(questions: LikedQuestion[], search: string, cat: string): LikedQuestion[] {
+  let result = questions;
+  if (cat !== "all") result = result.filter((q) => q.category === cat);
+  if (search.trim()) {
+    const s = search.trim().toLowerCase();
+    result = result.filter((q) => q.question.toLowerCase().includes(s));
+  }
+  return result;
+}
+
 export default function MyPage() {
   const router = useRouter();
   const { data: session, update } = useSession();
@@ -251,6 +280,14 @@ export default function MyPage() {
   const [historyPage, setHistoryPage] = useState(0);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [expandedWrongId, setExpandedWrongId] = useState<string | null>(null);
+
+  const [myQSearch, setMyQSearch] = useState("");
+  const [myQSort, setMyQSort] = useState<MyQSort>("newest");
+  const [myQPage, setMyQPage] = useState(0);
+
+  const [likedSearch, setLikedSearch] = useState("");
+  const [likedCat, setLikedCat] = useState("all");
+  const [likedPage, setLikedPage] = useState(0);
 
   useEffect(() => {
     Promise.all([
@@ -651,127 +688,222 @@ export default function MyPage() {
       {/* 탭 2: 내가 등록한 문제 */}
       {activeTab === "my-questions" && (
         <>
-          <div className="flex gap-2 mb-4">
-            {(["all", "pending", "approved", "rejected"] as MyQStatus[]).map((s) => {
-              const labels: Record<MyQStatus, string> = {
-                all: "전체",
-                pending: "요청",
-                approved: "승인",
-                rejected: "거절",
-              };
-              return (
+          {/* 검색 */}
+          <input
+            type="text"
+            value={myQSearch}
+            onChange={(e) => { setMyQSearch(e.target.value); setMyQPage(0); }}
+            placeholder="문제 내용 검색..."
+            className="w-full rounded-md border border-neutral-800 bg-[#111] px-3 py-2 text-sm text-white placeholder-neutral-600 focus:border-neutral-600 focus:outline-none transition-colors mb-3"
+          />
+
+          {/* 정렬 + 상태 필터 */}
+          <div className="flex flex-wrap gap-2 mb-4">
+            <div className="flex gap-1">
+              {(Object.keys(MY_Q_SORT_LABELS) as MyQSort[]).map((s) => (
                 <button
                   key={s}
-                  onClick={() => setMyQStatus(s)}
-                  className={`px-3 py-1.5 rounded text-xs transition-colors ${
-                    myQStatus === s
+                  onClick={() => { setMyQSort(s); setMyQPage(0); }}
+                  className={`px-2.5 py-1 rounded text-xs transition-colors ${
+                    myQSort === s
                       ? "bg-white text-black font-medium"
                       : "border border-neutral-800 text-neutral-400 hover:border-neutral-600 hover:text-white"
                   }`}
                 >
-                  {labels[s]}
+                  {MY_Q_SORT_LABELS[s]}
                 </button>
-              );
-            })}
+              ))}
+            </div>
+            <div className="w-px bg-neutral-800 self-stretch" />
+            <div className="flex gap-1">
+              {(["all", "pending", "approved", "rejected"] as MyQStatus[]).map((s) => {
+                const labels: Record<MyQStatus, string> = { all: "전체", pending: "요청", approved: "승인", rejected: "거절" };
+                return (
+                  <button
+                    key={s}
+                    onClick={() => { setMyQStatus(s); setMyQPage(0); }}
+                    className={`px-2.5 py-1 rounded text-xs transition-colors ${
+                      myQStatus === s
+                        ? "bg-neutral-700 text-white font-medium"
+                        : "border border-neutral-800 text-neutral-400 hover:border-neutral-600 hover:text-white"
+                    }`}
+                  >
+                    {labels[s]}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           {myQLoading ? (
             <div className="py-12 text-center">
               <p className="text-neutral-500 text-sm">불러오는 중...</p>
             </div>
-          ) : !myQuestions || myQuestions.length === 0 ? (
-            <div className="text-center py-12">
-              <p className="text-neutral-500 text-sm mb-4">
-                {myQStatus === "all" ? "등록한 문제가 없습니다." : `${myQStatus === "pending" ? "요청 중인" : myQStatus === "approved" ? "승인된" : "거절된"} 문제가 없습니다.`}
-              </p>
-              <Link
-                href="/board/submit"
-                className="rounded-md bg-white text-black text-sm font-medium px-6 py-2.5 hover:bg-neutral-200 transition-colors"
-              >
-                문제 등록하기
-              </Link>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {myQuestions.map((q) => (
-                <div
-                  key={q.id}
-                  className="bg-[#111111] border border-neutral-800 rounded-lg p-4"
-                >
-                  <div className="flex items-start justify-between gap-3 mb-2">
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <span className="text-xs text-neutral-500 border border-neutral-800 rounded px-2 py-0.5">
-                        {CATEGORY_LABELS[q.category as Category] ?? q.category}
-                      </span>
-                      <span
-                        className={`text-xs border rounded px-2 py-0.5 ${STATUS_STYLE[q.status] ?? "text-neutral-500 border-neutral-800"}`}
-                      >
-                        {STATUS_LABEL[q.status] ?? q.status}
-                      </span>
-                    </div>
-                    <span className="text-xs text-neutral-600 flex-shrink-0">
-                      {new Date(q.createdAt).toLocaleDateString("ko-KR")}
-                    </span>
-                  </div>
-                  <p className="text-sm text-neutral-300 leading-relaxed line-clamp-2">
-                    {q.question}
+          ) : (() => {
+            const filtered = filterAndSortMyQ(myQuestions ?? [], myQSearch, myQSort);
+            const pageCount = Math.ceil(filtered.length / HISTORY_PAGE_SIZE);
+            const paged = filtered.slice(myQPage * HISTORY_PAGE_SIZE, (myQPage + 1) * HISTORY_PAGE_SIZE);
+            if (filtered.length === 0) {
+              return (
+                <div className="text-center py-12">
+                  <p className="text-neutral-500 text-sm mb-4">
+                    {myQSearch ? "검색 결과가 없습니다." : myQStatus === "all" ? "등록한 문제가 없습니다." : `${myQStatus === "pending" ? "요청 중인" : myQStatus === "approved" ? "승인된" : "거절된"} 문제가 없습니다.`}
                   </p>
-                  {q.status === "REJECTED" && q.rejectionReason && (
-                    <div className="mt-3 pt-3 border-t border-neutral-800">
-                      <p className="text-xs text-neutral-500 mb-1">거절 사유</p>
-                      <p className="text-xs text-red-400">{q.rejectionReason}</p>
-                      <Link
-                        href="/board/submit"
-                        className="inline-block mt-2 text-xs text-neutral-400 border border-neutral-700 rounded px-3 py-1 hover:border-neutral-500 hover:text-white transition-colors"
-                      >
-                        수정 후 재요청
-                      </Link>
-                    </div>
+                  {!myQSearch && (
+                    <Link href="/board/submit" className="rounded-md bg-white text-black text-sm font-medium px-6 py-2.5 hover:bg-neutral-200 transition-colors">
+                      문제 등록하기
+                    </Link>
                   )}
                 </div>
-              ))}
-            </div>
-          )}
+              );
+            }
+            return (
+              <>
+                <p className="text-xs text-neutral-600 mb-3">총 {filtered.length}개</p>
+                <div className="space-y-3">
+                  {paged.map((q) => (
+                    <Link
+                      key={q.id}
+                      href={`/board/${q.id}`}
+                      className="block bg-[#111111] border border-neutral-800 rounded-lg p-4 hover:bg-[#161616] transition-colors"
+                    >
+                      <div className="flex items-start justify-between gap-3 mb-2">
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <span className="text-xs text-neutral-500 border border-neutral-800 rounded px-2 py-0.5">
+                            {CATEGORY_LABELS[q.category as Category] ?? q.category}
+                          </span>
+                          <span className={`text-xs border rounded px-2 py-0.5 ${STATUS_STYLE[q.status] ?? "text-neutral-500 border-neutral-800"}`}>
+                            {STATUS_LABEL[q.status] ?? q.status}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          {q._count.likes > 0 && (
+                            <span className="text-xs text-neutral-500">♥ {q._count.likes}</span>
+                          )}
+                          <span className="text-xs text-neutral-600">
+                            {new Date(q.createdAt).toLocaleDateString("ko-KR")}
+                          </span>
+                        </div>
+                      </div>
+                      <p className="text-sm text-neutral-300 leading-relaxed line-clamp-2">{q.question}</p>
+                      {q.status === "REJECTED" && q.rejectionReason && (
+                        <div className="mt-3 pt-3 border-t border-neutral-800">
+                          <p className="text-xs text-neutral-500 mb-1">거절 사유</p>
+                          <p className="text-xs text-red-400">{q.rejectionReason}</p>
+                        </div>
+                      )}
+                    </Link>
+                  ))}
+                </div>
+                {pageCount > 1 && (
+                  <div className="flex items-center justify-center gap-3 mt-4">
+                    <button
+                      onClick={() => setMyQPage((p) => Math.max(0, p - 1))}
+                      disabled={myQPage === 0}
+                      className="text-xs text-neutral-400 border border-neutral-800 rounded px-2.5 py-1 hover:border-neutral-600 hover:text-white disabled:opacity-30 transition-colors"
+                    >←</button>
+                    <span className="text-xs text-neutral-500">{myQPage + 1} / {pageCount}</span>
+                    <button
+                      onClick={() => setMyQPage((p) => Math.min(pageCount - 1, p + 1))}
+                      disabled={myQPage >= pageCount - 1}
+                      className="text-xs text-neutral-400 border border-neutral-800 rounded px-2.5 py-1 hover:border-neutral-600 hover:text-white disabled:opacity-30 transition-colors"
+                    >→</button>
+                  </div>
+                )}
+              </>
+            );
+          })()}
         </>
       )}
 
       {/* 탭 3: 내가 좋아요한 문제 */}
       {activeTab === "liked" && (
         <>
+          {/* 검색 */}
+          <input
+            type="text"
+            value={likedSearch}
+            onChange={(e) => { setLikedSearch(e.target.value); setLikedPage(0); }}
+            placeholder="문제 내용 검색..."
+            className="w-full rounded-md border border-neutral-800 bg-[#111] px-3 py-2 text-sm text-white placeholder-neutral-600 focus:border-neutral-600 focus:outline-none transition-colors mb-3"
+          />
+
+          {/* 카테고리 필터 */}
+          <div className="flex gap-1 flex-wrap mb-4">
+            {(["all", ...Object.keys(CATEGORY_LABELS)] as string[]).map((cat) => (
+              <button
+                key={cat}
+                onClick={() => { setLikedCat(cat); setLikedPage(0); }}
+                className={`px-2.5 py-1 rounded text-xs transition-colors ${
+                  likedCat === cat
+                    ? "bg-white text-black font-medium"
+                    : "border border-neutral-800 text-neutral-400 hover:border-neutral-600 hover:text-white"
+                }`}
+              >
+                {cat === "all" ? "전체" : CATEGORY_LABELS[cat as Category]}
+              </button>
+            ))}
+          </div>
+
           {likedLoading ? (
             <div className="py-12 text-center">
               <p className="text-neutral-500 text-sm">불러오는 중...</p>
             </div>
-          ) : !likedQuestions || likedQuestions.length === 0 ? (
-            <div className="text-center py-12">
-              <p className="text-neutral-500 text-sm mb-4">
-                좋아요한 문제가 없습니다.
-              </p>
-              <Link
-                href="/board"
-                className="rounded-md bg-white text-black text-sm font-medium px-6 py-2.5 hover:bg-neutral-200 transition-colors"
-              >
-                게시판 보기
-              </Link>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {likedQuestions.map((q) => (
-                <Link
-                  key={q.id}
-                  href={`/board/${q.id}`}
-                  className="block bg-[#111111] border border-neutral-800 rounded-lg px-4 py-3 hover:bg-[#161616] transition-colors"
-                >
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-xs text-neutral-500 border border-neutral-800 rounded px-2 py-0.5">
-                      {CATEGORY_LABELS[q.category as Category] ?? q.category}
-                    </span>
+          ) : (() => {
+            const filtered = filterLiked(likedQuestions ?? [], likedSearch, likedCat);
+            const pageCount = Math.ceil(filtered.length / HISTORY_PAGE_SIZE);
+            const paged = filtered.slice(likedPage * HISTORY_PAGE_SIZE, (likedPage + 1) * HISTORY_PAGE_SIZE);
+            if (filtered.length === 0) {
+              return (
+                <div className="text-center py-12">
+                  <p className="text-neutral-500 text-sm mb-4">
+                    {likedSearch || likedCat !== "all" ? "검색 결과가 없습니다." : "좋아요한 문제가 없습니다."}
+                  </p>
+                  {!likedSearch && likedCat === "all" && (
+                    <Link href="/board" className="rounded-md bg-white text-black text-sm font-medium px-6 py-2.5 hover:bg-neutral-200 transition-colors">
+                      게시판 보기
+                    </Link>
+                  )}
+                </div>
+              );
+            }
+            return (
+              <>
+                <p className="text-xs text-neutral-600 mb-3">총 {filtered.length}개</p>
+                <div className="space-y-2">
+                  {paged.map((q) => (
+                    <Link
+                      key={q.id}
+                      href={`/board/${q.id}`}
+                      className="block bg-[#111111] border border-neutral-800 rounded-lg px-4 py-3 hover:bg-[#161616] transition-colors"
+                    >
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-xs text-neutral-500 border border-neutral-800 rounded px-2 py-0.5">
+                          {CATEGORY_LABELS[q.category as Category] ?? q.category}
+                        </span>
+                      </div>
+                      <p className="text-sm text-neutral-300 truncate">{q.question}</p>
+                    </Link>
+                  ))}
+                </div>
+                {pageCount > 1 && (
+                  <div className="flex items-center justify-center gap-3 mt-4">
+                    <button
+                      onClick={() => setLikedPage((p) => Math.max(0, p - 1))}
+                      disabled={likedPage === 0}
+                      className="text-xs text-neutral-400 border border-neutral-800 rounded px-2.5 py-1 hover:border-neutral-600 hover:text-white disabled:opacity-30 transition-colors"
+                    >←</button>
+                    <span className="text-xs text-neutral-500">{likedPage + 1} / {pageCount}</span>
+                    <button
+                      onClick={() => setLikedPage((p) => Math.min(pageCount - 1, p + 1))}
+                      disabled={likedPage >= pageCount - 1}
+                      className="text-xs text-neutral-400 border border-neutral-800 rounded px-2.5 py-1 hover:border-neutral-600 hover:text-white disabled:opacity-30 transition-colors"
+                    >→</button>
                   </div>
-                  <p className="text-sm text-neutral-300 truncate">{q.question}</p>
-                </Link>
-              ))}
-            </div>
-          )}
+                )}
+              </>
+            );
+          })()}
         </>
       )}
     </div>
