@@ -176,8 +176,28 @@ const NICKNAME_REGEX = /^[a-zA-Z0-9가-힣]{2,12}$/;
 
 type ActiveTab = "history" | "my-questions" | "liked";
 type MyQStatus = "all" | "pending" | "approved" | "rejected";
+type HistorySort = "newest" | "oldest" | "wrong_desc" | "wrong_asc";
 
 const HISTORY_PAGE_SIZE = 5;
+
+const SORT_LABELS: Record<HistorySort, string> = {
+  newest: "최신순",
+  oldest: "오래된순",
+  wrong_desc: "오답 많은순",
+  wrong_asc: "오답 적은순",
+};
+
+function sortSessions(sessions: ApiSession[], sort: HistorySort): ApiSession[] {
+  const arr = [...sessions];
+  if (sort === "oldest") {
+    arr.sort((a, b) => new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime());
+  } else if (sort === "wrong_desc") {
+    arr.sort((a, b) => a.score - b.score);
+  } else if (sort === "wrong_asc") {
+    arr.sort((a, b) => b.score - a.score);
+  }
+  return arr;
+}
 
 export default function MyPage() {
   const router = useRouter();
@@ -227,6 +247,7 @@ export default function MyPage() {
   const [likedQuestions, setLikedQuestions] = useState<LikedQuestion[] | null>(null);
   const [likedLoading, setLikedLoading] = useState(false);
 
+  const [historySort, setHistorySort] = useState<HistorySort>("newest");
   const [historyPage, setHistoryPage] = useState(0);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [expandedWrongId, setExpandedWrongId] = useState<string | null>(null);
@@ -433,10 +454,22 @@ export default function MyPage() {
             </div>
           ) : (
             <>
-              <div className="flex items-center justify-between mb-3">
-                <p className="text-xs text-neutral-500">
-                  풀이 기록 <span className="text-neutral-600">({sessions.length}회)</span>
-                </p>
+              <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
+                <div className="flex gap-1 flex-wrap">
+                  {(Object.keys(SORT_LABELS) as HistorySort[]).map((s) => (
+                    <button
+                      key={s}
+                      onClick={() => { setHistorySort(s); setHistoryPage(0); setExpandedId(null); }}
+                      className={`text-xs rounded px-2.5 py-1 border transition-colors ${
+                        historySort === s
+                          ? "bg-white text-black border-white font-medium"
+                          : "border-neutral-800 text-neutral-400 hover:border-neutral-600 hover:text-white"
+                      }`}
+                    >
+                      {SORT_LABELS[s]}
+                    </button>
+                  ))}
+                </div>
                 {sessions.length > HISTORY_PAGE_SIZE && (
                   <div className="flex items-center gap-2">
                     <button
@@ -460,7 +493,7 @@ export default function MyPage() {
                 )}
               </div>
               <div className="space-y-3">
-                {sessions.slice(historyPage * HISTORY_PAGE_SIZE, (historyPage + 1) * HISTORY_PAGE_SIZE).map((session, idx) => {
+                {sortSessions(sessions, historySort).slice(historyPage * HISTORY_PAGE_SIZE, (historyPage + 1) * HISTORY_PAGE_SIZE).map((session, idx) => {
                   const sessionIdx = historyPage * HISTORY_PAGE_SIZE + idx;
                   const isExpanded = expandedId === session.submittedAt;
                   const scoreColor =
