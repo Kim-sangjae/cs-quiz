@@ -2,7 +2,7 @@ import Link from "next/link";
 import { unstable_cache } from "next/cache";
 import { questions } from "@/data/questions";
 import { getServerUser } from "@/lib/auth";
-import { buildRankings, getMyRanks, type CategoryRankings, type MyRankEntry } from "@/lib/rankings";
+import { buildRankings, getMyRanks, getHomepagePersonalization, type CategoryRankings, type MyRankEntry, type HomepagePersonalization } from "@/lib/rankings";
 import RankingSection from "@/components/RankingSection";
 
 const total = questions.length;
@@ -48,7 +48,12 @@ export default async function Home() {
     getServerUser(),
     getCachedRankings().catch(() => EMPTY_RANKINGS),
   ]);
-  const myRanks = user ? await getMyRanks(user.id).catch(() => ({})) : {};
+  const [myRanks, personalization] = user
+    ? await Promise.all([
+        getMyRanks(user.id).catch(() => ({})),
+        getHomepagePersonalization(user.id).catch(() => null),
+      ])
+    : [{} as Record<string, MyRankEntry>, null as HomepagePersonalization | null];
 
   return (
     <main className="min-h-screen px-4 py-14">
@@ -76,6 +81,44 @@ export default async function Home() {
               <span className="text-xs text-neutral-600">로그인하면 기록이 저장됩니다</span>
             )}
           </div>
+
+          {/* 개인화 배너 */}
+          {personalization && (
+            <div className="mt-4 flex flex-col gap-2">
+              {personalization.streak.status === 'yesterday' && personalization.streak.count > 0 && (
+                <div className="flex items-center justify-between bg-amber-950/30 border border-amber-800/40 rounded-lg px-4 py-2.5">
+                  <span className="text-sm text-amber-300">
+                    🔥 {personalization.streak.count}일 연속 중 · 오늘 안 풀면 streak이 끊겨요
+                  </span>
+                  <Link href="/quiz" className="text-xs text-amber-400 hover:text-amber-200 font-medium transition-colors">
+                    풀기 →
+                  </Link>
+                </div>
+              )}
+              {personalization.streak.status === 'today' && personalization.streak.count > 1 && (
+                <p className="text-xs text-emerald-500 px-1">
+                  🔥 {personalization.streak.count}일 연속 달성!
+                </p>
+              )}
+              {personalization.weakCategory && (
+                <div className="flex items-center justify-between bg-neutral-900 border border-neutral-800 rounded-lg px-4 py-2.5">
+                  <span className="text-sm text-neutral-300">
+                    약점:{" "}
+                    <span className="text-white font-medium">{personalization.weakCategory.label}</span>
+                    <span className="text-neutral-500 ml-2 text-xs">
+                      정답률 {(personalization.weakCategory.accuracy * 100).toFixed(0)}%
+                    </span>
+                  </span>
+                  <Link
+                    href={`/quiz/play?category=${personalization.weakCategory.category}`}
+                    className="text-xs text-neutral-400 hover:text-white font-medium transition-colors"
+                  >
+                    지금 풀기 →
+                  </Link>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* 소개 */}

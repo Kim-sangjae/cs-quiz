@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import type { Question, UserAnswer } from "@/types";
 import QuizCard from "@/components/QuizCard";
 import Navigator from "@/components/Navigator";
@@ -18,7 +19,16 @@ export default function QuizPlayClient({ questions, category, isReview }: Props)
   const [answers, setAnswers] = useState<UserAnswer[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const autoAdvanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (answers.length > 0 && !isSubmitting) e.preventDefault();
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [answers.length, isSubmitting]);
 
   function handleSelect(questionId: string, selected: 0 | 1 | 2 | 3): void {
     setAnswers((prev) => {
@@ -51,6 +61,11 @@ export default function QuizPlayClient({ questions, category, isReview }: Props)
           answers,
         }),
       });
+      if (res.status === 401) {
+        setShowLoginPrompt(true);
+        setIsSubmitting(false);
+        return;
+      }
       if (!res.ok) {
         router.replace("/");
         return;
@@ -79,6 +94,30 @@ export default function QuizPlayClient({ questions, category, isReview }: Props)
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-6">
+      {showLoginPrompt && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 px-4">
+          <div className="bg-[#111] border border-neutral-800 rounded-xl p-6 max-w-sm w-full">
+            <h2 className="text-white font-semibold text-base mb-2">로그인이 필요합니다</h2>
+            <p className="text-neutral-400 text-sm mb-6 leading-relaxed">
+              퀴즈 결과를 저장하려면 로그인이 필요합니다. 로그인 후 오답 복습, 랭킹 등 모든 기능을 사용할 수 있습니다.
+            </p>
+            <div className="flex gap-3">
+              <Link
+                href="/api/auth/signin"
+                className="flex-1 rounded-lg bg-white text-black text-sm font-semibold py-2.5 text-center hover:bg-neutral-200 transition-colors"
+              >
+                로그인
+              </Link>
+              <button
+                onClick={() => router.push("/")}
+                className="flex-1 rounded-lg border border-neutral-700 text-sm text-neutral-300 py-2.5 hover:border-neutral-500 hover:text-white transition-colors"
+              >
+                홈으로
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* 상단 진행 상태 */}
       <div className="mb-4">
         <div className="flex items-center justify-between mb-2">

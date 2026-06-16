@@ -73,6 +73,65 @@ export async function getMyRanks(
   return result;
 }
 
+const CATEGORY_LABEL: Record<string, string> = {
+  ds: '자료구조', algo: '알고리즘', os: '운영체제',
+  network: '네트워크', db: '데이터베이스', arch: '컴퓨터 구조',
+};
+
+export type HomepagePersonalization = {
+  streak: { count: number; status: 'today' | 'yesterday' | 'none' };
+  weakCategory: { category: string; label: string; accuracy: number } | null;
+};
+
+export async function getHomepagePersonalization(userId: string): Promise<HomepagePersonalization> {
+  const [dbUser, categoryStats] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: userId },
+      select: { streakCount: true, lastQuizDate: true },
+    }),
+    prisma.$queryRaw<{ category: string; attemptCount: number; correctCount: number }[]>`
+      SELECT
+        q.category,
+        COUNT(*)::int AS "attemptCount",
+        SUM(CASE WHEN qa."isCorrect" THEN 1 ELSE 0 END)::int AS "correctCount"
+      FROM "QuestionAttempt" qa
+      JOIN "Question" q ON qa."questionId" = q.id
+      WHERE qa."userId" = ${userId}
+      GROUP BY q.category
+      HAVING COUNT(*) >= 5
+    `,
+  ]);
+
+  const today = new Date().toISOString().slice(0, 10);
+  const yesterdayDate = new Date(today);
+  yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+  const yesterday = yesterdayDate.toISOString().slice(0, 10);
+
+  const streakCount = dbUser?.streakCount ?? 0;
+  let streakStatus: 'today' | 'yesterday' | 'none' = 'none';
+  if (dbUser?.lastQuizDate) {
+    const lastDate = dbUser.lastQuizDate.toISOString().slice(0, 10);
+    if (lastDate === today) streakStatus = 'today';
+    else if (lastDate === yesterday) streakStatus = 'yesterday';
+  }
+
+  let weakCategory: HomepagePersonalization['weakCategory'] = null;
+  if (categoryStats.length > 0) {
+    const sorted = categoryStats
+      .map((r) => ({ category: r.category, accuracy: Number(r.correctCount) / Number(r.attemptCount) }))
+      .sort((a, b) => a.accuracy - b.accuracy);
+    if (sorted[0].accuracy < 0.8) {
+      weakCategory = {
+        category: sorted[0].category,
+        label: CATEGORY_LABEL[sorted[0].category] ?? sorted[0].category,
+        accuracy: sorted[0].accuracy,
+      };
+    }
+  }
+
+  return { streak: { count: streakCount, status: streakStatus }, weakCategory };
+}
+
 export async function buildRankings(): Promise<CategoryRankings> {
   const rows = await prisma.$queryRaw<RawRow[]>`
     SELECT
