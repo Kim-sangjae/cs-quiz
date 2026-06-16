@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import type { CategoryRankings, RankEntry } from '@/lib/rankings';
+import type { CategoryRankings, RankEntry, MyRankEntry } from '@/lib/rankings';
 
 const TABS: { key: keyof CategoryRankings; label: string }[] = [
   { key: 'ds', label: 'DS' },
@@ -15,11 +15,14 @@ const TABS: { key: keyof CategoryRankings; label: string }[] = [
 interface RankingSectionProps {
   rankings: CategoryRankings;
   currentUserId: string | null;
+  myRanks: Record<string, MyRankEntry>;
 }
 
-export default function RankingSection({ rankings, currentUserId }: RankingSectionProps) {
+export default function RankingSection({ rankings, currentUserId, myRanks }: RankingSectionProps) {
   const [activeTab, setActiveTab] = useState<keyof CategoryRankings>('ds');
   const entries: RankEntry[] = rankings[activeTab] ?? [];
+  const myRank = myRanks[activeTab] ?? null;
+  const isMeInTop5 = currentUserId != null && entries.some(e => e.userId === currentUserId);
 
   return (
     <section className="mt-12 border-t border-neutral-800 pt-8">
@@ -75,6 +78,23 @@ export default function RankingSection({ rankings, currentUserId }: RankingSecti
                 </tr>
               );
             })}
+            {!isMeInTop5 && myRank && (
+              <>
+                <tr><td colSpan={4} className="py-1"><div className="border-t border-dashed border-neutral-700" /></td></tr>
+                <tr className="bg-neutral-800/40">
+                  <td className="py-2.5 text-neutral-500">{myRank.rank}</td>
+                  <td className="py-2.5 text-white font-medium">
+                    나<span className="ml-2 text-xs text-neutral-500">(내 순위)</span>
+                  </td>
+                  <td className="py-2.5 text-right text-neutral-400">
+                    {myRank.attemptCount.toLocaleString()}
+                  </td>
+                  <td className="py-2.5 text-right text-neutral-300">
+                    {(myRank.accuracy * 100).toFixed(1)}%
+                  </td>
+                </tr>
+              </>
+            )}
           </tbody>
         </table>
       )}

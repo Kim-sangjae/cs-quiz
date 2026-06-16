@@ -2,7 +2,7 @@ import Link from "next/link";
 import { unstable_cache } from "next/cache";
 import { questions } from "@/data/questions";
 import { getServerUser } from "@/lib/auth";
-import { buildRankings, type CategoryRankings } from "@/lib/rankings";
+import { buildRankings, getMyRanks, type CategoryRankings, type MyRankEntry } from "@/lib/rankings";
 import RankingSection from "@/components/RankingSection";
 
 const total = questions.length;
@@ -48,6 +48,7 @@ export default async function Home() {
     getServerUser(),
     getCachedRankings().catch(() => EMPTY_RANKINGS),
   ]);
+  const myRanks = user ? await getMyRanks(user.id).catch(() => ({})) : {};
 
   return (
     <main className="min-h-screen px-4 py-14">
@@ -96,7 +97,7 @@ export default async function Home() {
         </section>
 
         {/* 랭킹 */}
-        <RankingSection rankings={rankings} currentUserId={user?.id ?? null} />
+        <RankingSection rankings={rankings} currentUserId={user?.id ?? null} myRanks={myRanks} />
       </div>
     </main>
   );

@@ -141,7 +141,18 @@ export default function ResultPage({
         )}
       </div>
 
-      <div className="flex gap-3 justify-center mt-8">
+      <div className="flex gap-3 justify-center mt-8 flex-wrap">
+        {wrongItems.length > 0 && (
+          <button
+            onClick={() => {
+              const ids = wrongItems.map((i) => i.question.id).join(",");
+              router.push(`/quiz/play?category=all&reviewIds=${ids}`);
+            }}
+            className="rounded-md border border-amber-800/60 text-amber-400 text-sm font-medium px-5 py-2.5 hover:bg-amber-950/30 transition-colors"
+          >
+            오답 복습 ({wrongItems.length}문제)
+          </button>
+        )}
         <button
           onClick={() => router.push("/quiz")}
           className="rounded-md bg-white text-black text-sm font-medium px-6 py-2.5 hover:bg-neutral-200 transition-colors"

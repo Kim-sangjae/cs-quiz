@@ -27,6 +27,52 @@ type RawRow = {
 
 const CATEGORIES = ['ds', 'algo', 'os', 'network', 'db', 'arch'] as const;
 
+export type MyRankEntry = {
+  rank: number;
+  accuracy: number;
+  attemptCount: number;
+} | null;
+
+export async function getMyRanks(
+  userId: string
+): Promise<Record<string, MyRankEntry>> {
+  const rows = await prisma.$queryRaw<
+    { category: string; rank: bigint; attemptCount: number; correctCount: number }[]
+  >`
+    WITH ranked AS (
+      SELECT
+        qa."userId",
+        q.category,
+        COUNT(*)::int AS "attemptCount",
+        SUM(CASE WHEN qa."isCorrect" THEN 1 ELSE 0 END)::int AS "correctCount",
+        RANK() OVER (
+          PARTITION BY q.category
+          ORDER BY
+            (SUM(CASE WHEN qa."isCorrect" THEN 1 ELSE 0 END)::float / NULLIF(COUNT(*), 0)) DESC,
+            COUNT(*) DESC
+        ) AS rank
+      FROM "QuestionAttempt" qa
+      JOIN "Question" q ON qa."questionId" = q.id
+      GROUP BY qa."userId", q.category
+      HAVING COUNT(*) >= 10
+    )
+    SELECT category, rank, "attemptCount", "correctCount"
+    FROM ranked
+    WHERE "userId" = ${userId}
+  `;
+
+  const result: Record<string, MyRankEntry> = {};
+  for (const cat of CATEGORIES) result[cat] = null;
+  for (const row of rows) {
+    result[row.category] = {
+      rank: Number(row.rank),
+      accuracy: Number(row.correctCount) / Number(row.attemptCount),
+      attemptCount: Number(row.attemptCount),
+    };
+  }
+  return result;
+}
+
 export async function buildRankings(): Promise<CategoryRankings> {
   const rows = await prisma.$queryRaw<RawRow[]>`
     SELECT
