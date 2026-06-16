@@ -23,8 +23,15 @@ export default function QuizPlayClient({ questions, category, isReview }: Props)
   const [exitModal, setExitModal] = useState<{ url: string | null; isBack: boolean } | null>(null);
   const autoAdvanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const allowNavRef = useRef(false);
+  const guardPushedRef = useRef(false);
+  const quizUrlRef = useRef('');
 
   const isDirty = answers.length > 0 && !isSubmitting;
+
+  // 퀴즈 URL 저장
+  useEffect(() => {
+    quizUrlRef.current = window.location.href;
+  }, []);
 
   // 브라우저 닫기/새로고침
   useEffect(() => {
@@ -53,16 +60,27 @@ export default function QuizPlayClient({ questions, category, isReview }: Props)
     return () => document.removeEventListener("click", handleLinkClick, true);
   }, [isDirty]);
 
-  // 브라우저 뒤로가기 (popstate)
+  // 첫 답변 시 guard 엔트리 push (URL 유지, 뒤로가기 1회 흡수용)
   useEffect(() => {
-    const handlePopState = () => {
+    if (answers.length === 1 && !guardPushedRef.current) {
+      guardPushedRef.current = true;
+      history.pushState({ ...history.state, __quizGuard: true }, '', quizUrlRef.current);
+    }
+  }, [answers.length]);
+
+  // 브라우저 뒤로가기 — guard 엔트리 소비 시 모달 표시
+  useEffect(() => {
+    const handlePopState = (e: PopStateEvent) => {
       if (allowNavRef.current) {
         allowNavRef.current = false;
         return;
       }
       if (!isDirty) return;
-      history.pushState(null, '', window.location.href);
-      setExitModal({ url: null, isBack: true });
+      if (!(e.state as Record<string, unknown> | null)?.__quizGuard) {
+        // guard가 없는 엔트리로 이동 → guard 재push 후 모달
+        history.pushState({ ...history.state, __quizGuard: true }, '', quizUrlRef.current);
+        setExitModal({ url: null, isBack: true });
+      }
     };
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
@@ -72,7 +90,7 @@ export default function QuizPlayClient({ questions, category, isReview }: Props)
     setExitModal(null);
     if (exitModal?.isBack) {
       allowNavRef.current = true;
-      router.back();
+      history.go(-2); // guard 엔트리 + 퀴즈 엔트리 2개 뒤로
     } else if (exitModal?.url) {
       router.push(exitModal.url);
     }
