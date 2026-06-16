@@ -177,6 +177,8 @@ const NICKNAME_REGEX = /^[a-zA-Z0-9가-힣]{2,12}$/;
 type ActiveTab = "history" | "my-questions" | "liked";
 type MyQStatus = "all" | "pending" | "approved" | "rejected";
 
+const HISTORY_PAGE_SIZE = 5;
+
 export default function MyPage() {
   const router = useRouter();
   const { data: session, update } = useSession();
@@ -225,6 +227,7 @@ export default function MyPage() {
   const [likedQuestions, setLikedQuestions] = useState<LikedQuestion[] | null>(null);
   const [likedLoading, setLikedLoading] = useState(false);
 
+  const [historyPage, setHistoryPage] = useState(0);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [expandedWrongId, setExpandedWrongId] = useState<string | null>(null);
 
@@ -430,9 +433,35 @@ export default function MyPage() {
             </div>
           ) : (
             <>
-              <p className="text-xs text-neutral-500 mb-3">풀이 기록</p>
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-xs text-neutral-500">
+                  풀이 기록 <span className="text-neutral-600">({sessions.length}회)</span>
+                </p>
+                {sessions.length > HISTORY_PAGE_SIZE && (
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => { setHistoryPage((p) => Math.max(0, p - 1)); setExpandedId(null); }}
+                      disabled={historyPage === 0}
+                      className="text-xs text-neutral-400 border border-neutral-800 rounded px-2 py-1 hover:border-neutral-600 hover:text-white disabled:opacity-30 transition-colors"
+                    >
+                      ←
+                    </button>
+                    <span className="text-xs text-neutral-500">
+                      {historyPage + 1} / {Math.ceil(sessions.length / HISTORY_PAGE_SIZE)}
+                    </span>
+                    <button
+                      onClick={() => { setHistoryPage((p) => Math.min(Math.ceil(sessions.length / HISTORY_PAGE_SIZE) - 1, p + 1)); setExpandedId(null); }}
+                      disabled={historyPage >= Math.ceil(sessions.length / HISTORY_PAGE_SIZE) - 1}
+                      className="text-xs text-neutral-400 border border-neutral-800 rounded px-2 py-1 hover:border-neutral-600 hover:text-white disabled:opacity-30 transition-colors"
+                    >
+                      →
+                    </button>
+                  </div>
+                )}
+              </div>
               <div className="space-y-3">
-                {sessions.map((session, idx) => {
+                {sessions.slice(historyPage * HISTORY_PAGE_SIZE, (historyPage + 1) * HISTORY_PAGE_SIZE).map((session, idx) => {
+                  const sessionIdx = historyPage * HISTORY_PAGE_SIZE + idx;
                   const isExpanded = expandedId === session.submittedAt;
                   const scoreColor =
                     session.score >= 27
@@ -465,7 +494,7 @@ export default function MyPage() {
                       >
                         <div className="flex items-start justify-between">
                           <span className="text-xs text-neutral-500">
-                            #{sessions.length - idx}회 · {formatDate(session.submittedAt)}
+                            #{sessions.length - sessionIdx}회 · {formatDate(session.submittedAt)}
                           </span>
                           <div className="flex items-center gap-3 flex-shrink-0 ml-4">
                             <span className={`text-xl font-bold ${scoreColor}`}>
