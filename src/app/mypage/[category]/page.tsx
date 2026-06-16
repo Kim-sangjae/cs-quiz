@@ -77,7 +77,18 @@ export default function CategoryWrongNotePage() {
         </div>
       ) : (
         <>
-          <p className="text-xs text-neutral-500 mb-3">오답 {items.length}문제</p>
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-xs text-neutral-500">오답 {items.length}문제</p>
+            <button
+              onClick={() => {
+                const ids = items.slice(0, 30).map((i) => i.question.id).join(",");
+                router.push(`/quiz/play?category=${category}&reviewIds=${ids}`);
+              }}
+              className="text-xs text-amber-400 border border-amber-800/60 rounded px-3 py-1.5 hover:bg-amber-950/30 transition-colors"
+            >
+              오답 복습 퀴즈 ({Math.min(items.length, 30)}문제)
+            </button>
+          </div>
           <div className="space-y-2">
             {items.map((item, idx) => {
               const isExpanded = expandedId === item.question.id;

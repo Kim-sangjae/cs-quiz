@@ -6,27 +6,52 @@ import QuizPlayClient from "./QuizPlayClient";
 export default async function QuizPlayPage({
   searchParams,
 }: {
-  searchParams: Promise<{ category?: string }>;
+  searchParams: Promise<{ category?: string; reviewIds?: string }>;
 }) {
-  const { category } = await searchParams;
+  const { category, reviewIds } = await searchParams;
 
-  const dbQuestions = await prisma.question.findMany({
-    where: {
-      status: { in: ["OFFICIAL", "APPROVED"] },
-      ...(category && category !== "all" ? { category } : {}),
-    },
-  });
+  let questions: Question[];
 
-  const questions: Question[] = dbQuestions.map((q) => ({
-    id: q.id,
-    category: q.category as Category,
-    question: q.question,
-    options: q.options as [string, string, string, string],
-    answer: q.answer as 0 | 1 | 2 | 3,
-    explanation: q.explanation,
-  }));
+  if (reviewIds) {
+    const ids = reviewIds.split(",").filter(Boolean).slice(0, 30);
+    const dbQuestions = await prisma.question.findMany({
+      where: { id: { in: ids } },
+    });
+    const qMap = new Map(dbQuestions.map((q) => [q.id, q]));
+    questions = ids
+      .map((id) => qMap.get(id))
+      .filter((q): q is NonNullable<typeof q> => !!q)
+      .map((q) => ({
+        id: q.id,
+        category: q.category as Category,
+        question: q.question,
+        options: q.options as [string, string, string, string],
+        answer: q.answer as 0 | 1 | 2 | 3,
+        explanation: q.explanation,
+      }));
+  } else {
+    const dbQuestions = await prisma.question.findMany({
+      where: {
+        status: { in: ["OFFICIAL", "APPROVED"] },
+        ...(category && category !== "all" ? { category } : {}),
+      },
+    });
+    questions = dbQuestions.map((q) => ({
+      id: q.id,
+      category: q.category as Category,
+      question: q.question,
+      options: q.options as [string, string, string, string],
+      answer: q.answer as 0 | 1 | 2 | 3,
+      explanation: q.explanation,
+    }));
+    questions = sample(questions, 30);
+  }
 
-  const sampled = sample(questions, 30);
-
-  return <QuizPlayClient questions={sampled} category={category ?? "all"} />;
+  return (
+    <QuizPlayClient
+      questions={questions}
+      category={category ?? "all"}
+      isReview={!!reviewIds}
+    />
+  );
 }

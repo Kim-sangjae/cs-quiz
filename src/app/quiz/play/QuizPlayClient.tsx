@@ -10,9 +10,10 @@ import ProgressBar from "@/components/ProgressBar";
 interface Props {
   questions: Question[];
   category: string;
+  isReview?: boolean;
 }
 
-export default function QuizPlayClient({ questions, category }: Props) {
+export default function QuizPlayClient({ questions, category, isReview }: Props) {
   const router = useRouter();
   const [answers, setAnswers] = useState<UserAnswer[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -84,6 +85,11 @@ export default function QuizPlayClient({ questions, category }: Props) {
           <div className="flex items-center gap-2">
             <span className="text-lg font-semibold text-white">{currentIndex + 1}</span>
             <span className="text-neutral-600">/ {questions.length}</span>
+            {isReview && (
+              <span className="text-[10px] text-amber-400 border border-amber-800/60 rounded px-1.5 py-0.5">
+                오답 복습
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <span className="text-sm text-emerald-400 font-medium">{answers.length}개 완료</span>
