@@ -4,6 +4,7 @@ import { getServerUser } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import LikeButton from '@/components/board/LikeButton';
 import ReportModal from '@/components/board/ReportModal';
+import BoardQuizWidget from '@/components/board/BoardQuizWidget';
 
 const CATEGORY_LABELS: Record<string, string> = {
   ds: '자료구조',
@@ -13,8 +14,6 @@ const CATEGORY_LABELS: Record<string, string> = {
   db: 'DB',
   arch: '컴퓨터구조',
 };
-
-const OPTION_LABELS = ['A', 'B', 'C', 'D'] as const;
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -96,42 +95,11 @@ export default async function BoardDetailPage({ params }: PageProps) {
           {question.question}
         </p>
 
-        <div className="space-y-2 mb-6">
-          {options.map((option, idx) => {
-            const isAnswer = idx === question.answer;
-            return (
-              <div
-                key={idx}
-                className={`flex items-center gap-3 rounded-md border px-4 py-3 text-sm cursor-default ${
-                  isAnswer
-                    ? 'border-green-500 bg-green-500/10 text-green-400'
-                    : 'border-neutral-800 bg-[#1a1a1a] text-neutral-500 opacity-50'
-                }`}
-              >
-                <span className="text-xs font-mono flex-shrink-0">{OPTION_LABELS[idx]}</span>
-                <span>{option}</span>
-                {isAnswer && (
-                  <svg
-                    className="ml-auto flex-shrink-0"
-                    width={16}
-                    height={16}
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth={1.5}
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                  </svg>
-                )}
-              </div>
-            );
-          })}
-        </div>
-
-        <div className="border-t border-neutral-800 pt-4 mb-6">
-          <p className="text-xs text-neutral-500 mb-1">해설</p>
-          <p className="text-sm text-neutral-300 leading-relaxed">{question.explanation}</p>
-        </div>
+        <BoardQuizWidget
+          options={options}
+          answer={question.answer}
+          explanation={question.explanation}
+        />
 
         <div className="flex items-center justify-between text-xs text-neutral-500 mb-4">
           <span>{question.author?.nickname ?? '익명'}</span>
