@@ -20,31 +20,63 @@ export default function QuizPlayClient({ questions, category, isReview }: Props)
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
+  const [exitModal, setExitModal] = useState<{ url: string | null; isBack: boolean } | null>(null);
   const autoAdvanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const allowNavRef = useRef(false);
 
+  const isDirty = answers.length > 0 && !isSubmitting;
+
+  // 브라우저 닫기/새로고침
   useEffect(() => {
     const handler = (e: BeforeUnloadEvent) => {
-      if (answers.length > 0 && !isSubmitting) e.preventDefault();
+      if (!isDirty) return;
+      e.preventDefault();
+      e.returnValue = '';
     };
     window.addEventListener("beforeunload", handler);
     return () => window.removeEventListener("beforeunload", handler);
-  }, [answers.length, isSubmitting]);
+  }, [isDirty]);
 
+  // 헤더 링크 클릭 인터셉트 (캡처 페이즈)
   useEffect(() => {
     const handleLinkClick = (e: MouseEvent) => {
-      if (answers.length === 0 || isSubmitting) return;
+      if (!isDirty) return;
       const anchor = (e.target as HTMLElement).closest("a");
       if (!anchor) return;
       const href = anchor.getAttribute("href");
       if (!href || href.startsWith("#") || /^https?:\/\//.test(href)) return;
-      if (!window.confirm("퀴즈를 종료하면 현재까지의 답변이 사라집니다. 계속하시겠습니까?")) {
-        e.preventDefault();
-        e.stopPropagation();
-      }
+      e.preventDefault();
+      e.stopPropagation();
+      setExitModal({ url: href, isBack: false });
     };
     document.addEventListener("click", handleLinkClick, true);
     return () => document.removeEventListener("click", handleLinkClick, true);
-  }, [answers.length, isSubmitting]);
+  }, [isDirty]);
+
+  // 브라우저 뒤로가기 (popstate)
+  useEffect(() => {
+    const handlePopState = () => {
+      if (allowNavRef.current) {
+        allowNavRef.current = false;
+        return;
+      }
+      if (!isDirty) return;
+      history.pushState(null, '', window.location.href);
+      setExitModal({ url: null, isBack: true });
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [isDirty]);
+
+  function handleExitConfirm() {
+    setExitModal(null);
+    if (exitModal?.isBack) {
+      allowNavRef.current = true;
+      router.back();
+    } else if (exitModal?.url) {
+      router.push(exitModal.url);
+    }
+  }
 
   function handleSelect(questionId: string, selected: 0 | 1 | 2 | 3): void {
     setAnswers((prev) => {
@@ -110,6 +142,7 @@ export default function QuizPlayClient({ questions, category, isReview }: Props)
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-6">
+      {/* 로그인 유도 모달 */}
       {showLoginPrompt && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 px-4">
           <div className="bg-[#111] border border-neutral-800 rounded-xl p-6 max-w-sm w-full">
@@ -134,6 +167,33 @@ export default function QuizPlayClient({ questions, category, isReview }: Props)
           </div>
         </div>
       )}
+
+      {/* 퀴즈 이탈 확인 모달 */}
+      {exitModal && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 px-4">
+          <div className="bg-[#111] border border-neutral-800 rounded-xl p-6 max-w-sm w-full">
+            <h2 className="text-white font-semibold text-base mb-2">퀴즈를 종료하시겠습니까?</h2>
+            <p className="text-neutral-400 text-sm mb-6 leading-relaxed">
+              지금 나가면 현재까지의 답변 {answers.length}개가 모두 사라집니다.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={handleExitConfirm}
+                className="flex-1 rounded-lg bg-neutral-800 border border-neutral-700 text-sm text-neutral-200 py-2.5 hover:bg-neutral-700 transition-colors"
+              >
+                나가기
+              </button>
+              <button
+                onClick={() => setExitModal(null)}
+                className="flex-1 rounded-lg bg-white text-black text-sm font-semibold py-2.5 hover:bg-neutral-200 transition-colors"
+              >
+                계속 풀기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 상단 진행 상태 */}
       <div className="mb-4">
         <div className="flex items-center justify-between mb-2">
