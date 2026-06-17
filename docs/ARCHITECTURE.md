@@ -66,6 +66,10 @@ src/
 ├── components/
 │   ├── Header.tsx                        # 공통 헤더 (Client)
 │   ├── NotificationBell.tsx              # 알림 벨 (Client, 30초 폴링)
+│   ├── ResultCard.tsx                    # 오답/전체 리뷰 카드 (Client, 신고 버튼 포함)
+│   ├── QuizCard.tsx                      # 퀴즈 문제 카드
+│   ├── Navigator.tsx                     # 문제 번호 점프 네비게이터
+│   ├── ProgressBar.tsx                   # 진행률 바
 │   └── board/
 │       ├── SearchBar.tsx
 │       ├── FilterBar.tsx
@@ -105,8 +109,10 @@ src/
 | `app/inquiry/new/page.tsx` | Client | 폼 상태 |
 | `app/admin/page.tsx` | Client | TanStack Query |
 | `app/mypage/page.tsx` | Client | DB fetching |
+| `app/mypage/[category]/page.tsx` | Client | 카테고리별 오답 목록 |
 | `components/Header.tsx` | Client | useSession, useRouter |
 | `components/NotificationBell.tsx` | Client | 30초 폴링 |
+| `components/ResultCard.tsx` | Client | 신고 모달(ReportModal) 포함 |
 
 `"use client"` 경계는 이벤트 핸들러·브라우저 API가 필요한 가장 아래쪽 컴포넌트에만 선언.
 

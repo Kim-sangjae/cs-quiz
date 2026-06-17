@@ -38,6 +38,12 @@
 | 마이그레이션 후에도 같은 에러 | Prisma Client가 구버전 캐시 사용 중 | `npx prisma generate` 후 서버 재시작 |
 | `[Error [PageNotFoundError]: Cannot find module for page: /api/...]` (빌드 오류) | `.next` 캐시가 삭제된 API 라우트를 여전히 참조함 | `Remove-Item -Recurse -Force .next` 후 재빌드 |
 
+### Windows / OneDrive
+
+| 문제 | 원인 | 해결 |
+|------|------|------|
+| `EBUSY: resource busy or locked, open '.../.next/server/...nft.json'` (빌드 중) | 프로젝트가 OneDrive 동기화 폴더에 있을 때 빌드 마지막 단계에서 OneDrive가 파일을 잠금 | 실제 컴파일·정적 페이지 생성은 완료된 상태이므로 빌드 결과물은 정상. 재빌드하거나 OneDrive 동기화 일시 중지 후 빌드 |
+
 ### Claude Code 토큰 소비
 
 | 문제 | 원인 | 해결 |

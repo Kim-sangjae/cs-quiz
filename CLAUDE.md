@@ -52,7 +52,7 @@ python scripts/execute.py {phase} --push # 실행 후 push
 
 ## 구현 현황
 
-phases 0~6 전부 완료. 아래 기능이 모두 구현된 상태다.
+phases 0~6 + UX 개선 전부 완료. 아래 기능이 모두 구현된 상태다.
 
 | 페이즈 | 구현 내용 |
 |--------|-----------|
@@ -63,6 +63,7 @@ phases 0~6 전부 완료. 아래 기능이 모두 구현된 상태다.
 | 4-admin | 관리자 패널(승인/거절/블라인드) |
 | 5-social | 메인 랭킹(카테고리별 TOP5), 알림(30초 폴링) |
 | 6-mypage-v2 | 마이페이지 DB 전환, 계정 설정(닉네임 변경/로그아웃) |
+| 7-ux | 오답 신고 버튼(ResultCard), 자동이동 토글, 카테고리 오답 상세(`/mypage/[category]`), 거절 문제 재요청(`/board/submit?resubmit=`), 결과 전체 리뷰 탭, Web Share API, 키보드 단축키(←/→/1~4), 퀴즈 진행 상태 localStorage 저장 |
 
 ---
 
