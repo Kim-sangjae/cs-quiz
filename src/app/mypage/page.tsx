@@ -228,6 +228,64 @@ function filterLiked(questions: LikedQuestion[], search: string, cat: string): L
   return result;
 }
 
+function StreakCalendar({ sessions }: { sessions: ApiSession[] }) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const activeDays = new Set<string>();
+  for (const s of sessions) {
+    const d = new Date(s.submittedAt);
+    activeDays.add(d.toLocaleDateString("en-CA")); // YYYY-MM-DD
+  }
+
+  const weeks: Date[][] = [];
+  for (let w = 11; w >= 0; w--) {
+    const week: Date[] = [];
+    for (let d = 6; d >= 0; d--) {
+      const day = new Date(today);
+      day.setDate(day.getDate() - (w * 7 + d));
+      week.push(day);
+    }
+    weeks.push(week);
+  }
+
+  return (
+    <div>
+      <p className="text-xs text-neutral-600 mb-2">최근 12주 활동</p>
+      <div className="flex gap-1">
+        {weeks.map((week, wi) => (
+          <div key={wi} className="flex flex-col gap-1">
+            {week.map((day) => {
+              const key = day.toLocaleDateString("en-CA");
+              const active = activeDays.has(key);
+              const isToday = day.getTime() === today.getTime();
+              return (
+                <div
+                  key={key}
+                  title={key + (active ? " — 퀴즈 완료" : "")}
+                  className={`w-3 h-3 rounded-sm ${
+                    isToday
+                      ? active
+                        ? "bg-emerald-400 ring-1 ring-emerald-300/50"
+                        : "bg-neutral-700 ring-1 ring-neutral-600/50"
+                      : active
+                      ? "bg-emerald-600"
+                      : "bg-neutral-800"
+                  }`}
+                />
+              );
+            })}
+          </div>
+        ))}
+      </div>
+      <div className="flex justify-between mt-1.5">
+        <span className="text-[10px] text-neutral-700">12주 전</span>
+        <span className="text-[10px] text-neutral-700">오늘</span>
+      </div>
+    </div>
+  );
+}
+
 export default function MyPage() {
   const router = useRouter();
   const { data: session, update } = useSession();
@@ -380,7 +438,7 @@ export default function MyPage() {
       {/* 요약 카드 */}
       {stats && (
         <div className="bg-[#111111] border border-neutral-800 rounded-lg p-5 mb-4">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between mb-5">
             <div className="text-center flex-1">
               <p className="text-xs text-neutral-500 mb-1">총 퀴즈 횟수</p>
               <p className="text-xl font-bold text-white">{stats.totalSessions}
@@ -402,6 +460,7 @@ export default function MyPage() {
               </p>
             </div>
           </div>
+          {sessions.length > 0 && <StreakCalendar sessions={sessions} />}
         </div>
       )}
 
