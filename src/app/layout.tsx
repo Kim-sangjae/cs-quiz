@@ -21,6 +21,11 @@ export const metadata: Metadata = {
     title: 'CS Quiz',
     description: 'CS 기초 지식을 30문제로 점검하세요',
   },
+  appleWebApp: {
+    capable: true,
+    title: 'CS Quiz',
+    statusBarStyle: 'black-translucent',
+  },
 };
 
 export default function RootLayout({
