@@ -25,6 +25,9 @@ export default function ResultPage({
   const router = useRouter();
   const [data, setData] = useState<SessionData | null>(null);
   const [wrongIdx, setWrongIdx] = useState(0);
+  const [reviewTab, setReviewTab] = useState<'wrong' | 'all'>('wrong');
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [shareLabel, setShareLabel] = useState('결과 공유');
 
   useEffect(() => {
     fetch(`/api/quiz/sessions/${sessionId}`)
@@ -119,61 +122,134 @@ export default function ResultPage({
       )}
 
       <div>
-        {wrongItems.length === 0 ? (
-          <p className="text-green-400 text-center text-base font-medium py-8">
-            모든 문제를 맞혔습니다! 🎉
-          </p>
-        ) : (
-          <>
-            <div className="flex items-center justify-between mb-4">
-              <p className="text-sm text-neutral-400">
-                오답 <span className="text-white font-medium">{wrongIdx + 1}</span> / {wrongItems.length}
-              </p>
-              <div className="flex gap-1 flex-wrap justify-end max-w-[60%]">
-                {wrongItems.map((item, i) => (
-                  <button
-                    key={item.question.id}
-                    onClick={() => setWrongIdx(i)}
-                    title={`Q.${item.questionNumber} ${CATEGORY_LABEL[item.question.category] ?? item.question.category}`}
-                    className={`w-6 h-6 rounded text-[10px] transition-colors ${
-                      i === wrongIdx
-                        ? 'bg-white text-black font-bold'
-                        : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700'
-                    }`}
-                  >
-                    {item.questionNumber}
-                  </button>
-                ))}
+        {/* 탭 */}
+        <div className="flex gap-1 mb-4 border-b border-neutral-800 pb-0">
+          <button
+            onClick={() => setReviewTab('wrong')}
+            className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
+              reviewTab === 'wrong'
+                ? 'border-white text-white'
+                : 'border-transparent text-neutral-500 hover:text-neutral-300'
+            }`}
+          >
+            오답 {wrongItems.length > 0 && <span className="ml-1 text-xs text-red-400">{wrongItems.length}</span>}
+          </button>
+          <button
+            onClick={() => setReviewTab('all')}
+            className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
+              reviewTab === 'all'
+                ? 'border-white text-white'
+                : 'border-transparent text-neutral-500 hover:text-neutral-300'
+            }`}
+          >
+            전체 {questions.length}문제
+          </button>
+        </div>
+
+        {reviewTab === 'wrong' && (
+          wrongItems.length === 0 ? (
+            <p className="text-green-400 text-center text-base font-medium py-8">
+              모든 문제를 맞혔습니다! 🎉
+            </p>
+          ) : (
+            <>
+              <div className="flex items-center justify-between mb-4">
+                <p className="text-sm text-neutral-400">
+                  오답 <span className="text-white font-medium">{wrongIdx + 1}</span> / {wrongItems.length}
+                </p>
+                <div className="flex gap-1 flex-wrap justify-end max-w-[60%]">
+                  {wrongItems.map((item, i) => (
+                    <button
+                      key={item.question.id}
+                      onClick={() => setWrongIdx(i)}
+                      title={`Q.${item.questionNumber} ${CATEGORY_LABEL[item.question.category] ?? item.question.category}`}
+                      className={`w-6 h-6 rounded text-[10px] transition-colors ${
+                        i === wrongIdx
+                          ? 'bg-white text-black font-bold'
+                          : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700'
+                      }`}
+                    >
+                      {item.questionNumber}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
 
-            <ResultCard
-              questionNumber={wrongItems[wrongIdx].questionNumber}
-              question={wrongItems[wrongIdx].question}
-              userSelected={wrongItems[wrongIdx].userAnswer!.selected}
-              questionId={wrongItems[wrongIdx].question.id}
-            />
+              <ResultCard
+                questionNumber={wrongItems[wrongIdx].questionNumber}
+                question={wrongItems[wrongIdx].question}
+                userSelected={wrongItems[wrongIdx].userAnswer!.selected}
+                questionId={wrongItems[wrongIdx].question.id}
+              />
 
-            <div className="flex items-center justify-between mt-4">
-              <button
-                onClick={() => setWrongIdx((i) => Math.max(0, i - 1))}
-                disabled={wrongIdx === 0}
-                className="rounded-md border border-neutral-700 text-sm text-neutral-300 px-4 py-2 hover:border-neutral-500 hover:text-white disabled:opacity-30 transition-colors"
-              >
-                ← 이전
-              </button>
-              <span className="text-xs text-neutral-600">
-                Q.{wrongItems[wrongIdx].questionNumber} · {CATEGORY_LABEL[wrongItems[wrongIdx].question.category] ?? wrongItems[wrongIdx].question.category}
-              </span>
-              <button
-                onClick={() => setWrongIdx((i) => Math.min(wrongItems.length - 1, i + 1))}
-                disabled={wrongIdx === wrongItems.length - 1}
-                className="rounded-md border border-neutral-700 text-sm text-neutral-300 px-4 py-2 hover:border-neutral-500 hover:text-white disabled:opacity-30 transition-colors"
-              >
-                다음 →
-              </button>
-            </div>
-          </>
+              <div className="flex items-center justify-between mt-4">
+                <button
+                  onClick={() => setWrongIdx((i) => Math.max(0, i - 1))}
+                  disabled={wrongIdx === 0}
+                  className="rounded-md border border-neutral-700 text-sm text-neutral-300 px-4 py-2 hover:border-neutral-500 hover:text-white disabled:opacity-30 transition-colors"
+                >
+                  ← 이전
+                </button>
+                <span className="text-xs text-neutral-600">
+                  Q.{wrongItems[wrongIdx].questionNumber} · {CATEGORY_LABEL[wrongItems[wrongIdx].question.category] ?? wrongItems[wrongIdx].question.category}
+                </span>
+                <button
+                  onClick={() => setWrongIdx((i) => Math.min(wrongItems.length - 1, i + 1))}
+                  disabled={wrongIdx === wrongItems.length - 1}
+                  className="rounded-md border border-neutral-700 text-sm text-neutral-300 px-4 py-2 hover:border-neutral-500 hover:text-white disabled:opacity-30 transition-colors"
+                >
+                  다음 →
+                </button>
+              </div>
+            </>
+          )
+        )}
+
+        {reviewTab === 'all' && (
+          <div className="space-y-2">
+            {questions.map((q, i) => {
+              const ua = answers.find((a) => a.questionId === q.id);
+              const isCorrect = ua && ua.selected === q.answer;
+              const isExpanded = expandedId === q.id;
+              return (
+                <div key={q.id} className="border border-neutral-800 rounded-lg overflow-hidden">
+                  <button
+                    onClick={() => setExpandedId(isExpanded ? null : q.id)}
+                    className="w-full text-left px-4 py-3 hover:bg-[#1a1a1a] transition-colors flex items-center justify-between gap-3"
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-xs text-neutral-600 flex-shrink-0">{i + 1}.</span>
+                      <span className={`text-[10px] flex-shrink-0 border rounded px-1.5 py-0.5 ${
+                        isCorrect
+                          ? 'text-emerald-400 border-emerald-900/50'
+                          : 'text-red-400 border-red-900/50'
+                      }`}>
+                        {isCorrect ? '정답' : '오답'}
+                      </span>
+                      <span className="text-sm text-neutral-300 truncate">{q.question}</span>
+                    </div>
+                    <svg
+                      width={14} height={14} viewBox="0 0 24 24" fill="none"
+                      stroke="currentColor" strokeWidth={2}
+                      className={`text-neutral-600 flex-shrink-0 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                  {isExpanded && (
+                    <div className="border-t border-neutral-800">
+                      <ResultCard
+                        questionNumber={i + 1}
+                        question={q}
+                        userSelected={(ua?.selected ?? q.answer) as 0 | 1 | 2 | 3}
+                        questionId={q.id}
+                      />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         )}
       </div>
 
@@ -200,12 +276,20 @@ export default function ResultPage({
             const catSummary = catEntries.map(([cat, { correct, total }]) =>
               `${CATEGORY_LABEL[cat] ?? cat} ${correct}/${total}`
             ).join(' · ');
-            const text = `CS Quiz 결과: ${session.score}/30점\n${catSummary}\n${window.location.origin}/quiz`;
-            navigator.clipboard.writeText(text).then(() => alert('결과가 클립보드에 복사됐습니다!'));
+            const shareText = `CS Quiz 결과: ${session.score}/30점\n${catSummary}`;
+            const shareUrl = `${window.location.origin}/quiz`;
+            if (navigator.share) {
+              navigator.share({ title: 'CS Quiz 결과', text: shareText, url: shareUrl }).catch(() => {});
+            } else {
+              navigator.clipboard.writeText(`${shareText}\n${shareUrl}`).then(() => {
+                setShareLabel('복사됨!');
+                setTimeout(() => setShareLabel('결과 공유'), 2000);
+              });
+            }
           }}
           className="rounded-md border border-neutral-700 text-sm text-neutral-300 px-5 py-2.5 hover:border-neutral-500 hover:text-white transition-colors"
         >
-          결과 공유
+          {shareLabel}
         </button>
         <button
           onClick={() => router.push("/")}

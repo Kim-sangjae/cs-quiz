@@ -29,6 +29,39 @@ export default function QuizPlayClient({ questions, category, isReview }: Props)
   const [autoAdvance, setAutoAdvance] = useState(true);
   const isDirty = answers.length > 0 && !isSubmitting;
 
+  // 키보드 단축키
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (showLoginPrompt || exitModal) return;
+      if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'TEXTAREA') return;
+      if (e.key === 'ArrowLeft' && currentIndex > 0) {
+        if (autoAdvanceTimer.current) clearTimeout(autoAdvanceTimer.current);
+        setCurrentIndex((i) => i - 1);
+      } else if (e.key === 'ArrowRight' && currentIndex < questions.length - 1) {
+        if (autoAdvanceTimer.current) clearTimeout(autoAdvanceTimer.current);
+        setCurrentIndex((i) => i + 1);
+      } else if (['1', '2', '3', '4'].includes(e.key)) {
+        const questionId = questions[currentIndex].id;
+        const idx = (parseInt(e.key) - 1) as 0 | 1 | 2 | 3;
+        setAnswers((prev) => {
+          const existing = prev.findIndex((a) => a.questionId === questionId);
+          if (existing !== -1) {
+            const next = [...prev];
+            next[existing] = { questionId, selected: idx };
+            return next;
+          }
+          return [...prev, { questionId, selected: idx }];
+        });
+        if (autoAdvanceTimer.current) clearTimeout(autoAdvanceTimer.current);
+        if (autoAdvance && currentIndex < questions.length - 1) {
+          autoAdvanceTimer.current = setTimeout(() => setCurrentIndex((i) => i + 1), 500);
+        }
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [showLoginPrompt, exitModal, currentIndex, questions, autoAdvance]);
+
   // 퀴즈 URL 저장
   useEffect(() => {
     quizUrlRef.current = window.location.href;
@@ -39,6 +72,36 @@ export default function QuizPlayClient({ questions, category, isReview }: Props)
     const saved = localStorage.getItem('quiz-auto-advance');
     if (saved !== null) setAutoAdvance(saved === 'true');
   }, []);
+
+  // 진행 상태 복원
+  const progressKey = `quiz-progress-${category}-${questions[0]?.id ?? ''}`;
+  useEffect(() => {
+    const raw = localStorage.getItem(progressKey);
+    if (!raw) return;
+    try {
+      const saved = JSON.parse(raw) as { questionIds: string[]; answers: UserAnswer[]; currentIndex: number };
+      const ids = questions.map((q) => q.id).join(',');
+      if (saved.questionIds.join(',') !== ids) {
+        localStorage.removeItem(progressKey);
+        return;
+      }
+      setAnswers(saved.answers);
+      setCurrentIndex(saved.currentIndex);
+    } catch {
+      localStorage.removeItem(progressKey);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // 진행 상태 저장
+  useEffect(() => {
+    if (answers.length === 0) return;
+    localStorage.setItem(progressKey, JSON.stringify({
+      questionIds: questions.map((q) => q.id),
+      answers,
+      currentIndex,
+    }));
+  }, [answers, currentIndex, progressKey, questions]);
 
   // 브라우저 닫기/새로고침
   useEffect(() => {
@@ -144,6 +207,7 @@ export default function QuizPlayClient({ questions, category, isReview }: Props)
         return;
       }
       const { sessionId } = await res.json() as { sessionId: string };
+      localStorage.removeItem(progressKey);
       router.push(`/result/${sessionId}`);
     } catch (e) {
       console.error("[QuizPlay] submit failed:", e);
