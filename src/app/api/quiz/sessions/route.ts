@@ -15,6 +15,10 @@ export async function POST(req: NextRequest) {
   };
   const { category, questionIds, answers } = body;
 
+  const prevAttemptCount = await prisma.questionAttempt.count({
+    where: { userId: user.id, question: { category } },
+  });
+
   const dbQuestions = await prisma.question.findMany({
     where: { id: { in: questionIds } },
     select: { id: true, answer: true },
@@ -94,6 +98,32 @@ export async function POST(req: NextRequest) {
     });
   } catch (e) {
     console.error('[sessions/POST] streak update failed:', e);
+  }
+
+  // Level-up detection — outside transaction; failure must not block response
+  try {
+    function getLevel(total: number): number {
+      if (total >= 300) return 4;
+      if (total >= 150) return 3;
+      if (total >= 50) return 2;
+      return 1;
+    }
+    const LEVEL_NAMES: Record<number, string> = { 1: '입문', 2: '학습', 3: '숙련', 4: '마스터' };
+    const newAttemptCount = prevAttemptCount + answers.length;
+    const prevLevel = getLevel(prevAttemptCount);
+    const newLevel = getLevel(newAttemptCount);
+    if (newLevel > prevLevel) {
+      await prisma.notification.create({
+        data: {
+          userId: user.id,
+          type: 'LEVEL_UP',
+          payload: { category, prevLevel, newLevel, levelName: LEVEL_NAMES[newLevel] },
+          actionUrl: '/mypage',
+        },
+      });
+    }
+  } catch (e) {
+    console.error('[sessions/POST] level-up check failed:', e);
   }
 
   return NextResponse.json({ sessionId: session.id });

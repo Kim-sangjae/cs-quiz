@@ -185,6 +185,7 @@ enum NotificationType {
   QUESTION_REJECTED
   ROLE_CHANGED
   INQUIRY_REPLIED
+  LEVEL_UP
 }
 
 enum InquiryType {

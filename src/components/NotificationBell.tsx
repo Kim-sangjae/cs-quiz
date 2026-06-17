@@ -10,11 +10,15 @@ interface NotificationPayload {
   rejectionReason?: string;
   newRole?: string;
   inquiryTitle?: string;
+  category?: string;
+  prevLevel?: number;
+  newLevel?: number;
+  levelName?: string;
 }
 
 interface Notification {
   id: string;
-  type: 'QUESTION_APPROVED' | 'QUESTION_REJECTED' | 'ROLE_CHANGED' | 'INQUIRY_REPLIED';
+  type: 'QUESTION_APPROVED' | 'QUESTION_REJECTED' | 'ROLE_CHANGED' | 'INQUIRY_REPLIED' | 'LEVEL_UP';
   payload: NotificationPayload;
   actionUrl: string | null;
   isRead: boolean;
@@ -41,6 +45,9 @@ function getNotificationMessage(n: Notification): string {
   }
   if (n.type === 'INQUIRY_REPLIED') {
     return `'${payload.inquiryTitle}' 문의에 답변이 등록되었습니다.`;
+  }
+  if (n.type === 'LEVEL_UP') {
+    return `${payload.levelName ?? ''} 달성! Lv.${payload.prevLevel} → Lv.${payload.newLevel}으로 레벨업했습니다.`;
   }
   return '새 알림이 있습니다.';
 }

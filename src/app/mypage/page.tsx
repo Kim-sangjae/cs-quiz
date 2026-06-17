@@ -21,6 +21,21 @@ const CATEGORY_ORDER: Category[] = ["ds", "algo", "os", "network", "db", "arch"]
 
 type BadgeTier = "bronze" | "silver" | "gold";
 
+const LEVEL_INFO: Record<number, { name: string; badge: string; text: string; bar: string }> = {
+  1: { name: '입문', badge: 'text-neutral-400 border-neutral-700', text: 'text-neutral-400', bar: 'bg-neutral-500' },
+  2: { name: '학습', badge: 'text-blue-400 border-blue-900/60', text: 'text-blue-400', bar: 'bg-blue-500' },
+  3: { name: '숙련', badge: 'text-emerald-400 border-emerald-900/60', text: 'text-emerald-400', bar: 'bg-emerald-500' },
+  4: { name: '마스터', badge: 'text-yellow-400 border-yellow-700/60', text: 'text-yellow-400', bar: 'bg-yellow-500' },
+};
+
+const LEVEL_MIN = [0, 0, 50, 150, 300] as const;
+const LEVEL_MAX = [0, 50, 150, 300, 300] as const;
+
+function getLevelProgress(total: number, level: number): number {
+  if (level >= 4) return 100;
+  return Math.min(100, Math.round(((total - LEVEL_MIN[level]) / (LEVEL_MAX[level] - LEVEL_MIN[level])) * 100));
+}
+
 type ApiQuestion = {
   id: string;
   category: string;
@@ -556,43 +571,46 @@ export default function MyPage() {
       )}
 
       {/* 카테고리별 프로필 */}
-      <div className="bg-[#111111] border border-neutral-800 rounded-lg p-5 mb-6">
-        <p className="text-xs text-neutral-500 mb-4">카테고리별 현황</p>
-        <div className="space-y-1">
-          {profileStats.map(({ cat, label, total, correct, accuracy, level, badge }) => (
-            <button
-              key={cat}
-              onClick={() => router.push(`/mypage/${cat}`)}
-              className="w-full flex items-center gap-3 px-2 py-2 rounded-md hover:bg-[#1a1a1a] transition-colors text-left"
-            >
-              <span className="text-sm text-neutral-300 w-16 flex-shrink-0">{label}</span>
-              <span className="text-[10px] text-neutral-600 border border-neutral-800 rounded px-1.5 py-0.5 flex-shrink-0">
-                Lv.{level}
-              </span>
-              <div className="w-[50px] flex-shrink-0">
-                {badge && <BadgePill tier={badge} />}
-              </div>
-              <div className="flex items-center gap-2 ml-auto">
-                <span className="text-xs text-neutral-600">
-                  {total > 0 ? `${correct}/${total}` : "–"}
-                </span>
-                <span className="text-xs text-neutral-400 w-8 text-right">
-                  {total > 0 ? `${accuracy}%` : ""}
-                </span>
-              </div>
-              <svg
-                width={12}
-                height={12}
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2}
-                className="text-neutral-700 flex-shrink-0"
+      <div className="mb-6">
+        <p className="text-xs text-neutral-500 mb-3">카테고리별 현황</p>
+        <div className="grid grid-cols-2 gap-3">
+          {profileStats.map(({ cat, label, total, accuracy, level, badge }) => {
+            const info = LEVEL_INFO[level];
+            const progress = getLevelProgress(total, level);
+            return (
+              <button
+                key={cat}
+                onClick={() => router.push(`/mypage/${cat}`)}
+                className="bg-[#111111] border border-neutral-800 rounded-xl p-4 text-left hover:bg-[#161616] transition-colors"
               >
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
-          ))}
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-white">{label}</span>
+                  <span className={`text-[10px] font-bold border rounded px-1.5 py-0.5 ${info.badge}`}>
+                    Lv.{level}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 mb-3">
+                  <span className={`text-base font-bold ${info.text}`}>{info.name}</span>
+                  {badge && <BadgePill tier={badge} />}
+                </div>
+                {level < 4 ? (
+                  <div>
+                    <div className="h-1.5 bg-neutral-800 rounded-full overflow-hidden mb-1">
+                      <div className={`h-full rounded-full transition-all ${info.bar}`} style={{ width: `${progress}%` }} />
+                    </div>
+                    <p className="text-[10px] text-neutral-600">
+                      {total} / {LEVEL_MAX[level]}회
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-[10px] text-yellow-500/70">마스터 달성!</p>
+                )}
+                {total > 0 && (
+                  <p className="text-xs text-neutral-500 mt-2">정답률 {accuracy}%</p>
+                )}
+              </button>
+            );
+          })}
         </div>
       </div>
 
