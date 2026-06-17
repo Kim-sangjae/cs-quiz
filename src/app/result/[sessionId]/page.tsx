@@ -195,6 +195,18 @@ export default function ResultPage({
           다시 풀기
         </button>
         <button
+          onClick={() => {
+            const catSummary = catEntries.map(([cat, { correct, total }]) =>
+              `${CATEGORY_LABEL[cat] ?? cat} ${correct}/${total}`
+            ).join(' · ');
+            const text = `CS Quiz 결과: ${session.score}/30점\n${catSummary}\n${window.location.origin}/quiz`;
+            navigator.clipboard.writeText(text).then(() => alert('결과가 클립보드에 복사됐습니다!'));
+          }}
+          className="rounded-md border border-neutral-700 text-sm text-neutral-300 px-5 py-2.5 hover:border-neutral-500 hover:text-white transition-colors"
+        >
+          결과 공유
+        </button>
+        <button
           onClick={() => router.push("/")}
           className="rounded-md border border-neutral-700 text-sm text-neutral-300 px-5 py-2.5 hover:border-neutral-500 hover:text-white transition-colors"
         >
