@@ -4,6 +4,7 @@ import { questions } from "@/data/questions";
 import { getServerUser } from "@/lib/auth";
 import { buildRankings, getMyRanks, getHomepagePersonalization, type CategoryRankings, type MyRankEntry, type HomepagePersonalization } from "@/lib/rankings";
 import RankingSection from "@/components/RankingSection";
+import DailyChallenge from "@/components/DailyChallenge";
 
 const total = questions.length;
 
@@ -120,6 +121,9 @@ export default async function Home() {
             </div>
           )}
         </div>
+
+        {/* 오늘의 문제 */}
+        <DailyChallenge />
 
         {/* 소개 */}
         <section className="mb-12 border-t border-neutral-800 pt-10">

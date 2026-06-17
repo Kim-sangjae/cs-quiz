@@ -31,13 +31,14 @@ export type MyRankEntry = {
   rank: number;
   accuracy: number;
   attemptCount: number;
+  totalParticipants: number;
 } | null;
 
 export async function getMyRanks(
   userId: string
 ): Promise<Record<string, MyRankEntry>> {
   const rows = await prisma.$queryRaw<
-    { category: string; rank: bigint; attemptCount: number; correctCount: number }[]
+    { category: string; rank: bigint; attemptCount: number; correctCount: number; totalParticipants: bigint }[]
   >`
     WITH ranked AS (
       SELECT
@@ -50,13 +51,14 @@ export async function getMyRanks(
           ORDER BY
             (SUM(CASE WHEN qa."isCorrect" THEN 1 ELSE 0 END)::float / NULLIF(COUNT(*), 0)) DESC,
             COUNT(*) DESC
-        ) AS rank
+        ) AS rank,
+        COUNT(*) OVER (PARTITION BY q.category) AS "totalParticipants"
       FROM "QuestionAttempt" qa
       JOIN "Question" q ON qa."questionId" = q.id
       GROUP BY qa."userId", q.category
       HAVING COUNT(*) >= 10
     )
-    SELECT category, rank, "attemptCount", "correctCount"
+    SELECT category, rank, "attemptCount", "correctCount", "totalParticipants"
     FROM ranked
     WHERE "userId" = ${userId}
   `;
@@ -68,6 +70,7 @@ export async function getMyRanks(
       rank: Number(row.rank),
       accuracy: Number(row.correctCount) / Number(row.attemptCount),
       attemptCount: Number(row.attemptCount),
+      totalParticipants: Number(row.totalParticipants),
     };
   }
   return result;

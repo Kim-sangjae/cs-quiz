@@ -67,7 +67,11 @@ export default function RankingSection({ rankings, currentUserId, myRanks }: Ran
                   <td className="py-2.5 text-neutral-500">{entry.rank}</td>
                   <td className={`py-2.5 ${isMe ? 'text-white font-medium' : 'text-neutral-300'}`}>
                     {entry.nickname}
-                    {isMe && <span className="ml-2 text-xs text-neutral-500">(나)</span>}
+                    {isMe && myRank && (
+                      <span className="ml-2 text-[10px] text-emerald-500">
+                        상위 {Math.ceil((myRank.rank / myRank.totalParticipants) * 100)}%
+                      </span>
+                    )}
                   </td>
                   <td className="py-2.5 text-right text-neutral-400">
                     {entry.attemptCount.toLocaleString()}
@@ -84,7 +88,10 @@ export default function RankingSection({ rankings, currentUserId, myRanks }: Ran
                 <tr className="bg-neutral-800/40">
                   <td className="py-2.5 text-neutral-500">{myRank.rank}</td>
                   <td className="py-2.5 text-white font-medium">
-                    나<span className="ml-2 text-xs text-neutral-500">(내 순위)</span>
+                    나
+                    <span className="ml-2 text-[10px] text-emerald-500">
+                      상위 {Math.ceil((myRank.rank / myRank.totalParticipants) * 100)}%
+                    </span>
                   </td>
                   <td className="py-2.5 text-right text-neutral-400">
                     {myRank.attemptCount.toLocaleString()}

@@ -2,6 +2,7 @@
 
 import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import confetti from "canvas-confetti";
 import type { Question, UserAnswer } from "@/types";
 import ResultCard from "@/components/ResultCard";
 
@@ -41,6 +42,17 @@ export default function ResultPage({
       })
       .catch(() => router.replace("/quiz"));
   }, [sessionId, router]);
+
+  useEffect(() => {
+    if (!data || data.session.score < 30) return;
+    const end = Date.now() + 2500;
+    const frame = () => {
+      confetti({ particleCount: 6, angle: 60, spread: 55, origin: { x: 0 }, colors: ['#10b981', '#ffffff', '#6ee7b7'] });
+      confetti({ particleCount: 6, angle: 120, spread: 55, origin: { x: 1 }, colors: ['#10b981', '#ffffff', '#6ee7b7'] });
+      if (Date.now() < end) requestAnimationFrame(frame);
+    };
+    frame();
+  }, [data]);
 
   if (!data) return null;
 
