@@ -68,9 +68,19 @@ export default function ResultPage({
         !userAnswer || userAnswer.selected !== question.answer
     );
 
+  const catStats: Record<string, { total: number; correct: number }> = {};
+  for (const q of questions) {
+    const cat = q.category;
+    if (!catStats[cat]) catStats[cat] = { total: 0, correct: 0 };
+    catStats[cat].total++;
+    const ua = answers.find((a) => a.questionId === q.id);
+    if (ua && ua.selected === q.answer) catStats[cat].correct++;
+  }
+  const catEntries = Object.entries(catStats).sort((a, b) => b[1].total - a[1].total);
+
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
-      <div className="text-center mb-10">
+      <div className="text-center mb-8">
         <div className="mb-2">
           <span className={`text-4xl font-bold ${scoreColor}`}>
             {session.score}
@@ -82,6 +92,31 @@ export default function ResultPage({
           정답 {session.score}개 · 오답 {30 - session.score}개
         </p>
       </div>
+
+      {/* 카테고리별 분석 */}
+      {catEntries.length > 0 && (
+        <div className="bg-[#111111] border border-neutral-800 rounded-xl p-5 mb-8">
+          <p className="text-xs text-neutral-500 mb-4">카테고리별 결과</p>
+          <div className="space-y-3">
+            {catEntries.map(([cat, { total, correct }]) => {
+              const pct = Math.round((correct / total) * 100);
+              const barColor = pct >= 80 ? 'bg-emerald-500' : pct >= 60 ? 'bg-yellow-500' : 'bg-red-500';
+              const textColor = pct >= 80 ? 'text-emerald-400' : pct >= 60 ? 'text-yellow-400' : 'text-red-400';
+              return (
+                <div key={cat}>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs text-neutral-300">{CATEGORY_LABEL[cat] ?? cat}</span>
+                    <span className={`text-xs font-medium ${textColor}`}>{correct}/{total} ({pct}%)</span>
+                  </div>
+                  <div className="h-1.5 bg-neutral-800 rounded-full overflow-hidden">
+                    <div className={`h-full rounded-full ${barColor}`} style={{ width: `${pct}%` }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <div>
         {wrongItems.length === 0 ? (
