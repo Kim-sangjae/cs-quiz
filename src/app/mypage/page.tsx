@@ -123,7 +123,7 @@ function BadgePill({ tier }: { tier: BadgeTier }) {
   );
 }
 
-function computeProfileStats(sessions: ApiSession[]) {
+function computeProfileStats(sessions: ApiSession[], dbCounts: Record<string, number> = {}) {
   const map = new Map<Category, { total: number; correct: number }>();
 
   for (const session of sessions) {
@@ -140,14 +140,15 @@ function computeProfileStats(sessions: ApiSession[]) {
   return CATEGORY_ORDER.map((cat) => {
     const { total, correct } = map.get(cat) ?? { total: 0, correct: 0 };
     const accuracy = total > 0 ? Math.round((correct / total) * 100) : 0;
+    const dbTotal = dbCounts[cat] ?? total;
     return {
       cat,
       label: CATEGORY_LABELS[cat],
-      total,
+      total: dbTotal,
       correct,
       accuracy,
-      level: getLevel(total),
-      badge: getBadge(accuracy, total),
+      level: getLevel(dbTotal),
+      badge: getBadge(accuracy, dbTotal),
     };
   });
 }
@@ -426,6 +427,7 @@ export default function MyPage() {
   }
 
   const [sessions, setSessions] = useState<ApiSession[]>([]);
+  const [categoryAttemptCounts, setCategoryAttemptCounts] = useState<Record<string, number>>({});
   const [stats, setStats] = useState<StatsData | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -458,7 +460,9 @@ export default function MyPage() {
     ])
       .then(([statsData, sessionsData]) => {
         setStats(statsData as StatsData);
-        setSessions((sessionsData as { sessions: ApiSession[] }).sessions ?? []);
+        const sd = sessionsData as { sessions: ApiSession[]; categoryAttemptCounts?: Record<string, number> };
+        setSessions(sd.sessions ?? []);
+        if (sd.categoryAttemptCounts) setCategoryAttemptCounts(sd.categoryAttemptCounts);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -484,7 +488,7 @@ export default function MyPage() {
       .finally(() => setLikedLoading(false));
   }, [activeTab, likedQuestions]);
 
-  const profileStats = computeProfileStats(sessions);
+  const profileStats = computeProfileStats(sessions, categoryAttemptCounts);
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">

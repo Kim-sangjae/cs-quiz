@@ -250,12 +250,14 @@ export default function ResultPage({
                   </button>
                   {isExpanded && (
                     <div className="border-t border-neutral-800">
+                      {ua != null && (
                       <ResultCard
                         questionNumber={i + 1}
                         question={q}
-                        userSelected={(ua?.selected ?? q.answer) as 0 | 1 | 2 | 3}
+                        userSelected={ua.selected as 0 | 1 | 2 | 3}
                         questionId={q.id}
                       />
+                    )}
                     </div>
                   )}
                 </div>

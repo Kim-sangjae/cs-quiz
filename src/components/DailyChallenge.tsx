@@ -39,7 +39,13 @@ export default function DailyChallenge() {
       .then((data: DailyQuestion) => {
         setQ(data);
         const saved = localStorage.getItem(storageKey(data.date));
-        if (saved) setResult(JSON.parse(saved) as DailyResult);
+        if (saved) {
+          try {
+            setResult(JSON.parse(saved) as DailyResult);
+          } catch {
+            localStorage.removeItem(storageKey(data.date));
+          }
+        }
       })
       .catch(() => {});
   }, []);
