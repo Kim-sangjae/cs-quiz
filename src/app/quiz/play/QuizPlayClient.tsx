@@ -332,6 +332,7 @@ export default function QuizPlayClient({ questions, category, isReview }: Props)
         options={current.options}
         selectedIndex={selectedIndex}
         onSelect={(idx) => handleSelect(current.id, idx)}
+        questionId={current.id}
       />
 
       {/* 하단 고정 영역 */}

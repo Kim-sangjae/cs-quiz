@@ -228,6 +228,58 @@ function filterLiked(questions: LikedQuestion[], search: string, cat: string): L
   return result;
 }
 
+function WeeklyReport({ sessions }: { sessions: ApiSession[] }) {
+  const now = new Date();
+  const startOfThisWeek = new Date(now);
+  startOfThisWeek.setDate(now.getDate() - now.getDay());
+  startOfThisWeek.setHours(0, 0, 0, 0);
+
+  const startOfLastWeek = new Date(startOfThisWeek);
+  startOfLastWeek.setDate(startOfLastWeek.getDate() - 7);
+
+  const thisWeek = sessions.filter((s) => new Date(s.submittedAt) >= startOfThisWeek);
+  const lastWeek = sessions.filter((s) => {
+    const d = new Date(s.submittedAt);
+    return d >= startOfLastWeek && d < startOfThisWeek;
+  });
+
+  if (thisWeek.length === 0 && lastWeek.length === 0) return null;
+
+  const thisAvg = thisWeek.length > 0
+    ? Math.round(thisWeek.reduce((s, r) => s + r.score, 0) / thisWeek.length)
+    : null;
+  const lastAvg = lastWeek.length > 0
+    ? Math.round(lastWeek.reduce((s, r) => s + r.score, 0) / lastWeek.length)
+    : null;
+  const diff = thisAvg !== null && lastAvg !== null ? thisAvg - lastAvg : null;
+
+  return (
+    <div className="mt-4 pt-4 border-t border-neutral-800">
+      <p className="text-xs text-neutral-600 mb-2">이번 주</p>
+      <div className="flex items-center gap-3 flex-wrap">
+        <span className="text-sm text-neutral-300">
+          <span className="text-white font-semibold">{thisWeek.length}</span>
+          <span className="text-neutral-500 ml-1">회</span>
+        </span>
+        {thisAvg !== null && (
+          <span className="text-sm text-neutral-300">
+            평균 <span className="text-white font-semibold">{thisAvg}</span>
+            <span className="text-neutral-500">/30점</span>
+          </span>
+        )}
+        {diff !== null && (
+          <span className={`text-xs font-medium ${diff > 0 ? 'text-emerald-400' : diff < 0 ? 'text-red-400' : 'text-neutral-500'}`}>
+            {diff > 0 ? `▲${diff}` : diff < 0 ? `▼${Math.abs(diff)}` : '±0'} 지난주 대비
+          </span>
+        )}
+        {thisWeek.length === 0 && (
+          <span className="text-xs text-neutral-600">아직 풀이 없음</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function ScoreTrend({ sessions }: { sessions: ApiSession[] }) {
   const recent = [...sessions]
     .sort((a, b) => new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime())
@@ -499,6 +551,7 @@ export default function MyPage() {
           </div>
           {sessions.length > 0 && <StreakCalendar sessions={sessions} />}
           {sessions.length >= 2 && <ScoreTrend sessions={sessions} />}
+          <WeeklyReport sessions={sessions} />
         </div>
       )}
 
