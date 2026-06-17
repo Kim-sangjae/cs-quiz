@@ -761,39 +761,65 @@ export default function MyPage() {
               <>
                 <p className="text-xs text-neutral-600 mb-3">총 {filtered.length}개</p>
                 <div className="space-y-3">
-                  {paged.map((q) => (
-                    <Link
-                      key={q.id}
-                      href={`/board/${q.id}`}
-                      className="block bg-[#111111] border border-neutral-800 rounded-lg p-4 hover:bg-[#161616] transition-colors"
-                    >
-                      <div className="flex items-start justify-between gap-3 mb-2">
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          <span className="text-xs text-neutral-500 border border-neutral-800 rounded px-2 py-0.5">
-                            {CATEGORY_LABELS[q.category as Category] ?? q.category}
-                          </span>
-                          <span className={`text-xs border rounded px-2 py-0.5 ${STATUS_STYLE[q.status] ?? "text-neutral-500 border-neutral-800"}`}>
-                            {STATUS_LABEL[q.status] ?? q.status}
-                          </span>
+                  {paged.map((q) => {
+                    const isRejected = q.status === "REJECTED";
+                    const cardBody = (
+                      <>
+                        <div className="flex items-start justify-between gap-3 mb-2">
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            <span className="text-xs text-neutral-500 border border-neutral-800 rounded px-2 py-0.5">
+                              {CATEGORY_LABELS[q.category as Category] ?? q.category}
+                            </span>
+                            <span className={`text-xs border rounded px-2 py-0.5 ${STATUS_STYLE[q.status] ?? "text-neutral-500 border-neutral-800"}`}>
+                              {STATUS_LABEL[q.status] ?? q.status}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            {q._count.likes > 0 && (
+                              <span className="text-xs text-neutral-500">♥ {q._count.likes}</span>
+                            )}
+                            <span className="text-xs text-neutral-600">
+                              {new Date(q.createdAt).toLocaleDateString("ko-KR")}
+                            </span>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          {q._count.likes > 0 && (
-                            <span className="text-xs text-neutral-500">♥ {q._count.likes}</span>
-                          )}
-                          <span className="text-xs text-neutral-600">
-                            {new Date(q.createdAt).toLocaleDateString("ko-KR")}
-                          </span>
-                        </div>
+                        <p className="text-sm text-neutral-300 leading-relaxed line-clamp-2">{q.question}</p>
+                        {isRejected && q.rejectionReason && (
+                          <div className="mt-3 pt-3 border-t border-neutral-800">
+                            <p className="text-xs text-neutral-500 mb-1">거절 사유</p>
+                            <p className="text-xs text-red-400">{q.rejectionReason}</p>
+                            <div className="mt-3 flex gap-2">
+                              <Link
+                                href={`/board/submit?resubmit=${q.id}`}
+                                className="text-xs text-white border border-neutral-600 rounded px-3 py-1.5 hover:bg-neutral-800 transition-colors"
+                              >
+                                수정 후 재요청
+                              </Link>
+                              <Link
+                                href={`/board/${q.id}`}
+                                className="text-xs text-neutral-400 border border-neutral-800 rounded px-3 py-1.5 hover:border-neutral-600 hover:text-white transition-colors"
+                              >
+                                게시판에서 보기
+                              </Link>
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    );
+                    return isRejected ? (
+                      <div key={q.id} className="bg-[#111111] border border-red-900/30 rounded-lg p-4">
+                        {cardBody}
                       </div>
-                      <p className="text-sm text-neutral-300 leading-relaxed line-clamp-2">{q.question}</p>
-                      {q.status === "REJECTED" && q.rejectionReason && (
-                        <div className="mt-3 pt-3 border-t border-neutral-800">
-                          <p className="text-xs text-neutral-500 mb-1">거절 사유</p>
-                          <p className="text-xs text-red-400">{q.rejectionReason}</p>
-                        </div>
-                      )}
-                    </Link>
-                  ))}
+                    ) : (
+                      <Link
+                        key={q.id}
+                        href={`/board/${q.id}`}
+                        className="block bg-[#111111] border border-neutral-800 rounded-lg p-4 hover:bg-[#161616] transition-colors"
+                      >
+                        {cardBody}
+                      </Link>
+                    );
+                  })}
                 </div>
                 {pageCount > 1 && (
                   <div className="flex items-center justify-center gap-3 mt-4">

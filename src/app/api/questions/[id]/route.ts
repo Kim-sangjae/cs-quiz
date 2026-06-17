@@ -40,3 +40,43 @@ export async function GET(
 
   return NextResponse.json({ ...question, hasLiked, hasReported });
 }
+
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const user = await getServerUser();
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const { id } = await params;
+  const question = await prisma.question.findUnique({ where: { id } });
+  if (!question) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  if (question.authorId !== user.id) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  if (question.status !== 'REJECTED') {
+    return NextResponse.json({ error: '거절된 문제만 수정 후 재요청할 수 있습니다.' }, { status: 400 });
+  }
+
+  const body = await req.json() as {
+    category: string;
+    question: string;
+    options: string[];
+    answer: number;
+    explanation: string;
+  };
+
+  const { category, question: questionText, options, answer, explanation } = body;
+
+  if (
+    !category || !questionText || !Array.isArray(options) ||
+    options.length !== 4 || typeof answer !== 'number' || !explanation
+  ) {
+    return NextResponse.json({ error: '입력값이 올바르지 않습니다.' }, { status: 400 });
+  }
+
+  await prisma.question.update({
+    where: { id },
+    data: { category, question: questionText, options, answer, explanation, status: 'PENDING', rejectionReason: null },
+  });
+
+  return NextResponse.json({ ok: true });
+}

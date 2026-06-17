@@ -1,8 +1,9 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect, Suspense } from 'react';
 import { useSession, signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 
 const CATEGORIES = [
   { value: 'ds', label: '자료구조' },
@@ -27,9 +28,12 @@ interface SimilarQuestion {
   sim: number;
 }
 
-export default function BoardSubmitPage() {
+function SubmitContent() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const resubmitId = searchParams.get('resubmit');
+  const isResubmit = !!resubmitId;
 
   const [category, setCategory] = useState('');
   const [question, setQuestion] = useState('');
@@ -42,6 +46,21 @@ export default function BoardSubmitPage() {
   const [similarQuestions, setSimilarQuestions] = useState<SimilarQuestion[]>([]);
   const similarTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [generating, setGenerating] = useState(false);
+
+  // 재요청 모드: 기존 문제 데이터 프리필
+  useEffect(() => {
+    if (!resubmitId) return;
+    fetch(`/api/questions/${resubmitId}`)
+      .then((r) => r.json())
+      .then((data) => {
+        setCategory(data.category ?? '');
+        setQuestion(data.question ?? '');
+        setOptions(Array.isArray(data.options) ? data.options : ['', '', '', '']);
+        setAnswer(typeof data.answer === 'number' ? data.answer : null);
+        setExplanation(data.explanation ?? '');
+      })
+      .catch(() => {});
+  }, [resubmitId]);
 
   const isComplete =
     category !== '' &&
@@ -101,17 +120,20 @@ export default function BoardSubmitPage() {
     setSubmitting(true);
     setError('');
     try {
-      const res = await fetch('/api/questions', {
-        method: 'POST',
+      const payload = { category, question, options, answer, explanation };
+      const url = isResubmit ? `/api/questions/${resubmitId}` : '/api/questions';
+      const method = isResubmit ? 'PATCH' : 'POST';
+      const res = await fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ category, question, options, answer, explanation }),
+        body: JSON.stringify(payload),
       });
       if (!res.ok) {
         const data = await res.json() as { error?: string };
-        setError(data.error ?? '등록에 실패했습니다.');
+        setError(data.error ?? '처리에 실패했습니다.');
         return;
       }
-      router.push('/board');
+      router.push(isResubmit ? '/mypage' : '/board');
     } catch {
       setError('네트워크 오류가 발생했습니다.');
     } finally {
@@ -142,8 +164,14 @@ export default function BoardSubmitPage() {
   return (
     <main className="max-w-2xl mx-auto px-4 sm:px-6 py-8">
       <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-white mb-1">문제 등록</h1>
-        <p className="text-sm text-neutral-500">CS 문제를 등록하면 검토 후 게시판에 노출됩니다.</p>
+        <h1 className="text-2xl font-semibold text-white mb-1">
+          {isResubmit ? '문제 수정' : '문제 등록'}
+        </h1>
+        <p className="text-sm text-neutral-500">
+          {isResubmit
+            ? '내용을 수정하면 다시 검토 후 게시판에 노출됩니다.'
+            : 'CS 문제를 등록하면 검토 후 게시판에 노출됩니다.'}
+        </p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
@@ -306,9 +334,17 @@ export default function BoardSubmitPage() {
           disabled={!isComplete || submitting}
           className="rounded-md bg-white text-black text-sm font-medium px-6 py-2.5 hover:bg-neutral-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
         >
-          {submitting ? '등록 중...' : '등록하기'}
+          {submitting ? '처리 중...' : isResubmit ? '재요청하기' : '등록하기'}
         </button>
       </form>
     </main>
+  );
+}
+
+export default function BoardSubmitPage() {
+  return (
+    <Suspense fallback={<main className="max-w-2xl mx-auto px-4 sm:px-6 py-8" />}>
+      <SubmitContent />
+    </Suspense>
   );
 }
