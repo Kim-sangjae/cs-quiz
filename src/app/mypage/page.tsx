@@ -724,6 +724,7 @@ export default function MyPage() {
                                             questionNumber={item.questionNumber}
                                             question={item.question as unknown as Question}
                                             userSelected={item.userAnswer!.selected as 0 | 1 | 2 | 3}
+                                            questionId={item.question.id}
                                           />
                                         </div>
                                       )}

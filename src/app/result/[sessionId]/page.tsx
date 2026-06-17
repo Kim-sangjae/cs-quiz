@@ -151,6 +151,7 @@ export default function ResultPage({
               questionNumber={wrongItems[wrongIdx].questionNumber}
               question={wrongItems[wrongIdx].question}
               userSelected={wrongItems[wrongIdx].userAnswer!.selected}
+              questionId={wrongItems[wrongIdx].question.id}
             />
 
             <div className="flex items-center justify-between mt-4">

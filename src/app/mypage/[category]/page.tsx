@@ -1,149 +1,128 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
-import ResultCard from "@/components/ResultCard";
-import type { Category, Question } from "@/types";
+import { use, useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import type { Question } from '@/types';
+import ResultCard from '@/components/ResultCard';
 
-const CATEGORY_LABELS: Record<Category, string> = {
-  ds: "자료구조",
-  algo: "알고리즘",
-  os: "OS",
-  network: "네트워크",
-  db: "DB",
-  arch: "컴퓨터구조",
+const CATEGORY_LABELS: Record<string, string> = {
+  ds: '자료구조',
+  algo: '알고리즘',
+  os: '운영체제',
+  network: '네트워크',
+  db: '데이터베이스',
+  arch: '컴퓨터 구조',
 };
 
-const VALID_CATEGORIES = new Set<string>(["ds", "algo", "os", "network", "db", "arch"]);
+const VALID_CATEGORIES = new Set(['ds', 'algo', 'os', 'network', 'db', 'arch']);
 
 interface WrongItem {
-  question: { id: string; category: string; question: string; options: unknown; answer: number; explanation: string };
+  question: Question & { id: string };
   selected: number;
   wrongCount: number;
 }
 
-function wrongCountColor(count: number): string {
-  if (count >= 5) return "text-red-600";
-  if (count >= 3) return "text-red-900";
-  return "text-neutral-300";
-}
-
-export default function CategoryWrongNotePage() {
-  const params = useParams();
+export default function CategoryDetailPage({
+  params,
+}: {
+  params: Promise<{ category: string }>;
+}) {
+  const { category } = use(params);
   const router = useRouter();
-  const category = params.category as string;
-
-  const [items, setItems] = useState<WrongItem[]>([]);
+  const [items, setItems] = useState<WrongItem[] | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     if (!VALID_CATEGORIES.has(category)) {
-      router.replace("/mypage");
+      router.replace('/mypage');
       return;
     }
-
     fetch(`/api/mypage/wrong-answers?category=${category}`)
-      .then((r) => r.json())
-      .then((data) => {
-        setItems((data as { items: WrongItem[] }).items ?? []);
-        setLoaded(true);
-      })
-      .catch(() => {
-        setItems([]);
-        setLoaded(true);
-      });
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setItems((d as { items: WrongItem[] } | null)?.items ?? []))
+      .catch(() => setItems([]));
   }, [category, router]);
 
-  if (!loaded) return null;
-
-  const catLabel = CATEGORY_LABELS[category as Category] ?? category;
+  const label = CATEGORY_LABELS[category] ?? category;
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
-      <div className="flex items-center gap-4 mb-8">
-        <button
-          onClick={() => router.push("/mypage")}
+      <div className="flex items-center gap-3 mb-6">
+        <Link
+          href="/mypage"
           className="text-neutral-400 hover:text-white text-sm transition-colors"
         >
           ← 마이페이지
-        </button>
-        <h1 className="text-xl font-semibold text-white">{catLabel} 오답 노트</h1>
+        </Link>
+        <h1 className="text-xl font-semibold text-white">{label} 오답 목록</h1>
       </div>
 
-      {items.length === 0 ? (
-        <div className="text-center py-16">
-          <p className="text-neutral-500 text-sm">틀린 문제가 없습니다.</p>
+      {items === null ? (
+        <div className="py-16 text-center">
+          <p className="text-neutral-500 text-sm">불러오는 중...</p>
+        </div>
+      ) : items.length === 0 ? (
+        <div className="py-16 text-center">
+          <p className="text-neutral-500 text-sm mb-2">아직 오답이 없습니다.</p>
+          <Link
+            href={`/quiz/play?category=${category}`}
+            className="text-sm text-white underline underline-offset-2 hover:text-neutral-300 transition-colors"
+          >
+            {label} 퀴즈 풀기
+          </Link>
         </div>
       ) : (
         <>
-          <div className="flex items-center justify-between mb-3">
-            <p className="text-xs text-neutral-500">오답 {items.length}문제</p>
-            <button
-              onClick={() => {
-                const ids = items.slice(0, 30).map((i) => i.question.id).join(",");
-                router.push(`/quiz/play?category=${category}&reviewIds=${ids}`);
-              }}
-              className="text-xs text-amber-400 border border-amber-800/60 rounded px-3 py-1.5 hover:bg-amber-950/30 transition-colors"
-            >
-              오답 복습 퀴즈 ({Math.min(items.length, 30)}문제)
-            </button>
-          </div>
+          <p className="text-xs text-neutral-500 mb-4">틀린 문제 {items.length}개 (문제별 최신 오답 기준)</p>
           <div className="space-y-2">
-            {items.map((item, idx) => {
+            {items.map((item, i) => {
               const isExpanded = expandedId === item.question.id;
-              const titleColor = wrongCountColor(item.wrongCount);
               return (
-                <div
-                  key={item.question.id}
-                  className="bg-[#111111] border border-neutral-800 rounded-lg overflow-hidden"
-                >
+                <div key={item.question.id} className="border border-neutral-800 rounded-lg overflow-hidden">
                   <button
-                    className="w-full text-left px-4 py-3 hover:bg-[#161616] transition-colors flex items-center justify-between gap-3"
-                    onClick={() =>
-                      setExpandedId(isExpanded ? null : item.question.id)
-                    }
+                    onClick={() => setExpandedId(isExpanded ? null : item.question.id)}
+                    className="w-full text-left px-4 py-3 hover:bg-[#1a1a1a] transition-colors flex items-center justify-between gap-3"
                   >
                     <div className="flex items-center gap-2 min-w-0">
-                      <span className={`text-sm truncate ${titleColor}`}>
-                        {item.question.question}
-                      </span>
-                      {item.wrongCount >= 3 && (
-                        <span className="text-[10px] text-neutral-600 flex-shrink-0">
-                          ×{item.wrongCount}
+                      <span className="text-xs text-neutral-600 flex-shrink-0">{i + 1}.</span>
+                      {item.wrongCount > 1 && (
+                        <span className="text-[10px] text-red-400 border border-red-900/50 rounded px-1.5 py-0.5 flex-shrink-0">
+                          {item.wrongCount}회 틀림
                         </span>
                       )}
+                      <span className="text-sm text-neutral-300 truncate">{item.question.question}</span>
                     </div>
                     <svg
-                      width={12}
-                      height={12}
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth={2}
-                      className={`text-neutral-600 flex-shrink-0 transition-transform ${
-                        isExpanded ? "rotate-180" : ""
-                      }`}
+                      width={14} height={14} viewBox="0 0 24 24" fill="none"
+                      stroke="currentColor" strokeWidth={2}
+                      className={`text-neutral-600 flex-shrink-0 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
                     >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M19 9l-7 7-7-7"
-                      />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
                     </svg>
                   </button>
                   {isExpanded && (
-                    <div className="border-t border-neutral-800 p-4">
+                    <div className="border-t border-neutral-800">
                       <ResultCard
-                        questionNumber={idx + 1}
-                        question={item.question as unknown as Question}
+                        questionNumber={i + 1}
+                        question={item.question}
                         userSelected={item.selected as 0 | 1 | 2 | 3}
+                        questionId={item.question.id}
                       />
                     </div>
                   )}
                 </div>
               );
             })}
+          </div>
+
+          <div className="mt-8 flex justify-center">
+            <Link
+              href={`/quiz/play?category=${category}`}
+              className="rounded-md bg-white text-black text-sm font-medium px-6 py-2.5 hover:bg-neutral-200 transition-colors"
+            >
+              {label} 다시 풀기
+            </Link>
           </div>
         </>
       )}

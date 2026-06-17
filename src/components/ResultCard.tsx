@@ -1,9 +1,13 @@
+'use client';
+
 import type { Question } from '@/types';
+import ReportModal from '@/components/board/ReportModal';
 
 interface ResultCardProps {
   questionNumber: number;
   question: Question;
   userSelected: 0 | 1 | 2 | 3;
+  questionId?: string;
 }
 
 const LABELS = ['A', 'B', 'C', 'D'] as const;
@@ -12,6 +16,7 @@ export default function ResultCard({
   questionNumber,
   question,
   userSelected,
+  questionId,
 }: ResultCardProps) {
   return (
     <div className="bg-[#111111] border border-neutral-800 rounded-lg p-6">
@@ -79,8 +84,13 @@ export default function ResultCard({
         })}
       </div>
 
-      <div className="border-t border-neutral-800 mt-4 pt-4 text-sm text-neutral-300 leading-relaxed">
-        {question.explanation}
+      <div className="border-t border-neutral-800 mt-4 pt-4">
+        <p className="text-sm text-neutral-300 leading-relaxed">{question.explanation}</p>
+        {questionId && (
+          <div className="flex justify-end mt-3">
+            <ReportModal questionId={questionId} initialReported={false} />
+          </div>
+        )}
       </div>
     </div>
   );

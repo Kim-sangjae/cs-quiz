@@ -26,11 +26,18 @@ export default function QuizPlayClient({ questions, category, isReview }: Props)
   const guardPushedRef = useRef(false);
   const quizUrlRef = useRef('');
 
+  const [autoAdvance, setAutoAdvance] = useState(true);
   const isDirty = answers.length > 0 && !isSubmitting;
 
   // 퀴즈 URL 저장
   useEffect(() => {
     quizUrlRef.current = window.location.href;
+  }, []);
+
+  // 자동 이동 설정 복원
+  useEffect(() => {
+    const saved = localStorage.getItem('quiz-auto-advance');
+    if (saved !== null) setAutoAdvance(saved === 'true');
   }, []);
 
   // 브라우저 닫기/새로고침
@@ -108,7 +115,7 @@ export default function QuizPlayClient({ questions, category, isReview }: Props)
     });
 
     if (autoAdvanceTimer.current) clearTimeout(autoAdvanceTimer.current);
-    if (currentIndex < questions.length - 1) {
+    if (autoAdvance && currentIndex < questions.length - 1) {
       autoAdvanceTimer.current = setTimeout(() => {
         setCurrentIndex((i) => i + 1);
       }, 500);
@@ -232,6 +239,21 @@ export default function QuizPlayClient({ questions, category, isReview }: Props)
             <span className="text-xs text-neutral-500 bg-neutral-900 border border-neutral-800 rounded px-1.5 py-0.5">
               {pct}%
             </span>
+            <button
+              onClick={() => {
+                const next = !autoAdvance;
+                setAutoAdvance(next);
+                localStorage.setItem('quiz-auto-advance', String(next));
+              }}
+              title={autoAdvance ? '자동 이동 켜짐 (클릭하면 끔)' : '자동 이동 꺼짐 (클릭하면 켬)'}
+              className={`text-[10px] border rounded px-1.5 py-0.5 transition-colors ${
+                autoAdvance
+                  ? 'border-emerald-800/60 text-emerald-500 bg-emerald-950/30'
+                  : 'border-neutral-800 text-neutral-600 hover:border-neutral-600 hover:text-neutral-400'
+              }`}
+            >
+              자동이동
+            </button>
           </div>
         </div>
         <ProgressBar answered={answers.length} total={questions.length} />
