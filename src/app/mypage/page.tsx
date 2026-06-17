@@ -228,6 +228,43 @@ function filterLiked(questions: LikedQuestion[], search: string, cat: string): L
   return result;
 }
 
+function ScoreTrend({ sessions }: { sessions: ApiSession[] }) {
+  const recent = [...sessions]
+    .sort((a, b) => new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime())
+    .slice(-10);
+
+  if (recent.length < 2) return null;
+
+  const W = 280, H = 60, PAD = 4;
+  const max = 30, min = 0;
+  const points = recent.map((s, i) => {
+    const x = PAD + (i / (recent.length - 1)) * (W - PAD * 2);
+    const y = PAD + ((max - s.score) / (max - min)) * (H - PAD * 2);
+    return { x, y, score: s.score };
+  });
+  const d = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+  const last = points[points.length - 1];
+
+  return (
+    <div className="mt-4 pt-4 border-t border-neutral-800">
+      <p className="text-xs text-neutral-600 mb-2">최근 {recent.length}회 점수 추이</p>
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: 60 }}>
+        <path d={d} fill="none" stroke="#404040" strokeWidth={1.5} />
+        {points.map((p, i) => (
+          <circle key={i} cx={p.x} cy={p.y} r={2.5}
+            fill={i === points.length - 1 ? '#10b981' : '#525252'} />
+        ))}
+        <text x={last.x} y={last.y - 7} textAnchor="middle"
+          fill="#10b981" fontSize={10} fontWeight={600}>{last.score}</text>
+      </svg>
+      <div className="flex justify-between">
+        <span className="text-[10px] text-neutral-700">{recent.length}회 전</span>
+        <span className="text-[10px] text-neutral-700">최근</span>
+      </div>
+    </div>
+  );
+}
+
 function StreakCalendar({ sessions }: { sessions: ApiSession[] }) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -461,6 +498,7 @@ export default function MyPage() {
             </div>
           </div>
           {sessions.length > 0 && <StreakCalendar sessions={sessions} />}
+          {sessions.length >= 2 && <ScoreTrend sessions={sessions} />}
         </div>
       )}
 
@@ -955,7 +993,18 @@ export default function MyPage() {
             }
             return (
               <>
-                <p className="text-xs text-neutral-600 mb-3">총 {filtered.length}개</p>
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-xs text-neutral-600">총 {filtered.length}개</p>
+                  <button
+                    onClick={() => {
+                      const ids = filtered.slice(0, 30).map((q) => q.id).join(',');
+                      router.push(`/quiz/play?reviewIds=${ids}`);
+                    }}
+                    className="text-xs text-white border border-neutral-700 rounded px-3 py-1.5 hover:bg-neutral-800 transition-colors"
+                  >
+                    퀴즈 시작 ({Math.min(filtered.length, 30)}문제)
+                  </button>
+                </div>
                 <div className="space-y-2">
                   {paged.map((q) => (
                     <Link
