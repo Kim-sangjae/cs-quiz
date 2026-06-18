@@ -34,5 +34,15 @@ export async function POST(req: Request) {
   const { selected } = await req.json() as { selected: number };
   const q = getDailyQuestion();
   const correct = selected === q.answer;
+
+  // 오늘의 문제 답변 통계를 DB에 반영
+  await prisma.question.update({
+    where: { id: q.id },
+    data: {
+      attemptCount: { increment: 1 },
+      ...(correct ? { correctCount: { increment: 1 } } : {}),
+    },
+  }).catch(() => {});
+
   return NextResponse.json({ correct, answer: q.answer, explanation: q.explanation });
 }

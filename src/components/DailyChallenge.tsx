@@ -74,7 +74,7 @@ export default function DailyChallenge() {
 
   return (
     <section className="mb-12 border-t border-neutral-800 pt-10">
-      <div className="flex items-center gap-2 mb-4 flex-wrap">
+      <div className="flex items-center gap-2 mb-4">
         <span className="text-sm font-medium text-neutral-400">오늘의 문제</span>
         <span className="text-[10px] text-emerald-400 border border-emerald-800/60 rounded px-1.5 py-0.5">
           {q.date}
@@ -86,14 +86,6 @@ export default function DailyChallenge() {
               : 'text-red-400 border-red-900/50'
           }`}>
             {result.correct ? '정답' : '오답'}
-          </span>
-        )}
-        {q.attemptCount > 0 && q.correctRate !== null && (
-          <span className="text-[10px] text-neutral-600 ml-auto">
-            {q.attemptCount.toLocaleString()}명 도전 · 정답률{' '}
-            <span className={q.correctRate >= 60 ? 'text-neutral-400' : 'text-amber-600/80'}>
-              {q.correctRate}%
-            </span>
           </span>
         )}
       </div>
@@ -127,8 +119,24 @@ export default function DailyChallenge() {
           })}
         </div>
 
+        <div className="mt-4 pt-3 border-t border-neutral-800 flex items-center justify-between">
+          <span className="text-[11px] text-neutral-600">
+            {q.attemptCount > 0 ? `${q.attemptCount.toLocaleString()}명 도전` : '첫 번째 도전자가 되어보세요'}
+          </span>
+          {q.correctRate !== null ? (
+            <span className="text-[11px]">
+              정답률{' '}
+              <span className={`font-semibold ${q.correctRate >= 60 ? 'text-neutral-300' : 'text-amber-500'}`}>
+                {q.correctRate}%
+              </span>
+            </span>
+          ) : (
+            <span className="text-[11px] text-neutral-700">정답률 집계 중</span>
+          )}
+        </div>
+
         {result && (
-          <div className="mt-4 pt-4 border-t border-neutral-800">
+          <div className="mt-3 pt-3 border-t border-neutral-800">
             <p className="text-xs text-neutral-400 leading-relaxed">{result.explanation}</p>
           </div>
         )}
