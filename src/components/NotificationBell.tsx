@@ -75,7 +75,7 @@ export default function NotificationBell() {
   const { data } = useQuery<NotificationsResponse>({
     queryKey: ['notifications'],
     queryFn: fetchNotifications,
-    refetchInterval: 30_000,
+    refetchInterval: 60_000,
   });
 
   const mutation = useMutation({

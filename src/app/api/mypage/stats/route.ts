@@ -12,13 +12,12 @@ export async function GET() {
       where: { id: user.id },
       select: { streakCount: true },
     }),
-    prisma.questionAttempt.findMany({
-      where: { userId: user.id },
-      select: {
-        isCorrect: true,
-        question: { select: { category: true } },
-      },
-    }),
+    prisma.$queryRaw<{ isCorrect: boolean; category: string }[]>`
+      SELECT qa."isCorrect", q.category
+      FROM "QuestionAttempt" qa
+      JOIN "Question" q ON qa."questionId" = q.id
+      WHERE qa."userId" = ${user.id}
+    `,
   ]);
 
   const totalAttempts = attempts.length;
@@ -28,7 +27,7 @@ export async function GET() {
 
   const catMap = new Map<string, { total: number; correct: number }>();
   for (const a of attempts) {
-    const cat = a.question.category;
+    const cat = a.category;
     const e = catMap.get(cat) ?? { total: 0, correct: 0 };
     e.total++;
     if (a.isCorrect) e.correct++;
@@ -46,10 +45,14 @@ export async function GET() {
     }
   }
 
+  const categoryAttemptCounts: Record<string, number> = {};
+  for (const [cat, { total }] of catMap) categoryAttemptCounts[cat] = total;
+
   return NextResponse.json({
     totalSessions,
     overallAccuracy,
     weakestCategory,
     streakCount: dbUser?.streakCount ?? 0,
+    categoryAttemptCounts,
   });
 }

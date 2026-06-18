@@ -44,15 +44,5 @@ export async function GET() {
       .filter((q): q is NonNullable<typeof q> => q !== undefined),
   }));
 
-  const catRows = await prisma.$queryRaw<{ category: string; count: bigint }[]>`
-    SELECT q.category, COUNT(*)::int AS count
-    FROM "QuestionAttempt" qa
-    JOIN "Question" q ON qa."questionId" = q.id
-    WHERE qa."userId" = ${user.id}
-    GROUP BY q.category
-  `;
-  const categoryAttemptCounts: Record<string, number> = {};
-  for (const row of catRows) categoryAttemptCounts[row.category] = Number(row.count);
-
-  return NextResponse.json({ sessions: result, categoryAttemptCounts });
+  return NextResponse.json({ sessions: result });
 }

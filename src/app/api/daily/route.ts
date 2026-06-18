@@ -35,14 +35,26 @@ export async function POST(req: Request) {
   const q = getDailyQuestion();
   const correct = selected === q.answer;
 
-  // 오늘의 문제 답변 통계를 DB에 반영
-  await prisma.question.update({
+  // 오늘의 문제 답변 통계를 DB에 반영, 업데이트된 값 반환
+  const updatedQ = await prisma.question.update({
     where: { id: q.id },
     data: {
       attemptCount: { increment: 1 },
       ...(correct ? { correctCount: { increment: 1 } } : {}),
     },
-  }).catch(() => {});
+    select: { attemptCount: true, correctCount: true },
+  }).catch(() => null);
 
-  return NextResponse.json({ correct, answer: q.answer, explanation: q.explanation });
+  const newAttemptCount = updatedQ?.attemptCount ?? 0;
+  const newCorrectRate = newAttemptCount > 0
+    ? Math.round((updatedQ!.correctCount / newAttemptCount) * 100)
+    : null;
+
+  return NextResponse.json({
+    correct,
+    answer: q.answer,
+    explanation: q.explanation,
+    correctRate: newCorrectRate,
+    attemptCount: newAttemptCount,
+  });
 }

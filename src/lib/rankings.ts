@@ -137,20 +137,29 @@ export async function getHomepagePersonalization(userId: string): Promise<Homepa
 
 export async function buildRankings(): Promise<CategoryRankings> {
   const rows = await prisma.$queryRaw<RawRow[]>`
-    SELECT
-      qa."userId",
-      q.category,
-      COUNT(*)::int AS "attemptCount",
-      SUM(CASE WHEN qa."isCorrect" THEN 1 ELSE 0 END)::int AS "correctCount",
-      u.nickname
-    FROM "QuestionAttempt" qa
-    JOIN "Question" q ON qa."questionId" = q.id
-    JOIN "User" u ON qa."userId" = u.id
-    GROUP BY qa."userId", q.category, u.nickname
-    HAVING COUNT(*) >= 10
-    ORDER BY
-      (SUM(CASE WHEN qa."isCorrect" THEN 1 ELSE 0 END)::float / COUNT(*)) DESC,
-      COUNT(*) DESC
+    WITH ranked AS (
+      SELECT
+        qa."userId",
+        q.category,
+        COUNT(*)::int AS "attemptCount",
+        SUM(CASE WHEN qa."isCorrect" THEN 1 ELSE 0 END)::int AS "correctCount",
+        u.nickname,
+        ROW_NUMBER() OVER (
+          PARTITION BY q.category
+          ORDER BY
+            (SUM(CASE WHEN qa."isCorrect" THEN 1 ELSE 0 END)::float / NULLIF(COUNT(*), 0)) DESC,
+            COUNT(*) DESC
+        ) AS rn
+      FROM "QuestionAttempt" qa
+      JOIN "Question" q ON qa."questionId" = q.id
+      JOIN "User" u ON qa."userId" = u.id
+      GROUP BY qa."userId", q.category, u.nickname
+      HAVING COUNT(*) >= 10
+    )
+    SELECT "userId", category, "attemptCount", "correctCount", nickname
+    FROM ranked
+    WHERE rn <= 5
+    ORDER BY category, rn
   `;
 
   const result = Object.fromEntries(
@@ -160,7 +169,6 @@ export async function buildRankings(): Promise<CategoryRankings> {
   for (const cat of CATEGORIES) {
     result[cat] = rows
       .filter(r => r.category === cat)
-      .slice(0, 5)
       .map((row, i) => ({
         rank: i + 1,
         userId: row.userId,

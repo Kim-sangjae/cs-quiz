@@ -61,10 +61,11 @@ export default function DailyChallenge() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ selected }),
       });
-      const data = await res.json() as { correct: boolean; answer: number; explanation: string };
-      const r: DailyResult = { ...data, selected };
+      const data = await res.json() as { correct: boolean; answer: number; explanation: string; correctRate: number | null; attemptCount: number };
+      const r: DailyResult = { correct: data.correct, answer: data.answer, explanation: data.explanation, selected };
       setResult(r);
       localStorage.setItem(storageKey(q.date), JSON.stringify(r));
+      setQ(prev => prev ? { ...prev, correctRate: data.correctRate, attemptCount: data.attemptCount } : prev);
     } finally {
       setSubmitting(false);
     }

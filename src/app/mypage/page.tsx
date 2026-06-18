@@ -333,8 +333,6 @@ function ScoreTrend({ sessions }: { sessions: ApiSession[] }) {
   );
 }
 
-const DOW_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
-
 function AttendanceCalendar({ sessions }: { sessions: ApiSession[] }) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -345,91 +343,51 @@ function AttendanceCalendar({ sessions }: { sessions: ApiSession[] }) {
     activeDays.add(d.toLocaleDateString("en-CA"));
   }
 
-  const year = today.getFullYear();
-  const month = today.getMonth();
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const startDow = new Date(year, month, 1).getDay();
+  // 최근 28일 (4주) 슬라이딩 윈도우
+  const days = Array.from({ length: 28 }, (_, i) => {
+    const d = new Date(today);
+    d.setDate(today.getDate() - (27 - i));
+    return d;
+  });
 
-  const thisMonthActive = Array.from(activeDays).filter((k) => {
-    const d = new Date(k);
-    return d.getFullYear() === year && d.getMonth() === month;
-  }).length;
-
-  const cells: (number | null)[] = [
-    ...Array(startDow).fill(null),
-    ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
-  ];
-  while (cells.length % 7 !== 0) cells.push(null);
+  const activeCount = days.filter((d) => activeDays.has(d.toLocaleDateString("en-CA"))).length;
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-3">
-        <p className="text-xs text-neutral-500">
-          {year}년 {month + 1}월
-        </p>
-        <span className="text-xs font-medium text-emerald-400">
-          {thisMonthActive}일 출석
-        </span>
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-xs text-neutral-500">최근 4주</p>
+        <span className="text-xs font-medium text-emerald-400">{activeCount}일 출석</span>
       </div>
-
-      <div className="grid grid-cols-7 mb-2">
-        {DOW_LABELS.map((d, i) => (
-          <div
-            key={d}
-            className={`text-center text-[10px] font-medium ${
-              i === 0 ? "text-red-500/50" : i === 6 ? "text-blue-400/50" : "text-neutral-700"
-            }`}
-          >
-            {d}
-          </div>
-        ))}
-      </div>
-
-      <div className="grid grid-cols-7 gap-y-1">
-        {cells.map((day, i) => {
-          if (!day) return <div key={i} />;
-          const key = new Date(year, month, day).toLocaleDateString("en-CA");
+      <div className="grid grid-cols-7 gap-0.5">
+        {days.map((day) => {
+          const key = day.toLocaleDateString("en-CA");
           const active = activeDays.has(key);
-          const dayDate = new Date(year, month, day);
-          const isToday = dayDate.getTime() === today.getTime();
-          const isFuture = dayDate > today;
-
+          const isToday = day.getTime() === today.getTime();
           return (
-            <div key={key} className="flex items-center justify-center py-0.5">
+            <div key={key} className="flex items-center justify-center">
               {active ? (
                 <div
-                  title={`${key} — 출석 완료`}
-                  className={`w-7 h-7 rounded-full flex items-center justify-center ${
+                  title={`${key} — 출석`}
+                  className={`w-6 h-6 rounded-full flex items-center justify-center ${
                     isToday
-                      ? "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.4)]"
+                      ? "bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.4)]"
                       : "bg-emerald-500/15 border border-emerald-500/30"
                   }`}
                 >
-                  <svg
-                    width={isToday ? 13 : 11}
-                    height={isToday ? 13 : 11}
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke={isToday ? "#000" : "#34d399"}
-                    strokeWidth={3}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
+                  <svg width={10} height={10} viewBox="0 0 24 24" fill="none"
+                    stroke={isToday ? "#000" : "#34d399"} strokeWidth={3}
+                    strokeLinecap="round" strokeLinejoin="round">
                     <path d="M4.5 12.75l6 6 9-13.5" />
                   </svg>
                 </div>
               ) : (
                 <div
                   title={key}
-                  className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] ${
-                    isToday
-                      ? "ring-1 ring-neutral-500 text-white"
-                      : isFuture
-                      ? "text-neutral-800"
-                      : "text-neutral-700"
+                  className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] ${
+                    isToday ? "ring-1 ring-neutral-500 text-white" : "text-neutral-800"
                   }`}
                 >
-                  {day}
+                  {day.getDate()}
                 </div>
               )}
             </div>
@@ -506,12 +464,14 @@ export default function MyPage() {
     Promise.all([
       fetch("/api/mypage/stats").then((r) => r.json()),
       fetch("/api/mypage/sessions").then((r) => r.json()),
+      fetch("/api/mypage/liked-questions").then((r) => r.json()),
     ])
-      .then(([statsData, sessionsData]) => {
-        setStats(statsData as StatsData);
-        const sd = sessionsData as { sessions: ApiSession[]; categoryAttemptCounts?: Record<string, number> };
-        setSessions(sd.sessions ?? []);
+      .then(([statsData, sessionsData, likedData]) => {
+        const sd = statsData as StatsData & { categoryAttemptCounts?: Record<string, number> };
+        setStats(sd);
         if (sd.categoryAttemptCounts) setCategoryAttemptCounts(sd.categoryAttemptCounts);
+        setSessions((sessionsData as { sessions: ApiSession[] }).sessions ?? []);
+        setLikedQuestions((likedData as { questions: LikedQuestion[] }).questions ?? []);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
