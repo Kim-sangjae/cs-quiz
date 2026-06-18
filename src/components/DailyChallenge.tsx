@@ -15,6 +15,8 @@ interface DailyQuestion {
   category: string;
   question: string;
   options: string[];
+  attemptCount: number;
+  correctRate: number | null;
 }
 
 interface DailyResult {
@@ -72,7 +74,7 @@ export default function DailyChallenge() {
 
   return (
     <section className="mb-12 border-t border-neutral-800 pt-10">
-      <div className="flex items-center gap-2 mb-4">
+      <div className="flex items-center gap-2 mb-4 flex-wrap">
         <span className="text-sm font-medium text-neutral-400">오늘의 문제</span>
         <span className="text-[10px] text-emerald-400 border border-emerald-800/60 rounded px-1.5 py-0.5">
           {q.date}
@@ -84,6 +86,14 @@ export default function DailyChallenge() {
               : 'text-red-400 border-red-900/50'
           }`}>
             {result.correct ? '정답' : '오답'}
+          </span>
+        )}
+        {q.attemptCount > 0 && q.correctRate !== null && (
+          <span className="text-[10px] text-neutral-600 ml-auto">
+            {q.attemptCount.toLocaleString()}명 도전 · 정답률{' '}
+            <span className={q.correctRate >= 60 ? 'text-neutral-400' : 'text-amber-600/80'}>
+              {q.correctRate}%
+            </span>
           </span>
         )}
       </div>

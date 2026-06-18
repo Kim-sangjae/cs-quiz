@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { questions } from '@/data/questions';
+import { prisma } from '@/lib/prisma';
 
 function getDailyQuestion() {
   const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
@@ -10,12 +11,22 @@ function getDailyQuestion() {
 
 export async function GET() {
   const q = getDailyQuestion();
+  const dbQ = await prisma.question.findUnique({
+    where: { id: q.id },
+    select: { attemptCount: true, correctCount: true },
+  });
+  const attemptCount = dbQ?.attemptCount ?? 0;
+  const correctRate = attemptCount > 0
+    ? Math.round((dbQ!.correctCount / attemptCount) * 100)
+    : null;
   return NextResponse.json({
     date: new Date().toISOString().slice(0, 10),
     id: q.id,
     category: q.category,
     question: q.question,
     options: q.options,
+    attemptCount,
+    correctRate,
   });
 }
 

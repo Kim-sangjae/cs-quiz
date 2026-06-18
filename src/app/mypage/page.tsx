@@ -333,59 +333,108 @@ function ScoreTrend({ sessions }: { sessions: ApiSession[] }) {
   );
 }
 
-function StreakCalendar({ sessions }: { sessions: ApiSession[] }) {
+const DOW_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
+
+function AttendanceCalendar({ sessions }: { sessions: ApiSession[] }) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
   const activeDays = new Set<string>();
   for (const s of sessions) {
     const d = new Date(s.submittedAt);
-    activeDays.add(d.toLocaleDateString("en-CA")); // YYYY-MM-DD
+    activeDays.add(d.toLocaleDateString("en-CA"));
   }
 
-  const weeks: Date[][] = [];
-  for (let w = 11; w >= 0; w--) {
-    const week: Date[] = [];
-    for (let d = 6; d >= 0; d--) {
-      const day = new Date(today);
-      day.setDate(day.getDate() - (w * 7 + d));
-      week.push(day);
-    }
-    weeks.push(week);
-  }
+  const year = today.getFullYear();
+  const month = today.getMonth();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const startDow = new Date(year, month, 1).getDay();
+
+  const thisMonthActive = Array.from(activeDays).filter((k) => {
+    const d = new Date(k);
+    return d.getFullYear() === year && d.getMonth() === month;
+  }).length;
+
+  const cells: (number | null)[] = [
+    ...Array(startDow).fill(null),
+    ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
+  ];
+  while (cells.length % 7 !== 0) cells.push(null);
 
   return (
     <div>
-      <p className="text-xs text-neutral-600 mb-2">최근 12주 활동</p>
-      <div className="flex gap-1">
-        {weeks.map((week, wi) => (
-          <div key={wi} className="flex flex-col gap-1">
-            {week.map((day) => {
-              const key = day.toLocaleDateString("en-CA");
-              const active = activeDays.has(key);
-              const isToday = day.getTime() === today.getTime();
-              return (
-                <div
-                  key={key}
-                  title={key + (active ? " — 퀴즈 완료" : "")}
-                  className={`w-3 h-3 rounded-sm ${
-                    isToday
-                      ? active
-                        ? "bg-emerald-400 ring-1 ring-emerald-300/50"
-                        : "bg-neutral-700 ring-1 ring-neutral-600/50"
-                      : active
-                      ? "bg-emerald-600"
-                      : "bg-neutral-800"
-                  }`}
-                />
-              );
-            })}
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-xs text-neutral-500">
+          {year}년 {month + 1}월
+        </p>
+        <span className="text-xs font-medium text-emerald-400">
+          {thisMonthActive}일 출석
+        </span>
+      </div>
+
+      <div className="grid grid-cols-7 mb-2">
+        {DOW_LABELS.map((d, i) => (
+          <div
+            key={d}
+            className={`text-center text-[10px] font-medium ${
+              i === 0 ? "text-red-500/50" : i === 6 ? "text-blue-400/50" : "text-neutral-700"
+            }`}
+          >
+            {d}
           </div>
         ))}
       </div>
-      <div className="flex justify-between mt-1.5">
-        <span className="text-[10px] text-neutral-700">12주 전</span>
-        <span className="text-[10px] text-neutral-700">오늘</span>
+
+      <div className="grid grid-cols-7 gap-y-1">
+        {cells.map((day, i) => {
+          if (!day) return <div key={i} />;
+          const key = new Date(year, month, day).toLocaleDateString("en-CA");
+          const active = activeDays.has(key);
+          const dayDate = new Date(year, month, day);
+          const isToday = dayDate.getTime() === today.getTime();
+          const isFuture = dayDate > today;
+
+          return (
+            <div key={key} className="flex items-center justify-center py-0.5">
+              {active ? (
+                <div
+                  title={`${key} — 출석 완료`}
+                  className={`w-7 h-7 rounded-full flex items-center justify-center ${
+                    isToday
+                      ? "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.4)]"
+                      : "bg-emerald-500/15 border border-emerald-500/30"
+                  }`}
+                >
+                  <svg
+                    width={isToday ? 13 : 11}
+                    height={isToday ? 13 : 11}
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke={isToday ? "#000" : "#34d399"}
+                    strokeWidth={3}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M4.5 12.75l6 6 9-13.5" />
+                  </svg>
+                </div>
+              ) : (
+                <div
+                  title={key}
+                  className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] ${
+                    isToday
+                      ? "ring-1 ring-neutral-500 text-white"
+                      : isFuture
+                      ? "text-neutral-800"
+                      : "text-neutral-700"
+                  }`}
+                >
+                  {day}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -568,7 +617,7 @@ export default function MyPage() {
               </p>
             </div>
           </div>
-          {sessions.length > 0 && <StreakCalendar sessions={sessions} />}
+          {sessions.length > 0 && <AttendanceCalendar sessions={sessions} />}
           {sessions.length >= 2 && <ScoreTrend sessions={sessions} />}
           <WeeklyReport sessions={sessions} />
         </div>
