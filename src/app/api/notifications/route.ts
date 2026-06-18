@@ -8,15 +8,25 @@ export async function GET() {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  // 7일 지난 읽은 알림 자동 삭제
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  await prisma.notification.deleteMany({
+    where: { userId: session.user.id, isRead: true, createdAt: { lt: sevenDaysAgo } },
+  });
+
   const notifications = await prisma.notification.findMany({
     where: { userId: session.user.id },
     orderBy: { createdAt: 'desc' },
-    take: 20,
+    take: 30,
   });
 
-  const unreadCount = notifications.filter((n) => !n.isRead).length;
+  const unread = notifications.filter((n) => !n.isRead);
+  const read = notifications.filter((n) => n.isRead).slice(0, 5);
+  const result = [...unread, ...read].sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  );
 
-  return NextResponse.json({ notifications, unreadCount });
+  return NextResponse.json({ notifications: result, unreadCount: unread.length });
 }
 
 export async function PATCH(request: NextRequest) {
@@ -34,9 +44,9 @@ export async function PATCH(request: NextRequest) {
       data: { isRead: true },
     });
   } else {
-    await prisma.notification.updateMany({
-      where: { userId: session.user.id, isRead: false },
-      data: { isRead: true },
+    // 모두 읽음: 읽은 알림 삭제 (누적 방지)
+    await prisma.notification.deleteMany({
+      where: { userId: session.user.id },
     });
   }
 

@@ -1,3 +1,5 @@
+'use client';
+
 import Link from 'next/link';
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -33,6 +35,7 @@ interface QuestionCardProps {
   createdAt: Date | string;
   author: { nickname: string | null } | null;
   likeCount: number;
+  onClick?: () => void;
 }
 
 export default function QuestionCard({
@@ -45,6 +48,7 @@ export default function QuestionCard({
   createdAt,
   author,
   likeCount,
+  onClick,
 }: QuestionCardProps) {
   const accuracyText =
     attemptCount === 0
@@ -53,11 +57,8 @@ export default function QuestionCard({
 
   const preview = question.length > 50 ? question.slice(0, 50) + '...' : question;
 
-  return (
-    <Link
-      href={`/board/${id}`}
-      className="block bg-[#111111] border border-neutral-800 rounded-lg p-4 hover:border-neutral-600 transition-colors"
-    >
+  const inner = (
+    <>
       <div className="flex items-center gap-2 mb-2">
         <span className="inline-block text-xs text-neutral-500 border border-neutral-800 rounded px-2 py-0.5">
           {CATEGORY_LABELS[category] ?? category}
@@ -72,9 +73,7 @@ export default function QuestionCard({
           </span>
         )}
       </div>
-
       <p className="text-sm text-white font-medium leading-relaxed mb-3">{preview}</p>
-
       <div className="flex items-center justify-between text-xs text-neutral-500">
         <span>{author?.nickname ?? '익명'}</span>
         <div className="flex items-center gap-3">
@@ -84,6 +83,26 @@ export default function QuestionCard({
           <span>{relativeTime(createdAt)}</span>
         </div>
       </div>
+    </>
+  );
+
+  if (onClick) {
+    return (
+      <button
+        onClick={onClick}
+        className="w-full text-left bg-[#111111] border border-neutral-800 rounded-lg p-4 hover:border-neutral-600 transition-colors"
+      >
+        {inner}
+      </button>
+    );
+  }
+
+  return (
+    <Link
+      href={`/board/${id}`}
+      className="block bg-[#111111] border border-neutral-800 rounded-lg p-4 hover:border-neutral-600 transition-colors"
+    >
+      {inner}
     </Link>
   );
 }

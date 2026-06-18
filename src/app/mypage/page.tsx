@@ -5,8 +5,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
-import ResultCard from "@/components/ResultCard";
-import type { Category, Question } from "@/types";
+import QuestionDrawer from "@/components/QuestionDrawer";
+import type { Category } from "@/types";
 
 const CATEGORY_LABELS: Record<Category, string> = {
   ds: "자료구조",
@@ -271,7 +271,7 @@ function WeeklyReport({ sessions }: { sessions: ApiSession[] }) {
 
   return (
     <div className="mt-4 pt-4 border-t border-neutral-800">
-      <p className="text-xs text-neutral-600 mb-2">이번 주</p>
+      <p className="text-xs text-neutral-500 mb-2">이번 주</p>
       <div className="flex items-center gap-3 flex-wrap">
         <span className="text-sm text-neutral-300">
           <span className="text-white font-semibold">{thisWeek.length}</span>
@@ -315,7 +315,7 @@ function ScoreTrend({ sessions }: { sessions: ApiSession[] }) {
 
   return (
     <div className="mt-4 pt-4 border-t border-neutral-800">
-      <p className="text-xs text-neutral-600 mb-2">최근 {recent.length}회 점수 추이</p>
+      <p className="text-xs text-neutral-500 mb-2">최근 {recent.length}회 점수 추이</p>
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: 60 }}>
         <path d={d} fill="none" stroke="#404040" strokeWidth={1.5} />
         {points.map((p, i) => (
@@ -326,8 +326,8 @@ function ScoreTrend({ sessions }: { sessions: ApiSession[] }) {
           fill="#10b981" fontSize={10} fontWeight={600}>{last.score}</text>
       </svg>
       <div className="flex justify-between">
-        <span className="text-[10px] text-neutral-700">{recent.length}회 전</span>
-        <span className="text-[10px] text-neutral-700">최근</span>
+        <span className="text-[10px] text-neutral-500">{recent.length}회 전</span>
+        <span className="text-[10px] text-neutral-500">최근</span>
       </div>
     </div>
   );
@@ -384,7 +384,7 @@ function AttendanceCalendar({ sessions }: { sessions: ApiSession[] }) {
                 <div
                   title={key}
                   className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] ${
-                    isToday ? "ring-1 ring-neutral-500 text-white" : "text-neutral-800"
+                    isToday ? "ring-1 ring-neutral-500 text-white" : "text-neutral-600"
                   }`}
                 >
                   {day.getDate()}
@@ -447,10 +447,17 @@ export default function MyPage() {
   const [likedQuestions, setLikedQuestions] = useState<LikedQuestion[] | null>(null);
   const [likedLoading, setLikedLoading] = useState(false);
 
+  type DrawerState = {
+    questionId: string;
+    prefetched?: ApiQuestion;
+    userSelected?: number;
+    questionNumber?: number;
+  } | null;
+  const [drawerState, setDrawerState] = useState<DrawerState>(null);
+
   const [historySort, setHistorySort] = useState<HistorySort>("newest");
   const [historyPage, setHistoryPage] = useState(0);
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [expandedWrongId, setExpandedWrongId] = useState<string | null>(null);
 
   const [myQSearch, setMyQSearch] = useState("");
   const [myQSort, setMyQSort] = useState<MyQSort>("newest");
@@ -611,7 +618,7 @@ export default function MyPage() {
                     <div className="h-1.5 bg-neutral-800 rounded-full overflow-hidden mb-1">
                       <div className={`h-full rounded-full transition-all ${info.bar}`} style={{ width: `${progress}%` }} />
                     </div>
-                    <p className="text-[10px] text-neutral-600">
+                    <p className="text-[10px] text-neutral-500">
                       {total} / {LEVEL_MAX[level]}회
                     </p>
                   </div>
@@ -677,7 +684,7 @@ export default function MyPage() {
                   {(Object.keys(SORT_LABELS) as HistorySort[]).map((s) => (
                     <button
                       key={s}
-                      onClick={() => { setHistorySort(s); setHistoryPage(0); setExpandedId(null); }}
+                      onClick={() => { setHistorySort(s); setHistoryPage(0); setExpandedId(null); setDrawerState(null); }}
                       className={`text-xs rounded px-2.5 py-1 border transition-colors ${
                         historySort === s
                           ? "bg-white text-black border-white font-medium"
@@ -691,7 +698,7 @@ export default function MyPage() {
                 {sessions.length > HISTORY_PAGE_SIZE && (
                   <div className="flex items-center gap-2">
                     <button
-                      onClick={() => { setHistoryPage((p) => Math.max(0, p - 1)); setExpandedId(null); }}
+                      onClick={() => { setHistoryPage((p) => Math.max(0, p - 1)); setExpandedId(null); setDrawerState(null); }}
                       disabled={historyPage === 0}
                       className="text-xs text-neutral-400 border border-neutral-800 rounded px-2 py-1 hover:border-neutral-600 hover:text-white disabled:opacity-30 transition-colors"
                     >
@@ -701,7 +708,7 @@ export default function MyPage() {
                       {historyPage + 1} / {Math.ceil(sessions.length / HISTORY_PAGE_SIZE)}
                     </span>
                     <button
-                      onClick={() => { setHistoryPage((p) => Math.min(Math.ceil(sessions.length / HISTORY_PAGE_SIZE) - 1, p + 1)); setExpandedId(null); }}
+                      onClick={() => { setHistoryPage((p) => Math.min(Math.ceil(sessions.length / HISTORY_PAGE_SIZE) - 1, p + 1)); setExpandedId(null); setDrawerState(null); }}
                       disabled={historyPage >= Math.ceil(sessions.length / HISTORY_PAGE_SIZE) - 1}
                       className="text-xs text-neutral-400 border border-neutral-800 rounded px-2 py-1 hover:border-neutral-600 hover:text-white disabled:opacity-30 transition-colors"
                     >
@@ -794,65 +801,37 @@ export default function MyPage() {
                             </p>
                           ) : (
                             <>
-                              <p className="text-xs text-neutral-500 mb-3">
+                              <p className="text-xs text-neutral-400 mb-3">
                                 오답 {wrongItems.length}문제
                               </p>
                               <div className="space-y-1">
-                                {wrongItems.map((item) => {
-                                  const wrongKey = `${session.submittedAt}-${item.question.id}`;
-                                  const isWrongExpanded = expandedWrongId === wrongKey;
-                                  return (
-                                    <div key={item.question.id}>
-                                      <button
-                                        className="w-full text-left px-3 py-2.5 rounded-md hover:bg-[#1a1a1a] transition-colors flex items-center justify-between gap-3"
-                                        onClick={() =>
-                                          setExpandedWrongId(
-                                            isWrongExpanded ? null : wrongKey
-                                          )
-                                        }
-                                      >
-                                        <div className="flex items-center gap-2 min-w-0">
-                                          <span className="text-xs text-neutral-600 flex-shrink-0">
-                                            {item.questionNumber}.
-                                          </span>
-                                          <span className="text-xs text-neutral-600 border border-neutral-800 rounded px-1.5 py-0.5 flex-shrink-0">
-                                            {item.question.category}
-                                          </span>
-                                          <span className="text-sm text-neutral-400 truncate">
-                                            {item.question.question}
-                                          </span>
-                                        </div>
-                                        <svg
-                                          width={12}
-                                          height={12}
-                                          viewBox="0 0 24 24"
-                                          fill="none"
-                                          stroke="currentColor"
-                                          strokeWidth={2}
-                                          className={`text-neutral-600 flex-shrink-0 transition-transform ${
-                                            isWrongExpanded ? "rotate-180" : ""
-                                          }`}
-                                        >
-                                          <path
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                            d="M19 9l-7 7-7-7"
-                                          />
-                                        </svg>
-                                      </button>
-                                      {isWrongExpanded && (
-                                        <div className="mt-2 mb-2">
-                                          <ResultCard
-                                            questionNumber={item.questionNumber}
-                                            question={item.question as unknown as Question}
-                                            userSelected={item.userAnswer!.selected as 0 | 1 | 2 | 3}
-                                            questionId={item.question.id}
-                                          />
-                                        </div>
-                                      )}
+                                {wrongItems.map((item) => (
+                                  <button
+                                    key={item.question.id}
+                                    className="w-full text-left px-3 py-2.5 rounded-md hover:bg-[#1a1a1a] transition-colors flex items-center justify-between gap-3"
+                                    onClick={() => setDrawerState({
+                                      questionId: item.question.id,
+                                      prefetched: item.question,
+                                      userSelected: item.userAnswer!.selected,
+                                      questionNumber: item.questionNumber,
+                                    })}
+                                  >
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      <span className="text-xs text-neutral-500 flex-shrink-0">
+                                        {item.questionNumber}.
+                                      </span>
+                                      <span className="text-xs text-neutral-500 border border-neutral-800 rounded px-1.5 py-0.5 flex-shrink-0">
+                                        {item.question.category}
+                                      </span>
+                                      <span className="text-sm text-neutral-400 truncate">
+                                        {item.question.question}
+                                      </span>
                                     </div>
-                                  );
-                                })}
+                                    <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="text-neutral-600 flex-shrink-0 -rotate-90">
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                                    </svg>
+                                  </button>
+                                ))}
                               </div>
                             </>
                           )}
@@ -941,12 +920,18 @@ export default function MyPage() {
             }
             return (
               <>
-                <p className="text-xs text-neutral-600 mb-3">총 {filtered.length}개</p>
+                <p className="text-xs text-neutral-500 mb-3">총 {filtered.length}개</p>
                 <div className="space-y-3">
                   {paged.map((q) => {
                     const isRejected = q.status === "REJECTED";
-                    const cardBody = (
-                      <>
+                    return (
+                      <button
+                        key={q.id}
+                        onClick={() => setDrawerState({ questionId: q.id })}
+                        className={`w-full text-left bg-[#111111] rounded-lg p-4 hover:bg-[#161616] transition-colors ${
+                          isRejected ? "border border-red-900/30" : "border border-neutral-800"
+                        }`}
+                      >
                         <div className="flex items-start justify-between gap-3 mb-2">
                           <div className="flex items-center gap-2 flex-shrink-0">
                             <span className="text-xs text-neutral-500 border border-neutral-800 rounded px-2 py-0.5">
@@ -960,46 +945,16 @@ export default function MyPage() {
                             {q._count.likes > 0 && (
                               <span className="text-xs text-neutral-500">♥ {q._count.likes}</span>
                             )}
-                            <span className="text-xs text-neutral-600">
+                            <span className="text-xs text-neutral-500">
                               {new Date(q.createdAt).toLocaleDateString("ko-KR")}
                             </span>
                           </div>
                         </div>
                         <p className="text-sm text-neutral-300 leading-relaxed line-clamp-2">{q.question}</p>
                         {isRejected && q.rejectionReason && (
-                          <div className="mt-3 pt-3 border-t border-neutral-800">
-                            <p className="text-xs text-neutral-500 mb-1">거절 사유</p>
-                            <p className="text-xs text-red-400">{q.rejectionReason}</p>
-                            <div className="mt-3 flex gap-2">
-                              <Link
-                                href={`/board/submit?resubmit=${q.id}`}
-                                className="text-xs text-white border border-neutral-600 rounded px-3 py-1.5 hover:bg-neutral-800 transition-colors"
-                              >
-                                수정 후 재요청
-                              </Link>
-                              <Link
-                                href={`/board/${q.id}`}
-                                className="text-xs text-neutral-400 border border-neutral-800 rounded px-3 py-1.5 hover:border-neutral-600 hover:text-white transition-colors"
-                              >
-                                게시판에서 보기
-                              </Link>
-                            </div>
-                          </div>
+                          <p className="text-xs text-red-400/70 mt-2 truncate">사유: {q.rejectionReason}</p>
                         )}
-                      </>
-                    );
-                    return isRejected ? (
-                      <div key={q.id} className="bg-[#111111] border border-red-900/30 rounded-lg p-4">
-                        {cardBody}
-                      </div>
-                    ) : (
-                      <Link
-                        key={q.id}
-                        href={`/board/${q.id}`}
-                        className="block bg-[#111111] border border-neutral-800 rounded-lg p-4 hover:bg-[#161616] transition-colors"
-                      >
-                        {cardBody}
-                      </Link>
+                      </button>
                     );
                   })}
                 </div>
@@ -1023,6 +978,15 @@ export default function MyPage() {
           })()}
         </>
       )}
+
+      <QuestionDrawer
+        open={drawerState !== null}
+        questionId={drawerState?.questionId ?? null}
+        prefetched={drawerState?.prefetched}
+        userSelected={drawerState?.userSelected}
+        questionNumber={drawerState?.questionNumber}
+        onClose={() => setDrawerState(null)}
+      />
 
       {/* 탭 3: 내가 좋아요한 문제 */}
       {activeTab === "liked" && (
@@ -1078,7 +1042,7 @@ export default function MyPage() {
             return (
               <>
                 <div className="flex items-center justify-between mb-3">
-                  <p className="text-xs text-neutral-600">총 {filtered.length}개</p>
+                  <p className="text-xs text-neutral-500">총 {filtered.length}개</p>
                   <button
                     onClick={() => {
                       const ids = filtered.slice(0, 30).map((q) => q.id).join(',');
@@ -1091,10 +1055,10 @@ export default function MyPage() {
                 </div>
                 <div className="space-y-2">
                   {paged.map((q) => (
-                    <Link
+                    <button
                       key={q.id}
-                      href={`/board/${q.id}`}
-                      className="block bg-[#111111] border border-neutral-800 rounded-lg px-4 py-3 hover:bg-[#161616] transition-colors"
+                      onClick={() => setDrawerState({ questionId: q.id })}
+                      className="w-full text-left bg-[#111111] border border-neutral-800 rounded-lg px-4 py-3 hover:bg-[#161616] transition-colors"
                     >
                       <div className="flex items-center gap-2 mb-1">
                         <span className="text-xs text-neutral-500 border border-neutral-800 rounded px-2 py-0.5">
@@ -1102,7 +1066,7 @@ export default function MyPage() {
                         </span>
                       </div>
                       <p className="text-sm text-neutral-300 truncate">{q.question}</p>
-                    </Link>
+                    </button>
                   ))}
                 </div>
                 {pageCount > 1 && (

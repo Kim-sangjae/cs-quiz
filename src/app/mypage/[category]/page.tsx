@@ -4,7 +4,7 @@ import { use, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import type { Question } from '@/types';
-import ResultCard from '@/components/ResultCard';
+import QuestionDrawer from '@/components/QuestionDrawer';
 
 const CATEGORY_LABELS: Record<string, string> = {
   ds: '자료구조',
@@ -31,7 +31,7 @@ export default function CategoryDetailPage({
   const { category } = use(params);
   const router = useRouter();
   const [items, setItems] = useState<WrongItem[] | null>(null);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [drawerItem, setDrawerItem] = useState<{ question: Question & { id: string }; selected: number; number: number } | null>(null);
 
   useEffect(() => {
     if (!VALID_CATEGORIES.has(category)) {
@@ -76,45 +76,36 @@ export default function CategoryDetailPage({
         <>
           <p className="text-xs text-neutral-500 mb-4">틀린 문제 {items.length}개 (문제별 최신 오답 기준)</p>
           <div className="space-y-2">
-            {items.map((item, i) => {
-              const isExpanded = expandedId === item.question.id;
-              return (
-                <div key={item.question.id} className="border border-neutral-800 rounded-lg overflow-hidden">
-                  <button
-                    onClick={() => setExpandedId(isExpanded ? null : item.question.id)}
-                    className="w-full text-left px-4 py-3 hover:bg-[#1a1a1a] transition-colors flex items-center justify-between gap-3"
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="text-xs text-neutral-600 flex-shrink-0">{i + 1}.</span>
-                      {item.wrongCount > 1 && (
-                        <span className="text-[10px] text-red-400 border border-red-900/50 rounded px-1.5 py-0.5 flex-shrink-0">
-                          {item.wrongCount}회 틀림
-                        </span>
-                      )}
-                      <span className="text-sm text-neutral-300 truncate">{item.question.question}</span>
-                    </div>
-                    <svg
-                      width={14} height={14} viewBox="0 0 24 24" fill="none"
-                      stroke="currentColor" strokeWidth={2}
-                      className={`text-neutral-600 flex-shrink-0 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </button>
-                  {isExpanded && (
-                    <div className="border-t border-neutral-800">
-                      <ResultCard
-                        questionNumber={i + 1}
-                        question={item.question}
-                        userSelected={item.selected as 0 | 1 | 2 | 3}
-                        questionId={item.question.id}
-                      />
-                    </div>
+            {items.map((item, i) => (
+              <button
+                key={item.question.id}
+                onClick={() => setDrawerItem({ question: item.question, selected: item.selected, number: i + 1 })}
+                className="w-full text-left bg-[#111111] border border-neutral-800 rounded-lg px-4 py-3 hover:bg-[#1a1a1a] transition-colors flex items-center justify-between gap-3"
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-xs text-neutral-500 flex-shrink-0">{i + 1}.</span>
+                  {item.wrongCount > 1 && (
+                    <span className="text-[10px] text-red-400 border border-red-900/50 rounded px-1.5 py-0.5 flex-shrink-0">
+                      {item.wrongCount}회 틀림
+                    </span>
                   )}
+                  <span className="text-sm text-neutral-300 truncate">{item.question.question}</span>
                 </div>
-              );
-            })}
+                <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="text-neutral-600 flex-shrink-0 -rotate-90">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+            ))}
           </div>
+
+          <QuestionDrawer
+            open={drawerItem !== null}
+            questionId={drawerItem?.question.id ?? null}
+            prefetched={drawerItem?.question}
+            userSelected={drawerItem?.selected}
+            questionNumber={drawerItem?.number}
+            onClose={() => setDrawerItem(null)}
+          />
 
           <div className="mt-8 flex justify-center">
             <Link

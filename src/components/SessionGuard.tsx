@@ -12,7 +12,7 @@ export default function SessionGuard() {
     if (prevStatus.current === 'authenticated' && status === 'unauthenticated') {
       // 서버가 살아있을 때만 표시 (서버 다운이면 네트워크 에러로 catch)
       fetch('/api/auth/session')
-        .then(() => setShow(true))
+        .then((res) => { if (res.ok) setShow(true); })
         .catch(() => { /* 서버 다운 — 모달 표시 안 함 */ });
     }
     prevStatus.current = status;

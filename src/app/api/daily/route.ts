@@ -9,12 +9,17 @@ function getDailyQuestion() {
   return questions[index];
 }
 
-export async function GET() {
+async function getDailyQuestionDbRecord() {
   const q = getDailyQuestion();
-  const dbQ = await prisma.question.findUnique({
-    where: { id: q.id },
-    select: { attemptCount: true, correctCount: true },
+  const dbQ = await prisma.question.findFirst({
+    where: { question: q.question },
+    select: { id: true, attemptCount: true, correctCount: true },
   });
+  return { q, dbQ };
+}
+
+export async function GET() {
+  const { q, dbQ } = await getDailyQuestionDbRecord();
   const attemptCount = dbQ?.attemptCount ?? 0;
   const correctRate = attemptCount > 0
     ? Math.round((dbQ!.correctCount / attemptCount) * 100)
@@ -32,23 +37,27 @@ export async function GET() {
 
 export async function POST(req: Request) {
   const { selected } = await req.json() as { selected: number };
-  const q = getDailyQuestion();
+  const { q, dbQ } = await getDailyQuestionDbRecord();
   const correct = selected === q.answer;
 
-  // 오늘의 문제 답변 통계를 DB에 반영, 업데이트된 값 반환
-  const updatedQ = await prisma.question.update({
-    where: { id: q.id },
-    data: {
-      attemptCount: { increment: 1 },
-      ...(correct ? { correctCount: { increment: 1 } } : {}),
-    },
-    select: { attemptCount: true, correctCount: true },
-  }).catch(() => null);
+  let newAttemptCount = 0;
+  let newCorrectRate: number | null = null;
 
-  const newAttemptCount = updatedQ?.attemptCount ?? 0;
-  const newCorrectRate = newAttemptCount > 0
-    ? Math.round((updatedQ!.correctCount / newAttemptCount) * 100)
-    : null;
+  if (dbQ) {
+    const updatedQ = await prisma.question.update({
+      where: { id: dbQ.id },
+      data: {
+        attemptCount: { increment: 1 },
+        ...(correct ? { correctCount: { increment: 1 } } : {}),
+      },
+      select: { attemptCount: true, correctCount: true },
+    }).catch(() => null);
+
+    newAttemptCount = updatedQ?.attemptCount ?? 0;
+    newCorrectRate = newAttemptCount > 0
+      ? Math.round((updatedQ!.correctCount / newAttemptCount) * 100)
+      : null;
+  }
 
   return NextResponse.json({
     correct,

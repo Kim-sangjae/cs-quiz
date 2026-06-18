@@ -121,19 +121,23 @@ export default function DailyChallenge() {
         </div>
 
         <div className="mt-4 pt-3 border-t border-neutral-800 flex items-center justify-between">
-          <span className="text-[11px] text-neutral-600">
-            {q.attemptCount > 0 ? `${q.attemptCount.toLocaleString()}명 도전` : '첫 번째 도전자가 되어보세요'}
+          <span className="text-[11px] text-neutral-400">
+            {q.attemptCount > 0
+              ? `${q.attemptCount.toLocaleString()}명 도전`
+              : result
+                ? '1명 도전'
+                : '첫 번째 도전자가 되어보세요'}
           </span>
           {q.correctRate !== null ? (
-            <span className="text-[11px]">
+            <span className="text-[11px] text-neutral-400">
               정답률{' '}
               <span className={`font-semibold ${q.correctRate >= 60 ? 'text-neutral-300' : 'text-amber-500'}`}>
                 {q.correctRate}%
               </span>
             </span>
-          ) : (
-            <span className="text-[11px] text-neutral-700">정답률 집계 중</span>
-          )}
+          ) : !result ? (
+            <span className="text-[11px] text-neutral-500">정답률 집계 중</span>
+          ) : null}
         </div>
 
         {result && (

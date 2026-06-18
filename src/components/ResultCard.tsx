@@ -44,7 +44,7 @@ export default function ResultCard({
           } else if (isUserWrong) {
             cls += 'border-red-500 bg-red-500/10 text-red-400';
           } else {
-            cls += 'border-neutral-800 bg-[#1a1a1a] text-neutral-600 opacity-40';
+            cls += 'border-neutral-800 bg-[#1a1a1a] text-neutral-500';
           }
 
           return (

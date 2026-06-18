@@ -5,7 +5,7 @@ import { getServerUser } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import SearchBar from '@/components/board/SearchBar';
 import FilterBar from '@/components/board/FilterBar';
-import QuestionCard from '@/components/board/QuestionCard';
+import BoardListClient from '@/components/board/BoardListClient';
 import Pagination from '@/components/board/Pagination';
 
 const VALID_CATEGORIES = ['ds', 'algo', 'os', 'network', 'db', 'arch'];
@@ -122,22 +122,19 @@ export default async function BoardPage({ searchParams }: PageProps) {
       ) : (
         <>
           <p className="text-xs text-neutral-500 mb-3">총 {totalCount}개</p>
-          <div className="space-y-3 mb-8">
-            {questions.map((q) => (
-              <QuestionCard
-                key={q.id}
-                id={q.id}
-                category={q.category}
-                question={q.question}
-                status={q.status}
-                attemptCount={q.attemptCount}
-                correctCount={q.correctCount}
-                createdAt={q.createdAt}
-                author={q.author}
-                likeCount={q._count.likes}
-              />
-            ))}
-          </div>
+          <BoardListClient
+            questions={questions.map((q) => ({
+              id: q.id,
+              category: q.category,
+              question: q.question,
+              status: q.status,
+              attemptCount: q.attemptCount,
+              correctCount: q.correctCount,
+              createdAt: q.createdAt.toISOString(),
+              author: q.author,
+              likeCount: q._count.likes,
+            }))}
+          />
           <Suspense>
             <Pagination currentPage={page} pageCount={pageCount} />
           </Suspense>
