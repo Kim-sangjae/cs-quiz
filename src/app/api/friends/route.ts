@@ -66,21 +66,19 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: msg }, { status: 409 });
   }
 
-  const me = await prisma.user.findUnique({ where: { id: userId }, select: { nickname: true } });
-
-  await prisma.$transaction([
-    prisma.friendship.create({
-      data: { requesterId: userId, addresseeId: target.id },
-    }),
-    prisma.notification.create({
-      data: {
-        userId: target.id,
-        type: 'FRIEND_REQUEST',
-        payload: { fromNickname: me?.nickname ?? '(닉네임 없음)' },
-        actionUrl: '/friends',
-      },
-    }),
+  const [friendship, me] = await Promise.all([
+    prisma.friendship.create({ data: { requesterId: userId, addresseeId: target.id } }),
+    prisma.user.findUnique({ where: { id: userId }, select: { nickname: true } }),
   ]);
+
+  await prisma.notification.create({
+    data: {
+      userId: target.id,
+      type: 'FRIEND_REQUEST',
+      payload: { fromNickname: me?.nickname ?? '(닉네임 없음)', friendshipId: friendship.id },
+      actionUrl: '/friends',
+    },
+  });
 
   return NextResponse.json({ ok: true }, { status: 201 });
 }

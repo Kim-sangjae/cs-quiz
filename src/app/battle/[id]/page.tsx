@@ -7,11 +7,12 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 
 const CATEGORY_LABEL: Record<string, string> = {
-  ds: '자료구조', algo: '알고리즘', os: '운영체제',
+  all: '전체', ds: '자료구조', algo: '알고리즘', os: '운영체제',
   network: '네트워크', db: '데이터베이스', arch: '컴퓨터 구조',
 };
 
 const LABELS = ['A', 'B', 'C', 'D'] as const;
+const TIMEOUT_SECS = 15;
 
 interface RoomState {
   id: string;
@@ -20,7 +21,6 @@ interface RoomState {
   myRole: 'host' | 'guest';
   host: { id: string; nickname: string | null };
   guest: { id: string; nickname: string | null } | null;
-  // PLAYING fields
   currentQ?: number;
   totalQ?: number;
   hostScore?: number;
@@ -29,7 +29,6 @@ interface RoomState {
   guestAnswered?: boolean;
   mySelected?: number | null;
   question?: { id: string; question: string; options: string[] };
-  // FINISHED fields
   questions?: { question: string; options: string[]; answer: number; explanation: string }[];
   hostAnswers?: number[];
   guestAnswers?: number[];
@@ -43,6 +42,10 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
 
   const hadWaiting = useRef(false);
   const [wasRejected, setWasRejected] = useState(false);
+
+  // 15초 카운트다운
+  const [timeLeft, setTimeLeft] = useState(TIMEOUT_SECS);
+  const lastCurrentQ = useRef<number | null>(null);
 
   const { data: room, isLoading, isError } = useQuery<RoomState>({
     queryKey: ['battle', id],
@@ -62,7 +65,6 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
   useEffect(() => {
     if (isError && hadWaiting.current) {
       setWasRejected(true);
-      // BattleRejectedAlert 전역 팝업 방지 - 알림 즉시 읽음 처리
       fetch('/api/notifications', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -71,15 +73,24 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
     }
   }, [isError, queryClient]);
 
-  const joinRoom = useMutation({
-    mutationFn: () =>
-      fetch(`/api/battle/rooms/${id}/join`, { method: 'POST' }).then(async (r) => {
-        if (!r.ok) throw new Error('오류가 발생했습니다');
-        return r.json();
-      }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['battle', id] }),
-    onError: () => toast.error('오류가 발생했습니다'),
-  });
+  // question 변경 시 타이머 리셋
+  useEffect(() => {
+    if (room?.status !== 'PLAYING') return;
+    if (lastCurrentQ.current !== room.currentQ) {
+      lastCurrentQ.current = room.currentQ ?? null;
+      setTimeLeft(TIMEOUT_SECS);
+    }
+  }, [room?.currentQ, room?.status]);
+
+  const myAnswered = room?.myRole === 'host' ? room?.hostAnswered : room?.guestAnswered;
+
+  // 카운트다운
+  useEffect(() => {
+    if (room?.status !== 'PLAYING' || myAnswered) return;
+    if (timeLeft <= 0) return; // submitAnswer.mutate(-1) 아래 effect에서 처리
+    const tid = setTimeout(() => setTimeLeft((t) => t - 1), 1000);
+    return () => clearTimeout(tid);
+  }, [timeLeft, room?.status, myAnswered]);
 
   const submitAnswer = useMutation({
     mutationFn: (selected: number) =>
@@ -89,11 +100,27 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
         body: JSON.stringify({ selected }),
       }).then(async (r) => {
         const data = await r.json() as { correct?: boolean; error?: string };
-        if (!r.ok) throw new Error(data.error ?? '오류가 발생했습니다');
+        if (!r.ok && data.error !== '이미 답변했습니다') throw new Error(data.error ?? '오류가 발생했습니다');
         return data;
       }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['battle', id] }),
     onError: (e: Error) => toast.error(e.message),
+  });
+
+  // 시간 초과 자동 제출
+  useEffect(() => {
+    if (room?.status !== 'PLAYING' || myAnswered || timeLeft > 0 || submitAnswer.isPending) return;
+    submitAnswer.mutate(-1);
+  }, [timeLeft, room?.status, myAnswered, submitAnswer.isPending]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const joinRoom = useMutation({
+    mutationFn: () =>
+      fetch(`/api/battle/rooms/${id}/join`, { method: 'POST' }).then(async (r) => {
+        if (!r.ok) throw new Error('오류가 발생했습니다');
+        return r.json();
+      }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['battle', id] }),
+    onError: () => toast.error('오류가 발생했습니다'),
   });
 
   if (status === 'loading' || isLoading) return null;
@@ -114,7 +141,7 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
           </div>
           <div className="border-t border-neutral-800">
             <button
-              onClick={() => router.push('/battle')}
+              onClick={() => router.back()}
               className="w-full py-3.5 text-sm font-semibold text-white hover:bg-neutral-800/50 transition-colors"
             >
               확인
@@ -136,18 +163,20 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
   const myScore = room.myRole === 'host' ? (room.hostScore ?? 0) : (room.guestScore ?? 0);
   const oppScore = room.myRole === 'host' ? (room.guestScore ?? 0) : (room.hostScore ?? 0);
   const oppNickname = room.myRole === 'host' ? (room.guest?.nickname ?? '?') : (room.host.nickname ?? '?');
-  const myAnswered = room.myRole === 'host' ? room.hostAnswered : room.guestAnswered;
   const myAnswers = room.myRole === 'host' ? (room.hostAnswers ?? []) : (room.guestAnswers ?? []);
   const oppAnswers = room.myRole === 'host' ? (room.guestAnswers ?? []) : (room.hostAnswers ?? []);
+
+  const timerColor =
+    timeLeft <= 3 ? 'text-red-400' : timeLeft <= 7 ? 'text-yellow-400' : 'text-emerald-400';
 
   return (
     <main className="max-w-2xl mx-auto px-4 sm:px-6 py-10">
       <div className="flex items-center gap-3 mb-6">
         <button
-          onClick={() => router.push('/battle')}
+          onClick={() => router.back()}
           className="text-xs text-neutral-500 hover:text-neutral-300 transition-colors"
         >
-          ← 대전 목록
+          ← 뒤로
         </button>
         <span className="text-xs text-neutral-600 border border-neutral-800 rounded px-2 py-0.5">
           {CATEGORY_LABEL[room.category] ?? room.category}
@@ -186,7 +215,7 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
       {/* PLAYING */}
       {room.status === 'PLAYING' && room.question && (
         <>
-          {/* 점수판 */}
+          {/* 점수판 + 타이머 */}
           <div className="flex items-center justify-between mb-5 bg-[#111111] border border-neutral-800 rounded-xl px-5 py-3">
             <div className="text-center">
               <p className="text-xs text-neutral-500 mb-0.5">나</p>
@@ -196,7 +225,11 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
               <p className="text-xs text-neutral-500 mb-0.5">
                 {room.currentQ! + 1} / {room.totalQ}
               </p>
-              <p className="text-xs text-neutral-600">문제</p>
+              {myAnswered ? (
+                <p className="text-xs text-neutral-600">대기 중</p>
+              ) : (
+                <p className={`text-lg font-bold tabular-nums ${timerColor}`}>{timeLeft}</p>
+              )}
             </div>
             <div className="text-center">
               <p className="text-xs text-neutral-500 mb-0.5">{oppNickname}</p>
@@ -240,7 +273,7 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
                   : `${oppNickname}님 답변 대기 중...`}
               </p>
             ) : (
-              <p className="text-xs text-neutral-600">답변을 선택하세요</p>
+              <p className="text-xs text-neutral-600">답변을 선택하세요 (제한 시간 {TIMEOUT_SECS}초)</p>
             )}
           </div>
         </>
@@ -249,7 +282,6 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
       {/* FINISHED */}
       {room.status === 'FINISHED' && room.questions && (
         <>
-          {/* 최종 결과 */}
           <div className="bg-[#111111] border border-neutral-800 rounded-xl p-6 text-center mb-6">
             <p className="text-xs text-neutral-500 mb-2">최종 결과</p>
             <div className="flex items-center justify-center gap-6 mb-3">
@@ -270,7 +302,6 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
             </p>
           </div>
 
-          {/* 문제별 결과 */}
           <div className="space-y-3">
             {room.questions.map((q, qi) => {
               const myAns = myAnswers[qi];
@@ -283,10 +314,10 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
                     <p className="text-xs text-neutral-500">문제 {qi + 1}</p>
                     <div className="flex gap-2 text-xs">
                       <span className={isMyCorrect ? 'text-emerald-400' : 'text-red-400'}>
-                        나: {LABELS[myAns] ?? '-'} {isMyCorrect ? '✓' : '✗'}
+                        나: {myAns >= 0 ? LABELS[myAns] : '시간초과'} {isMyCorrect ? '✓' : '✗'}
                       </span>
                       <span className={isOppCorrect ? 'text-emerald-400' : 'text-red-400'}>
-                        상대: {LABELS[oppAns] ?? '-'} {isOppCorrect ? '✓' : '✗'}
+                        상대: {oppAns >= 0 ? LABELS[oppAns] : '시간초과'} {isOppCorrect ? '✓' : '✗'}
                       </span>
                     </div>
                   </div>
@@ -298,12 +329,12 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
             })}
           </div>
 
-          <div className="mt-6 flex gap-2">
+          <div className="mt-6">
             <button
-              onClick={() => router.push('/battle')}
-              className="flex-1 rounded-md border border-neutral-700 text-sm text-neutral-400 py-2.5 hover:border-neutral-500 hover:text-white transition-colors"
+              onClick={() => router.back()}
+              className="w-full rounded-md border border-neutral-700 text-sm text-neutral-400 py-2.5 hover:border-neutral-500 hover:text-white transition-colors"
             >
-              대전 목록
+              뒤로
             </button>
           </div>
         </>

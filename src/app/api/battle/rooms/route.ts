@@ -51,14 +51,17 @@ export async function POST(req: Request) {
   if (!friendship) return NextResponse.json({ error: '친구 관계가 아닙니다' }, { status: 400 });
 
   const questions = await prisma.question.findMany({
-    where: { category, status: { in: ['OFFICIAL', 'APPROVED'] } },
+    where: {
+      ...(category !== 'all' && { category }),
+      status: { in: ['OFFICIAL', 'APPROVED'] },
+    },
     select: { id: true },
   });
-  if (questions.length < 5) {
+  if (questions.length < 7) {
     return NextResponse.json({ error: '해당 카테고리에 문제가 부족합니다' }, { status: 400 });
   }
 
-  const questionIds = shuffle(questions.map((q) => q.id)).slice(0, 5);
+  const questionIds = shuffle(questions.map((q) => q.id)).slice(0, 7);
 
   const [room, me] = await Promise.all([
     prisma.gameRoom.create({

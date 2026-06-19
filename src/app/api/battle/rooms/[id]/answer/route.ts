@@ -36,14 +36,14 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   });
   if (!q) return NextResponse.json({ error: 'Question not found' }, { status: 500 });
 
-  const isCorrect = selected === q.answer;
+  const isCorrect = selected >= 0 && selected === q.answer;
 
   const newHostAnswers = isHost ? [...hostAnswers, selected] : hostAnswers;
   const newGuestAnswers = isGuest ? [...guestAnswers, selected] : guestAnswers;
 
   const bothAnswered = newHostAnswers.length > currentQ && newGuestAnswers.length > currentQ;
   const newCurrentQ = bothAnswered ? currentQ + 1 : currentQ;
-  const newStatus = bothAnswered && newCurrentQ >= 5 ? 'FINISHED' : room.status;
+  const newStatus = bothAnswered && newCurrentQ >= 7 ? 'FINISHED' : room.status;
 
   const scoreUpdate = isHost && isCorrect
     ? { hostScore: { increment: 1 } }

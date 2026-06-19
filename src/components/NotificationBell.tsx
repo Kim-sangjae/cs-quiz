@@ -16,6 +16,7 @@ interface NotificationPayload {
   levelName?: string;
   fromNickname?: string;
   roomId?: string;
+  friendshipId?: string;
 }
 
 interface Notification {
@@ -34,35 +35,15 @@ interface NotificationsResponse {
 
 function getNotificationMessage(n: Notification): string {
   const payload = n.payload;
-  if (n.type === 'QUESTION_APPROVED') {
-    return `'${payload.questionTitle}' 문제가 승인되었습니다.`;
-  }
-  if (n.type === 'QUESTION_REJECTED') {
-    return `'${payload.questionTitle}' 문제가 거절되었습니다. 사유: ${payload.rejectionReason ?? ''}`;
-  }
-  if (n.type === 'ROLE_CHANGED') {
-    return payload.newRole === 'ADMIN'
-      ? '관리자 권한이 부여되었습니다.'
-      : '일반 사용자로 권한이 변경되었습니다.';
-  }
-  if (n.type === 'INQUIRY_REPLIED') {
-    return `'${payload.inquiryTitle}' 문의에 답변이 등록되었습니다.`;
-  }
-  if (n.type === 'LEVEL_UP') {
-    return `${payload.levelName ?? ''} 달성! Lv.${payload.prevLevel} → Lv.${payload.newLevel}으로 레벨업했습니다.`;
-  }
-  if (n.type === 'FRIEND_REQUEST') {
-    return `${payload.fromNickname ?? '누군가'}님이 친구 요청을 보냈습니다.`;
-  }
-  if (n.type === 'FRIEND_ACCEPTED') {
-    return `${payload.fromNickname ?? '누군가'}님이 친구 요청을 수락했습니다.`;
-  }
-  if (n.type === 'BATTLE_INVITE') {
-    return `${payload.fromNickname ?? '누군가'}님이 대전을 신청했습니다.`;
-  }
-  if (n.type === 'BATTLE_REJECTED') {
-    return `${payload.fromNickname ?? '누군가'}님이 대전 신청을 거절했습니다.`;
-  }
+  if (n.type === 'QUESTION_APPROVED') return `'${payload.questionTitle}' 문제가 승인되었습니다.`;
+  if (n.type === 'QUESTION_REJECTED') return `'${payload.questionTitle}' 문제가 거절되었습니다. 사유: ${payload.rejectionReason ?? ''}`;
+  if (n.type === 'ROLE_CHANGED') return payload.newRole === 'ADMIN' ? '관리자 권한이 부여되었습니다.' : '일반 사용자로 권한이 변경되었습니다.';
+  if (n.type === 'INQUIRY_REPLIED') return `'${payload.inquiryTitle}' 문의에 답변이 등록되었습니다.`;
+  if (n.type === 'LEVEL_UP') return `${payload.levelName ?? ''} 달성! Lv.${payload.prevLevel} → Lv.${payload.newLevel}으로 레벨업했습니다.`;
+  if (n.type === 'FRIEND_REQUEST') return `${payload.fromNickname ?? '누군가'}님이 친구 요청을 보냈습니다.`;
+  if (n.type === 'FRIEND_ACCEPTED') return `${payload.fromNickname ?? '누군가'}님이 친구 요청을 수락했습니다.`;
+  if (n.type === 'BATTLE_INVITE') return `${payload.fromNickname ?? '누군가'}님이 대전을 신청했습니다.`;
+  if (n.type === 'BATTLE_REJECTED') return `${payload.fromNickname ?? '누군가'}님이 대전 신청을 거절했습니다.`;
   return '새 알림이 있습니다.';
 }
 
@@ -82,6 +63,7 @@ async function markRead(id?: string): Promise<void> {
 
 export default function NotificationBell() {
   const [open, setOpen] = useState(false);
+  const [pendingFriendship, setPendingFriendship] = useState<string | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -92,9 +74,30 @@ export default function NotificationBell() {
     refetchInterval: 60_000,
   });
 
-  const mutation = useMutation({
+  const markReadMutation = useMutation({
     mutationFn: markRead,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notifications'] }),
+  });
+
+  const friendshipMutation = useMutation({
+    mutationFn: ({ friendshipId, action }: { friendshipId: string; action: 'accept' | 'reject' }) =>
+      fetch(`/api/friends/${friendshipId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action }),
+      }).then(async (r) => {
+        if (!r.ok) throw new Error('오류가 발생했습니다');
+        return r.json();
+      }),
+    onSuccess: (_result, { friendshipId }) => {
+      const notif = (data?.notifications ?? []).find(
+        (n) => n.type === 'FRIEND_REQUEST' && n.payload.friendshipId === friendshipId
+      );
+      if (notif) markReadMutation.mutate(notif.id);
+      else queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      queryClient.invalidateQueries({ queryKey: ['friends'] });
+      setPendingFriendship(null);
+    },
   });
 
   useEffect(() => {
@@ -113,13 +116,14 @@ export default function NotificationBell() {
   const badgeCount = Math.min(unreadCount, 99);
 
   function handleNotificationClick(n: Notification) {
-    if (!n.isRead) mutation.mutate(n.id);
+    if (n.type === 'FRIEND_REQUEST') return;
+    if (!n.isRead) markReadMutation.mutate(n.id);
     setOpen(false);
     if (n.actionUrl) router.push(n.actionUrl);
   }
 
   function handleMarkAllRead() {
-    mutation.mutate(undefined);
+    markReadMutation.mutate(undefined);
   }
 
   return (
@@ -160,18 +164,49 @@ export default function NotificationBell() {
               </li>
             ) : (
               notifications.map((n) => (
-                <li key={n.id}>
-                  <button
-                    onClick={() => handleNotificationClick(n)}
-                    className={`w-full text-left px-4 py-3 text-sm transition-colors hover:bg-[#1a1a1a] border-b border-neutral-800 last:border-b-0 flex items-start gap-3 ${
-                      !n.isRead ? 'bg-[#161616]' : ''
-                    }`}
-                  >
-                    <span className={`mt-1.5 flex-shrink-0 w-1.5 h-1.5 rounded-full ${!n.isRead ? 'bg-blue-500' : 'bg-transparent'}`} />
-                    <span className={!n.isRead ? 'text-neutral-100 font-medium' : 'text-neutral-500'}>
-                      {getNotificationMessage(n)}
-                    </span>
-                  </button>
+                <li key={n.id} className={`border-b border-neutral-800 last:border-b-0 ${!n.isRead ? 'bg-[#161616]' : ''}`}>
+                  {n.type === 'FRIEND_REQUEST' && n.payload.friendshipId ? (
+                    <div className="px-4 py-3">
+                      <div className="flex items-start gap-3 mb-2">
+                        <span className="mt-1.5 flex-shrink-0 w-1.5 h-1.5 rounded-full bg-blue-500" />
+                        <span className="text-sm text-neutral-100 font-medium leading-snug">
+                          {getNotificationMessage(n)}
+                        </span>
+                      </div>
+                      <div className="flex gap-2 pl-4">
+                        <button
+                          onClick={() => {
+                            setPendingFriendship(n.payload.friendshipId!);
+                            friendshipMutation.mutate({ friendshipId: n.payload.friendshipId!, action: 'accept' });
+                          }}
+                          disabled={friendshipMutation.isPending && pendingFriendship === n.payload.friendshipId}
+                          className="flex-1 text-xs font-medium rounded bg-white text-black py-1.5 hover:bg-neutral-200 transition-colors disabled:opacity-50"
+                        >
+                          수락
+                        </button>
+                        <button
+                          onClick={() => {
+                            setPendingFriendship(n.payload.friendshipId!);
+                            friendshipMutation.mutate({ friendshipId: n.payload.friendshipId!, action: 'reject' });
+                          }}
+                          disabled={friendshipMutation.isPending && pendingFriendship === n.payload.friendshipId}
+                          className="flex-1 text-xs font-medium rounded border border-neutral-700 text-neutral-400 py-1.5 hover:border-neutral-500 hover:text-white transition-colors disabled:opacity-50"
+                        >
+                          거절
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => handleNotificationClick(n)}
+                      className="w-full text-left px-4 py-3 text-sm transition-colors hover:bg-[#1a1a1a] flex items-start gap-3"
+                    >
+                      <span className={`mt-1.5 flex-shrink-0 w-1.5 h-1.5 rounded-full ${!n.isRead ? 'bg-blue-500' : 'bg-transparent'}`} />
+                      <span className={!n.isRead ? 'text-neutral-100 font-medium' : 'text-neutral-500'}>
+                        {getNotificationMessage(n)}
+                      </span>
+                    </button>
+                  )}
                 </li>
               ))
             )}

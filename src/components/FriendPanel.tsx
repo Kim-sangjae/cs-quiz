@@ -41,6 +41,7 @@ function formatLastSeen(lastSeenAt: string | null, isOnline: boolean): string {
 }
 
 const CATEGORIES = [
+  { key: 'all', label: '전체' },
   { key: 'ds', label: '자료구조' },
   { key: 'algo', label: '알고리즘' },
   { key: 'os', label: '운영체제' },
@@ -244,6 +245,17 @@ export default function FriendPanel() {
     refetchInterval: 30_000,
   });
 
+  const { data: battleRoomsData } = useQuery<{ rooms: { id: string; status: string }[] }>({
+    queryKey: ['battle', 'rooms'],
+    queryFn: () => fetch('/api/battle/rooms').then((r) => r.json()),
+    enabled: status === 'authenticated' && open,
+    refetchInterval: open ? 10_000 : false,
+  });
+
+  const activeRoom = (battleRoomsData?.rooms ?? []).find(
+    (r) => r.status === 'PLAYING' || r.status === 'WAITING'
+  );
+
   const addFriend = useMutation({
     mutationFn: (nick: string) =>
       fetch('/api/friends', {
@@ -347,6 +359,19 @@ export default function FriendPanel() {
                 </svg>
               </button>
             </div>
+
+            {/* 활성 대전 링크 */}
+            {activeRoom && (
+              <button
+                onClick={() => { router.push(`/battle/${activeRoom.id}`); setOpen(false); }}
+                className="w-full flex items-center gap-2 px-3.5 py-2 border-b border-neutral-800 hover:bg-neutral-800/40 transition-colors text-left"
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse flex-shrink-0" />
+                <span className="text-xs text-emerald-400 font-medium">
+                  {activeRoom.status === 'PLAYING' ? '대전 진행 중 →' : '대전 대기 중 →'}
+                </span>
+              </button>
+            )}
 
             {/* 친구 추가 입력 */}
             {addingFriend && (

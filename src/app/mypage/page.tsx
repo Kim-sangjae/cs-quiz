@@ -190,7 +190,7 @@ const STATUS_STYLE: Record<string, string> = {
 
 const NICKNAME_REGEX = /^[a-zA-Z0-9가-힣]{2,12}$/;
 
-type ActiveTab = "history" | "my-questions" | "liked";
+type ActiveTab = "history" | "battle" | "my-questions" | "liked";
 type MyQStatus = "all" | "pending" | "approved" | "rejected";
 type HistorySort = "newest" | "oldest" | "wrong_desc" | "wrong_asc";
 
@@ -467,6 +467,19 @@ export default function MyPage() {
   const [likedCat, setLikedCat] = useState("all");
   const [likedPage, setLikedPage] = useState(0);
 
+  type BattleRecord = {
+    id: string;
+    opponent: { id: string; nickname: string };
+    category: string;
+    myScore: number;
+    oppScore: number;
+    result: 'win' | 'loss' | 'draw';
+    playedAt: string;
+  };
+  const [battleRecords, setBattleRecords] = useState<BattleRecord[] | null>(null);
+  const [battleLoading, setBattleLoading] = useState(false);
+  const [battleOpponentId, setBattleOpponentId] = useState<string>('all');
+
   useEffect(() => {
     Promise.all([
       fetch("/api/mypage/stats").then((r) => r.json()),
@@ -503,6 +516,19 @@ export default function MyPage() {
       .catch(() => setLikedQuestions([]))
       .finally(() => setLikedLoading(false));
   }, [activeTab, likedQuestions]);
+
+  useEffect(() => {
+    if (activeTab !== "battle") return;
+    setBattleLoading(true);
+    const url = battleOpponentId !== 'all'
+      ? `/api/mypage/battle-history?opponentId=${battleOpponentId}`
+      : '/api/mypage/battle-history';
+    fetch(url)
+      .then((r) => r.json())
+      .then((data) => setBattleRecords((data as { records: BattleRecord[] }).records ?? []))
+      .catch(() => setBattleRecords([]))
+      .finally(() => setBattleLoading(false));
+  }, [activeTab, battleOpponentId]);
 
   const profileStats = computeProfileStats(sessions, categoryAttemptCounts);
 
@@ -636,9 +662,10 @@ export default function MyPage() {
 
       {/* 탭 */}
       <div className="flex gap-1 mb-4 border-b border-neutral-800 pb-0 overflow-x-auto">
-        {(["history", "my-questions", "liked"] as ActiveTab[]).map((tab) => {
+        {(["history", "battle", "my-questions", "liked"] as ActiveTab[]).map((tab) => {
           const labels: Record<ActiveTab, string> = {
             history: "풀이 기록",
+            battle: "대전 기록",
             "my-questions": "내가 등록한 문제",
             liked: "내가 좋아요한 문제",
           };
@@ -987,6 +1014,120 @@ export default function MyPage() {
         questionNumber={drawerState?.questionNumber}
         onClose={() => setDrawerState(null)}
       />
+
+      {/* 탭 2: 대전 기록 */}
+      {activeTab === "battle" && (() => {
+        const BATTLE_CAT_LABELS: Record<string, string> = {
+          all: '전체', ds: '자료구조', algo: '알고리즘', os: '운영체제',
+          network: '네트워크', db: '데이터베이스', arch: '컴퓨터 구조',
+        };
+        const RESULT_LABELS: Record<string, { text: string; cls: string }> = {
+          win:  { text: '승', cls: 'text-emerald-400 border-emerald-800/60' },
+          loss: { text: '패', cls: 'text-red-400 border-red-800/60' },
+          draw: { text: '무', cls: 'text-neutral-400 border-neutral-700' },
+        };
+        const allRecords = battleRecords ?? [];
+        const opponents = Array.from(
+          new Map(allRecords.map((r) => [r.opponent.id, r.opponent.nickname])).entries()
+        );
+        const displayed = battleOpponentId !== 'all'
+          ? allRecords.filter((r) => r.opponent.id === battleOpponentId)
+          : allRecords;
+        const wins = displayed.filter((r) => r.result === 'win').length;
+        const losses = displayed.filter((r) => r.result === 'loss').length;
+        const draws = displayed.filter((r) => r.result === 'draw').length;
+
+        return (
+          <>
+            {/* 상대별 필터 */}
+            {opponents.length > 0 && (
+              <div className="flex gap-1 flex-wrap mb-4 overflow-x-auto">
+                <button
+                  onClick={() => setBattleOpponentId('all')}
+                  className={`px-2.5 py-1 rounded text-xs transition-colors flex-shrink-0 ${
+                    battleOpponentId === 'all'
+                      ? 'bg-white text-black font-medium'
+                      : 'border border-neutral-800 text-neutral-400 hover:border-neutral-600 hover:text-white'
+                  }`}
+                >
+                  전체
+                </button>
+                {opponents.map(([id, nick]) => (
+                  <button
+                    key={id}
+                    onClick={() => setBattleOpponentId(id)}
+                    className={`px-2.5 py-1 rounded text-xs transition-colors flex-shrink-0 ${
+                      battleOpponentId === id
+                        ? 'bg-white text-black font-medium'
+                        : 'border border-neutral-800 text-neutral-400 hover:border-neutral-600 hover:text-white'
+                    }`}
+                  >
+                    {nick}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {battleLoading ? (
+              <div className="py-12 text-center">
+                <p className="text-neutral-500 text-sm">불러오는 중...</p>
+              </div>
+            ) : displayed.length === 0 ? (
+              <div className="py-12 text-center">
+                <p className="text-neutral-500 text-sm">대전 기록이 없습니다.</p>
+              </div>
+            ) : (
+              <>
+                {/* 요약 */}
+                <div className="flex gap-4 mb-4 text-center">
+                  <div className="flex-1 bg-[#111111] border border-neutral-800 rounded-lg py-3">
+                    <p className="text-xs text-neutral-500 mb-1">승</p>
+                    <p className="text-lg font-bold text-emerald-400">{wins}</p>
+                  </div>
+                  <div className="flex-1 bg-[#111111] border border-neutral-800 rounded-lg py-3">
+                    <p className="text-xs text-neutral-500 mb-1">무</p>
+                    <p className="text-lg font-bold text-neutral-400">{draws}</p>
+                  </div>
+                  <div className="flex-1 bg-[#111111] border border-neutral-800 rounded-lg py-3">
+                    <p className="text-xs text-neutral-500 mb-1">패</p>
+                    <p className="text-lg font-bold text-red-400">{losses}</p>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  {displayed.map((r) => {
+                    const res = RESULT_LABELS[r.result];
+                    return (
+                      <div
+                        key={r.id}
+                        className="bg-[#111111] border border-neutral-800 rounded-lg px-4 py-3 flex items-center justify-between gap-3"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 mb-1 flex-wrap">
+                            <span className="text-xs text-neutral-500 border border-neutral-800 rounded px-1.5 py-0.5 flex-shrink-0">
+                              {BATTLE_CAT_LABELS[r.category] ?? r.category}
+                            </span>
+                            <span className="text-sm font-medium text-neutral-200 truncate">
+                              vs {r.opponent.nickname}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-neutral-600">
+                            {new Date(r.playedAt).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' })}
+                            &nbsp;·&nbsp;{r.myScore} : {r.oppScore}
+                          </p>
+                        </div>
+                        <span className={`text-xs font-bold border rounded px-2 py-0.5 flex-shrink-0 ${res.cls}`}>
+                          {res.text}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+          </>
+        );
+      })()}
 
       {/* 탭 3: 내가 좋아요한 문제 */}
       {activeTab === "liked" && (
