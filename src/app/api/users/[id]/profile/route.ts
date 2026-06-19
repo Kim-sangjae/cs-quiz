@@ -15,6 +15,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const { id: targetId } = await params;
+  const myId = session.user.id;
 
   const [user, attempts, rooms, presence] = await Promise.all([
     prisma.user.findUnique({
@@ -28,7 +29,13 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       WHERE "userId" = ${targetId}
     `,
     prisma.gameRoom.findMany({
-      where: { status: 'FINISHED', OR: [{ hostId: targetId }, { guestId: targetId }] },
+      where: {
+        status: 'FINISHED',
+        OR: [
+          { hostId: myId, guestId: targetId },
+          { hostId: targetId, guestId: myId },
+        ],
+      },
       select: { hostId: true, guestId: true, hostScore: true, guestScore: true },
     }),
     prisma.userPresence.findUnique({ where: { userId: targetId } }),
@@ -43,8 +50,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 
   const battleTotal = rooms.length;
   const battleWins = rooms.filter((r) => {
-    if (r.hostId === targetId) return r.hostScore > r.guestScore;
-    if (r.guestId === targetId) return r.guestScore > r.hostScore;
+    if (r.hostId === myId) return r.hostScore > r.guestScore;
+    if (r.guestId === myId) return r.guestScore > r.hostScore;
     return false;
   }).length;
 

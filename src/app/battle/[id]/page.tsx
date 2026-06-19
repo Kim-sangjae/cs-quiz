@@ -60,8 +60,16 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
   }, [room?.status, room?.myRole]);
 
   useEffect(() => {
-    if (isError && hadWaiting.current) setWasRejected(true);
-  }, [isError]);
+    if (isError && hadWaiting.current) {
+      setWasRejected(true);
+      // BattleRejectedAlert 전역 팝업 방지 - 알림 즉시 읽음 처리
+      fetch('/api/notifications', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'BATTLE_REJECTED' }),
+      }).then(() => queryClient.invalidateQueries({ queryKey: ['notifications'] })).catch(() => {});
+    }
+  }, [isError, queryClient]);
 
   const joinRoom = useMutation({
     mutationFn: () =>

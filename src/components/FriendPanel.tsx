@@ -146,7 +146,7 @@ function ProfileModal({
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-xs text-neutral-500">대전 승률</span>
+                    <span className="text-xs text-neutral-500">나의 대전 승률</span>
                     <span className="text-sm font-medium text-neutral-200">
                       {battleWinRate !== null
                         ? `${battleWinRate}% (${profile.battleWins}승 ${profile.battleTotal - profile.battleWins}패)`

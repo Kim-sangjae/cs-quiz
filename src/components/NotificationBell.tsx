@@ -107,8 +107,9 @@ export default function NotificationBell() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [open]);
 
-  const notifications = data?.notifications ?? [];
-  const unreadCount = data?.unreadCount ?? 0;
+  const BATTLE_TYPES = new Set(['BATTLE_INVITE', 'BATTLE_REJECTED']);
+  const notifications = (data?.notifications ?? []).filter((n) => !BATTLE_TYPES.has(n.type));
+  const unreadCount = notifications.filter((n) => !n.isRead).length;
   const badgeCount = Math.min(unreadCount, 99);
 
   function handleNotificationClick(n: Notification) {

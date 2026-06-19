@@ -36,11 +36,16 @@ export async function PATCH(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { id } = body as { id?: string };
+  const { id, type } = body as { id?: string; type?: string };
 
   if (id) {
     await prisma.notification.updateMany({
       where: { id, userId: session.user.id },
+      data: { isRead: true },
+    });
+  } else if (type) {
+    await prisma.notification.updateMany({
+      where: { userId: session.user.id, type: type as never, isRead: false },
       data: { isRead: true },
     });
   } else {
