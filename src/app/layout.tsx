@@ -11,6 +11,7 @@ import Header from "@/components/Header";
 import ScrollButtons from "@/components/ScrollButtons";
 import SessionGuard from "@/components/SessionGuard";
 import FriendPanel from "@/components/FriendPanel";
+import BattleInviteAlert from "@/components/BattleInviteAlert";
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXTAUTH_URL ?? 'http://localhost:3000'),
@@ -48,6 +49,7 @@ export default function RootLayout({
           {children}
           <ScrollButtons />
           <FriendPanel />
+          <BattleInviteAlert />
           <SessionGuard />
         </Providers>
       </body>

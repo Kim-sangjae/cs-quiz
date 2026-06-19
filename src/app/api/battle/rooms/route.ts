@@ -71,7 +71,7 @@ export async function POST(req: Request) {
     data: {
       userId: friendId,
       type: 'BATTLE_INVITE',
-      payload: { fromNickname: me?.nickname ?? '(닉네임 없음)', roomId: room.id },
+      payload: { fromNickname: me?.nickname ?? '(닉네임 없음)', roomId: room.id, category },
       actionUrl: `/battle/${room.id}`,
     },
   });
