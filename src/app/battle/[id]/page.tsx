@@ -1,6 +1,6 @@
 'use client';
 
-import { use } from 'react';
+import { use, useEffect, useRef, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
@@ -41,7 +41,10 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
   const router = useRouter();
   const queryClient = useQueryClient();
 
-  const { data: room, isLoading } = useQuery<RoomState>({
+  const hadWaiting = useRef(false);
+  const [wasRejected, setWasRejected] = useState(false);
+
+  const { data: room, isLoading, isError } = useQuery<RoomState>({
     queryKey: ['battle', id],
     queryFn: () => fetch(`/api/battle/rooms/${id}`).then(async (r) => {
       if (!r.ok) throw new Error('Not found');
@@ -49,7 +52,16 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
     }),
     enabled: status === 'authenticated',
     refetchInterval: (q) => (q.state.data?.status === 'FINISHED' ? false : 3000),
+    retry: false,
   });
+
+  useEffect(() => {
+    if (room?.status === 'WAITING' && room.myRole === 'host') hadWaiting.current = true;
+  }, [room?.status, room?.myRole]);
+
+  useEffect(() => {
+    if (isError && hadWaiting.current) setWasRejected(true);
+  }, [isError]);
 
   const joinRoom = useMutation({
     mutationFn: () =>
@@ -77,6 +89,33 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
   });
 
   if (status === 'loading' || isLoading) return null;
+
+  if (wasRejected) {
+    return (
+      <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+        <div className="absolute inset-0 bg-black/50 backdrop-blur-[2px]" />
+        <div className="relative w-full max-w-xs bg-[#111111] border border-neutral-700 rounded-2xl shadow-2xl overflow-hidden">
+          <div className="flex flex-col items-center pt-7 pb-5 px-6 text-center">
+            <div className="w-12 h-12 rounded-full bg-neutral-800 border border-neutral-700 flex items-center justify-center mb-3">
+              <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="text-neutral-400">
+                <circle cx="12" cy="12" r="10" /><path d="M15 9l-6 6M9 9l6 6" />
+              </svg>
+            </div>
+            <p className="text-sm font-semibold text-white mb-1">대전 거절됨</p>
+            <p className="text-sm text-neutral-400">상대방이 대전 신청을<br />거절하였습니다</p>
+          </div>
+          <div className="border-t border-neutral-800">
+            <button
+              onClick={() => router.push('/battle')}
+              className="w-full py-3.5 text-sm font-semibold text-white hover:bg-neutral-800/50 transition-colors"
+            >
+              확인
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!room) {
     return (
