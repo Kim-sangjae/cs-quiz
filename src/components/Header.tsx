@@ -45,6 +45,9 @@ export default function Header() {
             <Link href="/board" className="text-sm text-neutral-400 hover:text-white transition-colors">
               게시판
             </Link>
+            <Link href="/friends" className="text-sm text-neutral-400 hover:text-white transition-colors">
+              친구
+            </Link>
             <Link href="/inquiry" className="text-sm text-neutral-400 hover:text-white transition-colors">
               문의
             </Link>
@@ -140,6 +143,9 @@ export default function Header() {
             </Link>
             <Link href="/board" onClick={closeMenu} className="text-lg text-neutral-300 hover:text-white transition-colors">
               게시판
+            </Link>
+            <Link href="/friends" onClick={closeMenu} className="text-lg text-neutral-300 hover:text-white transition-colors">
+              친구
             </Link>
             <Link href="/inquiry" onClick={closeMenu} className="text-lg text-neutral-300 hover:text-white transition-colors">
               문의

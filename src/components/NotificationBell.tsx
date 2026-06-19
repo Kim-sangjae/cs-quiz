@@ -14,11 +14,13 @@ interface NotificationPayload {
   prevLevel?: number;
   newLevel?: number;
   levelName?: string;
+  fromNickname?: string;
+  roomId?: string;
 }
 
 interface Notification {
   id: string;
-  type: 'QUESTION_APPROVED' | 'QUESTION_REJECTED' | 'ROLE_CHANGED' | 'INQUIRY_REPLIED' | 'LEVEL_UP';
+  type: 'QUESTION_APPROVED' | 'QUESTION_REJECTED' | 'ROLE_CHANGED' | 'INQUIRY_REPLIED' | 'LEVEL_UP' | 'FRIEND_REQUEST' | 'FRIEND_ACCEPTED' | 'BATTLE_INVITE';
   payload: NotificationPayload;
   actionUrl: string | null;
   isRead: boolean;
@@ -48,6 +50,15 @@ function getNotificationMessage(n: Notification): string {
   }
   if (n.type === 'LEVEL_UP') {
     return `${payload.levelName ?? ''} 달성! Lv.${payload.prevLevel} → Lv.${payload.newLevel}으로 레벨업했습니다.`;
+  }
+  if (n.type === 'FRIEND_REQUEST') {
+    return `${payload.fromNickname ?? '누군가'}님이 친구 요청을 보냈습니다.`;
+  }
+  if (n.type === 'FRIEND_ACCEPTED') {
+    return `${payload.fromNickname ?? '누군가'}님이 친구 요청을 수락했습니다.`;
+  }
+  if (n.type === 'BATTLE_INVITE') {
+    return `${payload.fromNickname ?? '누군가'}님이 대전을 신청했습니다.`;
   }
   return '새 알림이 있습니다.';
 }

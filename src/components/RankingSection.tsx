@@ -1,9 +1,10 @@
 'use client';
 
 import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import type { CategoryRankings, RankEntry, MyRankEntry } from '@/lib/rankings';
 
-const TABS: { key: keyof CategoryRankings; label: string }[] = [
+const CATEGORY_TABS: { key: keyof CategoryRankings; label: string }[] = [
   { key: 'ds', label: 'DS' },
   { key: 'algo', label: 'Algo' },
   { key: 'os', label: 'OS' },
@@ -12,23 +13,89 @@ const TABS: { key: keyof CategoryRankings; label: string }[] = [
   { key: 'arch', label: 'Arch' },
 ];
 
+interface FriendRankEntry {
+  rank: number;
+  userId: string;
+  nickname: string;
+  isMe: boolean;
+  totalAttempts: number;
+  accuracy: number;
+  isOnline: boolean;
+}
+
 interface RankingSectionProps {
   rankings: CategoryRankings;
   currentUserId: string | null;
   myRanks: Record<string, MyRankEntry>;
 }
 
+function FriendRankings({ currentUserId }: { currentUserId: string | null }) {
+  const { data, isLoading } = useQuery<{ rankings: FriendRankEntry[] }>({
+    queryKey: ['friends', 'rankings'],
+    queryFn: () => fetch('/api/friends/rankings').then((r) => r.json()),
+    enabled: currentUserId != null,
+    staleTime: 60_000,
+  });
+
+  if (!currentUserId) {
+    return <p className="text-sm text-neutral-500 py-4">로그인 후 이용할 수 있습니다.</p>;
+  }
+  if (isLoading) {
+    return <div className="h-20 animate-pulse bg-neutral-800/50 rounded-lg" />;
+  }
+  const rankings = data?.rankings ?? [];
+  if (rankings.length === 0) {
+    return <p className="text-sm text-neutral-500 py-4">친구를 추가하면 친구 랭킹을 볼 수 있어요.</p>;
+  }
+
+  return (
+    <table className="w-full text-sm">
+      <thead>
+        <tr className="text-neutral-500 text-left border-b border-neutral-800">
+          <th className="pb-2 font-normal w-10">순위</th>
+          <th className="pb-2 font-normal">닉네임</th>
+          <th className="pb-2 font-normal text-right">시도</th>
+          <th className="pb-2 font-normal text-right">정답률</th>
+        </tr>
+      </thead>
+      <tbody>
+        {rankings.map((entry) => (
+          <tr
+            key={entry.userId}
+            className={`border-b border-neutral-800 last:border-0 ${entry.isMe ? 'bg-neutral-800/40' : ''}`}
+          >
+            <td className="py-2.5 text-neutral-500">{entry.rank}</td>
+            <td className={`py-2.5 ${entry.isMe ? 'text-white font-medium' : 'text-neutral-300'}`}>
+              <span className="flex items-center gap-1.5">
+                <span
+                  className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                    entry.isOnline ? 'bg-emerald-500' : 'bg-neutral-700'
+                  }`}
+                />
+                {entry.nickname}
+              </span>
+            </td>
+            <td className="py-2.5 text-right text-neutral-400">{entry.totalAttempts.toLocaleString()}</td>
+            <td className="py-2.5 text-right text-neutral-300">{(entry.accuracy * 100).toFixed(1)}%</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
 export default function RankingSection({ rankings, currentUserId, myRanks }: RankingSectionProps) {
-  const [activeTab, setActiveTab] = useState<keyof CategoryRankings>('ds');
-  const entries: RankEntry[] = rankings[activeTab] ?? [];
-  const myRank = myRanks[activeTab] ?? null;
-  const isMeInTop5 = currentUserId != null && entries.some(e => e.userId === currentUserId);
+  const [activeTab, setActiveTab] = useState<keyof CategoryRankings | 'friends'>('ds');
+  const isFriendsTab = activeTab === 'friends';
+  const entries: RankEntry[] = isFriendsTab ? [] : (rankings[activeTab as keyof CategoryRankings] ?? []);
+  const myRank = isFriendsTab ? null : (myRanks[activeTab as keyof CategoryRankings] ?? null);
+  const isMeInTop5 = !isFriendsTab && currentUserId != null && entries.some(e => e.userId === currentUserId);
 
   return (
     <section className="mt-12 border-t border-neutral-800 pt-8">
       <h2 className="text-sm font-medium text-neutral-400 mb-4">카테고리별 TOP 5</h2>
       <div className="flex gap-2 mb-4 flex-wrap">
-        {TABS.map(tab => (
+        {CATEGORY_TABS.map(tab => (
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
@@ -41,8 +108,21 @@ export default function RankingSection({ rankings, currentUserId, myRanks }: Ran
             {tab.label}
           </button>
         ))}
+        <button
+          onClick={() => setActiveTab('friends')}
+          className={`px-3 py-1 text-xs rounded border transition-colors ${
+            activeTab === 'friends'
+              ? 'border-neutral-400 text-white bg-neutral-800'
+              : 'border-neutral-800 text-neutral-500 hover:border-neutral-600 hover:text-neutral-300'
+          }`}
+        >
+          친구
+        </button>
       </div>
-      {entries.length === 0 ? (
+
+      {isFriendsTab ? (
+        <FriendRankings currentUserId={currentUserId} />
+      ) : entries.length === 0 ? (
         <p className="text-sm text-neutral-500 py-4">아직 랭킹 데이터가 없습니다</p>
       ) : (
         <table className="w-full text-sm">
@@ -60,9 +140,7 @@ export default function RankingSection({ rankings, currentUserId, myRanks }: Ran
               return (
                 <tr
                   key={entry.userId}
-                  className={`border-b border-neutral-800 last:border-0 ${
-                    isMe ? 'bg-neutral-800/40' : ''
-                  }`}
+                  className={`border-b border-neutral-800 last:border-0 ${isMe ? 'bg-neutral-800/40' : ''}`}
                 >
                   <td className="py-2.5 text-neutral-500">{entry.rank}</td>
                   <td className={`py-2.5 ${isMe ? 'text-white font-medium' : 'text-neutral-300'}`}>
