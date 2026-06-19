@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useSession, signIn, signOut } from 'next-auth/react';
 import { useQuery } from '@tanstack/react-query';
@@ -27,6 +27,14 @@ export default function Header() {
   const { data: session, status } = useSession();
   const user = session?.user;
   const [menuOpen, setMenuOpen] = useState(false);
+
+  useEffect(() => {
+    if (status !== 'authenticated') return;
+    const ping = () => fetch('/api/presence/heartbeat', { method: 'POST' }).catch(() => {});
+    ping();
+    const id = setInterval(ping, 30_000);
+    return () => clearInterval(id);
+  }, [status]);
 
   function closeMenu() { setMenuOpen(false); }
 
