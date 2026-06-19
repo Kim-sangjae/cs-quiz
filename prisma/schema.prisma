@@ -194,6 +194,7 @@ enum NotificationType {
   FRIEND_REQUEST
   FRIEND_ACCEPTED
   BATTLE_INVITE
+  BATTLE_REJECTED
 }
 
 enum InquiryType {

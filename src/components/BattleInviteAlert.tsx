@@ -68,8 +68,15 @@ export default function BattleInviteAlert() {
     },
   });
 
-  const dismissMutation = useMutation({
-    mutationFn: (notifId: string) => markRead(notifId),
+  const rejectMutation = useMutation({
+    mutationFn: async ({ notifId, roomId }: { notifId: string; roomId: string }) => {
+      await markRead(notifId);
+      const res = await fetch(`/api/battle/rooms/${roomId}/reject`, { method: 'POST' });
+      if (!res.ok) {
+        const body = await res.json() as { error?: string };
+        throw new Error(body.error ?? '오류가 발생했습니다');
+      }
+    },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notifications'] }),
   });
 
@@ -80,7 +87,7 @@ export default function BattleInviteAlert() {
   if (!pending) return null;
 
   const payload = pending.payload;
-  const isActing = joinMutation.isPending || dismissMutation.isPending;
+  const isActing = joinMutation.isPending || rejectMutation.isPending;
 
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
@@ -118,11 +125,11 @@ export default function BattleInviteAlert() {
         {/* 버튼 */}
         <div className="flex border-t border-neutral-800">
           <button
-            onClick={() => dismissMutation.mutate(pending.id)}
+            onClick={() => rejectMutation.mutate({ notifId: pending.id, roomId: payload.roomId })}
             disabled={isActing}
-            className="flex-1 py-3.5 text-sm text-neutral-500 hover:text-neutral-300 hover:bg-neutral-800/50 transition-colors disabled:opacity-40 border-r border-neutral-800"
+            className="flex-1 py-3.5 text-sm text-neutral-500 hover:text-red-400 hover:bg-neutral-800/50 transition-colors disabled:opacity-40 border-r border-neutral-800"
           >
-            나중에
+            {rejectMutation.isPending ? '...' : '거절하기'}
           </button>
           <button
             onClick={() => joinMutation.mutate({ notifId: pending.id, roomId: payload.roomId })}

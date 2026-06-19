@@ -20,7 +20,7 @@ interface NotificationPayload {
 
 interface Notification {
   id: string;
-  type: 'QUESTION_APPROVED' | 'QUESTION_REJECTED' | 'ROLE_CHANGED' | 'INQUIRY_REPLIED' | 'LEVEL_UP' | 'FRIEND_REQUEST' | 'FRIEND_ACCEPTED' | 'BATTLE_INVITE';
+  type: 'QUESTION_APPROVED' | 'QUESTION_REJECTED' | 'ROLE_CHANGED' | 'INQUIRY_REPLIED' | 'LEVEL_UP' | 'FRIEND_REQUEST' | 'FRIEND_ACCEPTED' | 'BATTLE_INVITE' | 'BATTLE_REJECTED';
   payload: NotificationPayload;
   actionUrl: string | null;
   isRead: boolean;
@@ -59,6 +59,9 @@ function getNotificationMessage(n: Notification): string {
   }
   if (n.type === 'BATTLE_INVITE') {
     return `${payload.fromNickname ?? '누군가'}님이 대전을 신청했습니다.`;
+  }
+  if (n.type === 'BATTLE_REJECTED') {
+    return `${payload.fromNickname ?? '누군가'}님이 대전 신청을 거절했습니다.`;
   }
   return '새 알림이 있습니다.';
 }

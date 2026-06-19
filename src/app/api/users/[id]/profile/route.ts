@@ -29,7 +29,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     `,
     prisma.gameRoom.findMany({
       where: { status: 'FINISHED', OR: [{ hostId: targetId }, { guestId: targetId }] },
-      select: { hostId: true, hostScore: true, guestScore: true },
+      select: { hostId: true, guestId: true, hostScore: true, guestScore: true },
     }),
     prisma.userPresence.findUnique({ where: { userId: targetId } }),
   ]);
@@ -42,10 +42,11 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const level = computeLevel(correct);
 
   const battleTotal = rooms.length;
-  const battleWins = rooms.filter((r) =>
-    (r.hostId === targetId && r.hostScore > r.guestScore) ||
-    (r.hostId !== targetId && r.guestScore > r.hostScore)
-  ).length;
+  const battleWins = rooms.filter((r) => {
+    if (r.hostId === targetId) return r.hostScore > r.guestScore;
+    if (r.guestId === targetId) return r.guestScore > r.hostScore;
+    return false;
+  }).length;
 
   const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000);
   const isOnline = presence ? presence.lastSeenAt > twoMinutesAgo : false;
