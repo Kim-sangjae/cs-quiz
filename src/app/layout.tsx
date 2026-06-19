@@ -10,6 +10,7 @@ import Providers from "./providers";
 import Header from "@/components/Header";
 import ScrollButtons from "@/components/ScrollButtons";
 import SessionGuard from "@/components/SessionGuard";
+import FriendPanel from "@/components/FriendPanel";
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXTAUTH_URL ?? 'http://localhost:3000'),
@@ -46,6 +47,7 @@ export default function RootLayout({
           <Header />
           {children}
           <ScrollButtons />
+          <FriendPanel />
           <SessionGuard />
         </Providers>
       </body>
