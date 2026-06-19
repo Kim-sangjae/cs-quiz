@@ -20,6 +20,8 @@ interface UserProfile {
   totalAttempts: number;
   accuracy: number;
   battleWins: number;
+  battleTies: number;
+  battleLosses: number;
   battleTotal: number;
   isOnline: boolean;
 }
@@ -70,6 +72,14 @@ function ProfileModal({
   const battleWinRate = profile && profile.battleTotal > 0
     ? Math.round((profile.battleWins / profile.battleTotal) * 100)
     : null;
+
+  function battleRecord(p: UserProfile): string {
+    if (p.battleTotal === 0) return '-';
+    const parts = [`${p.battleWins}승`];
+    if (p.battleTies > 0) parts.push(`${p.battleTies}무`);
+    parts.push(`${p.battleLosses}패`);
+    return parts.join(' ');
+  }
 
   return (
     <div
@@ -146,10 +156,10 @@ function ProfileModal({
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-xs text-neutral-500">나의 대전 승률</span>
+                    <span className="text-xs text-neutral-500">상대방과의 승률</span>
                     <span className="text-sm font-medium text-neutral-200">
-                      {battleWinRate !== null
-                        ? `${battleWinRate}% (${profile.battleWins}승 ${profile.battleTotal - profile.battleWins}패)`
+                      {profile.battleTotal > 0
+                        ? `${battleWinRate}% (${battleRecord(profile)})`
                         : '-'}
                     </span>
                   </div>

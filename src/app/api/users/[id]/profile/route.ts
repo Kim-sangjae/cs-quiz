@@ -54,6 +54,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     if (r.guestId === myId) return r.guestScore > r.hostScore;
     return false;
   }).length;
+  const battleTies = rooms.filter((r) => r.hostScore === r.guestScore).length;
+  const battleLosses = battleTotal - battleWins - battleTies;
 
   const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000);
   const isOnline = presence ? presence.lastSeenAt > twoMinutesAgo : false;
@@ -64,6 +66,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     totalAttempts: total,
     accuracy,
     battleWins,
+    battleTies,
+    battleLosses,
     battleTotal,
     isOnline,
   });
