@@ -49,9 +49,12 @@ export async function PATCH(request: NextRequest) {
       data: { isRead: true },
     });
   } else {
-    // 모두 읽음: 읽은 알림 삭제 (누적 방지)
+    // 모두 읽음: 미처리 FRIEND_REQUEST(isRead=false)는 제외하고 삭제
     await prisma.notification.deleteMany({
-      where: { userId: session.user.id },
+      where: {
+        userId: session.user.id,
+        NOT: { type: 'FRIEND_REQUEST', isRead: false },
+      },
     });
   }
 
