@@ -1,0 +1,266 @@
+'use client';
+
+import { use } from 'react';
+import { useSession } from 'next-auth/react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
+
+const CATEGORY_LABEL: Record<string, string> = {
+  ds: '자료구조', algo: '알고리즘', os: '운영체제',
+  network: '네트워크', db: '데이터베이스', arch: '컴퓨터 구조',
+};
+
+const LABELS = ['A', 'B', 'C', 'D'] as const;
+
+interface RoomState {
+  id: string;
+  status: 'WAITING' | 'PLAYING' | 'FINISHED';
+  category: string;
+  myRole: 'host' | 'guest';
+  host: { id: string; nickname: string | null };
+  guest: { id: string; nickname: string | null } | null;
+  // PLAYING fields
+  currentQ?: number;
+  totalQ?: number;
+  hostScore?: number;
+  guestScore?: number;
+  hostAnswered?: boolean;
+  guestAnswered?: boolean;
+  mySelected?: number | null;
+  question?: { id: string; question: string; options: string[] };
+  // FINISHED fields
+  questions?: { question: string; options: string[]; answer: number; explanation: string }[];
+  hostAnswers?: number[];
+  guestAnswers?: number[];
+}
+
+export default function BattleRoomPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
+  const { status } = useSession();
+  const router = useRouter();
+  const queryClient = useQueryClient();
+
+  const { data: room, isLoading } = useQuery<RoomState>({
+    queryKey: ['battle', id],
+    queryFn: () => fetch(`/api/battle/rooms/${id}`).then(async (r) => {
+      if (!r.ok) throw new Error('Not found');
+      return r.json() as Promise<RoomState>;
+    }),
+    enabled: status === 'authenticated',
+    refetchInterval: (q) => (q.state.data?.status === 'FINISHED' ? false : 3000),
+  });
+
+  const joinRoom = useMutation({
+    mutationFn: () =>
+      fetch(`/api/battle/rooms/${id}/join`, { method: 'POST' }).then(async (r) => {
+        if (!r.ok) throw new Error('오류가 발생했습니다');
+        return r.json();
+      }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['battle', id] }),
+    onError: () => toast.error('오류가 발생했습니다'),
+  });
+
+  const submitAnswer = useMutation({
+    mutationFn: (selected: number) =>
+      fetch(`/api/battle/rooms/${id}/answer`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ selected }),
+      }).then(async (r) => {
+        const data = await r.json() as { correct?: boolean; error?: string };
+        if (!r.ok) throw new Error(data.error ?? '오류가 발생했습니다');
+        return data;
+      }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['battle', id] }),
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  if (status === 'loading' || isLoading) return null;
+
+  if (!room) {
+    return (
+      <main className="max-w-2xl mx-auto px-4 sm:px-6 py-12">
+        <p className="text-sm text-neutral-500">대전을 찾을 수 없습니다.</p>
+      </main>
+    );
+  }
+
+  const myScore = room.myRole === 'host' ? (room.hostScore ?? 0) : (room.guestScore ?? 0);
+  const oppScore = room.myRole === 'host' ? (room.guestScore ?? 0) : (room.hostScore ?? 0);
+  const oppNickname = room.myRole === 'host' ? (room.guest?.nickname ?? '?') : (room.host.nickname ?? '?');
+  const myAnswered = room.myRole === 'host' ? room.hostAnswered : room.guestAnswered;
+  const myAnswers = room.myRole === 'host' ? (room.hostAnswers ?? []) : (room.guestAnswers ?? []);
+  const oppAnswers = room.myRole === 'host' ? (room.guestAnswers ?? []) : (room.hostAnswers ?? []);
+
+  return (
+    <main className="max-w-2xl mx-auto px-4 sm:px-6 py-10">
+      <div className="flex items-center gap-3 mb-6">
+        <button
+          onClick={() => router.push('/battle')}
+          className="text-xs text-neutral-500 hover:text-neutral-300 transition-colors"
+        >
+          ← 대전 목록
+        </button>
+        <span className="text-xs text-neutral-600 border border-neutral-800 rounded px-2 py-0.5">
+          {CATEGORY_LABEL[room.category] ?? room.category}
+        </span>
+      </div>
+
+      {/* WAITING */}
+      {room.status === 'WAITING' && (
+        <div className="bg-[#111111] border border-neutral-800 rounded-xl p-6 text-center">
+          {room.myRole === 'host' ? (
+            <>
+              <p className="text-sm text-neutral-400 mb-2">{oppNickname}님을 기다리는 중...</p>
+              <p className="text-xs text-neutral-600 mb-4">상대방이 알림에서 대전을 수락하면 시작됩니다</p>
+              <div className="flex justify-center gap-1">
+                {[0, 1, 2].map((i) => (
+                  <span key={i} className="w-1.5 h-1.5 rounded-full bg-neutral-600 animate-pulse" style={{ animationDelay: `${i * 150}ms` }} />
+                ))}
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="text-sm text-white mb-1">{room.host.nickname}님의 대전 신청</p>
+              <p className="text-xs text-neutral-500 mb-5">카테고리: {CATEGORY_LABEL[room.category] ?? room.category}</p>
+              <button
+                onClick={() => joinRoom.mutate()}
+                disabled={joinRoom.isPending}
+                className="rounded-md bg-white text-black text-sm font-medium px-6 py-2.5 hover:bg-neutral-200 transition-colors disabled:opacity-50"
+              >
+                {joinRoom.isPending ? '수락 중...' : '대전 수락하기'}
+              </button>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* PLAYING */}
+      {room.status === 'PLAYING' && room.question && (
+        <>
+          {/* 점수판 */}
+          <div className="flex items-center justify-between mb-5 bg-[#111111] border border-neutral-800 rounded-xl px-5 py-3">
+            <div className="text-center">
+              <p className="text-xs text-neutral-500 mb-0.5">나</p>
+              <p className="text-2xl font-bold text-white">{myScore}</p>
+            </div>
+            <div className="text-center">
+              <p className="text-xs text-neutral-500 mb-0.5">
+                {room.currentQ! + 1} / {room.totalQ}
+              </p>
+              <p className="text-xs text-neutral-600">문제</p>
+            </div>
+            <div className="text-center">
+              <p className="text-xs text-neutral-500 mb-0.5">{oppNickname}</p>
+              <p className="text-2xl font-bold text-white">{oppScore}</p>
+            </div>
+          </div>
+
+          {/* 문제 */}
+          <div className="bg-[#111111] border border-neutral-800 rounded-xl p-5">
+            <p className="text-sm text-white leading-relaxed mb-4">{room.question.question}</p>
+            <div className="space-y-2">
+              {(room.question.options as string[]).map((opt, i) => {
+                let cls = 'w-full text-left rounded-md border px-4 py-2.5 text-sm flex items-start gap-3 transition-colors ';
+                if (myAnswered) {
+                  cls += i === room.mySelected
+                    ? 'border-neutral-500 bg-neutral-800/50 text-neutral-300 cursor-default'
+                    : 'border-neutral-800 text-neutral-600 opacity-40 cursor-default';
+                } else {
+                  cls += 'border-neutral-800 text-neutral-300 hover:border-neutral-600 hover:text-white cursor-pointer';
+                }
+                return (
+                  <button
+                    key={i}
+                    className={cls}
+                    onClick={() => !myAnswered && !submitAnswer.isPending && submitAnswer.mutate(i)}
+                    disabled={!!myAnswered || submitAnswer.isPending}
+                  >
+                    <span className="text-xs font-mono opacity-70 flex-shrink-0 mt-0.5">{LABELS[i]}.</span>
+                    <span>{opt}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="mt-3 text-center">
+            {myAnswered ? (
+              <p className="text-xs text-neutral-500">
+                {(room.myRole === 'host' ? room.guestAnswered : room.hostAnswered)
+                  ? '다음 문제로 이동 중...'
+                  : `${oppNickname}님 답변 대기 중...`}
+              </p>
+            ) : (
+              <p className="text-xs text-neutral-600">답변을 선택하세요</p>
+            )}
+          </div>
+        </>
+      )}
+
+      {/* FINISHED */}
+      {room.status === 'FINISHED' && room.questions && (
+        <>
+          {/* 최종 결과 */}
+          <div className="bg-[#111111] border border-neutral-800 rounded-xl p-6 text-center mb-6">
+            <p className="text-xs text-neutral-500 mb-2">최종 결과</p>
+            <div className="flex items-center justify-center gap-6 mb-3">
+              <div>
+                <p className="text-xs text-neutral-500">나</p>
+                <p className="text-3xl font-bold text-white">{myScore}</p>
+              </div>
+              <p className="text-xl text-neutral-600">vs</p>
+              <div>
+                <p className="text-xs text-neutral-500">{oppNickname}</p>
+                <p className="text-3xl font-bold text-white">{oppScore}</p>
+              </div>
+            </div>
+            <p className={`text-sm font-medium ${
+              myScore > oppScore ? 'text-emerald-400' : myScore < oppScore ? 'text-red-400' : 'text-neutral-400'
+            }`}>
+              {myScore > oppScore ? '승리!' : myScore < oppScore ? '패배' : '무승부'}
+            </p>
+          </div>
+
+          {/* 문제별 결과 */}
+          <div className="space-y-3">
+            {room.questions.map((q, qi) => {
+              const myAns = myAnswers[qi];
+              const oppAns = oppAnswers[qi];
+              const isMyCorrect = myAns === q.answer;
+              const isOppCorrect = oppAns === q.answer;
+              return (
+                <div key={qi} className="bg-[#111111] border border-neutral-800 rounded-xl p-4">
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <p className="text-xs text-neutral-500">문제 {qi + 1}</p>
+                    <div className="flex gap-2 text-xs">
+                      <span className={isMyCorrect ? 'text-emerald-400' : 'text-red-400'}>
+                        나: {LABELS[myAns] ?? '-'} {isMyCorrect ? '✓' : '✗'}
+                      </span>
+                      <span className={isOppCorrect ? 'text-emerald-400' : 'text-red-400'}>
+                        상대: {LABELS[oppAns] ?? '-'} {isOppCorrect ? '✓' : '✗'}
+                      </span>
+                    </div>
+                  </div>
+                  <p className="text-sm text-neutral-300 mb-1">{q.question}</p>
+                  <p className="text-xs text-neutral-500">정답: {LABELS[q.answer]}</p>
+                  <p className="text-xs text-neutral-500 mt-1 leading-relaxed">{q.explanation}</p>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="mt-6 flex gap-2">
+            <button
+              onClick={() => router.push('/battle')}
+              className="flex-1 rounded-md border border-neutral-700 text-sm text-neutral-400 py-2.5 hover:border-neutral-500 hover:text-white transition-colors"
+            >
+              대전 목록
+            </button>
+          </div>
+        </>
+      )}
+    </main>
+  );
+}
