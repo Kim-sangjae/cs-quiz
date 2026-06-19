@@ -62,7 +62,7 @@ export default function FilterBar() {
         ))}
       </div>
 
-      <div className="flex flex-wrap gap-3">
+      <div className="flex flex-wrap gap-x-3 gap-y-2">
         <div className="flex gap-1.5">
           {STATUSES.map((s) => (
             <button
@@ -79,7 +79,7 @@ export default function FilterBar() {
           ))}
         </div>
 
-        <div className="ml-auto flex gap-1.5">
+        <div className="flex gap-1.5 sm:ml-auto">
           {SORTS.map((s) => (
             <button
               key={s.value}

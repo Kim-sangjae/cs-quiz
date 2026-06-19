@@ -21,7 +21,7 @@ export default function Navigator({
         const isCurrent = i === currentIndex;
         const isAnswered = answeredSet.has(i);
 
-        let cls = 'w-7 h-7 rounded text-[11px] font-medium transition-colors ';
+        let cls = 'w-8 h-8 rounded text-[11px] font-medium transition-colors ';
         if (isCurrent) {
           cls += 'bg-white text-black ring-2 ring-white/30';
         } else if (isAnswered) {

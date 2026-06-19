@@ -169,7 +169,7 @@ export default function ResultPage({
                 <p className="text-sm text-neutral-400">
                   오답 <span className="text-white font-medium">{wrongIdx + 1}</span> / {wrongItems.length}
                 </p>
-                <div className="flex gap-1 flex-wrap justify-end max-w-[60%]">
+                <div className="flex gap-1 flex-wrap justify-end">
                   {wrongItems.map((item, i) => (
                     <button
                       key={item.question.id}

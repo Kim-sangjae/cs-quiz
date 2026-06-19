@@ -65,9 +65,12 @@ export default function QuestionDrawer({
 
   useEffect(() => {
     if (!open) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => { document.body.style.overflow = prev; };
+    const scrollY = window.scrollY;
+    document.body.style.cssText = `position:fixed;top:-${scrollY}px;left:0;right:0;`;
+    return () => {
+      document.body.style.cssText = '';
+      window.scrollTo(0, scrollY);
+    };
   }, [open]);
 
   useEffect(() => {
@@ -91,7 +94,7 @@ export default function QuestionDrawer({
         onClick={onClose}
       />
       <div
-        className={`fixed top-0 right-0 h-full w-full max-w-sm bg-[#0d0d0d] border-l border-neutral-800 z-50 flex flex-col shadow-2xl transition-transform duration-200 ease-out ${
+        className={`fixed top-0 right-0 h-dvh w-full max-w-sm bg-[#0d0d0d] border-l border-neutral-800 z-50 flex flex-col shadow-2xl transition-transform duration-200 ease-out ${
           open ? 'translate-x-0' : 'translate-x-full'
         }`}
       >
@@ -99,7 +102,7 @@ export default function QuestionDrawer({
           <span className="text-sm font-medium text-white">문제 보기</span>
           <button
             onClick={onClose}
-            className="text-neutral-400 hover:text-white transition-colors p-1 -mr-1"
+            className="text-neutral-400 hover:text-white transition-colors p-2.5 -mr-2"
             aria-label="닫기"
           >
             <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">

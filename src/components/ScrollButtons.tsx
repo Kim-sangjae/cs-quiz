@@ -2,7 +2,7 @@
 
 export default function ScrollButtons() {
   return (
-    <div className="fixed bottom-6 right-5 flex flex-col gap-2 z-40">
+    <div className="fixed flex flex-col gap-2 z-40" style={{ bottom: 'max(1.5rem, env(safe-area-inset-bottom, 1.5rem))', right: '1.25rem' }}>
       <button
         onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
         aria-label="맨 위로"

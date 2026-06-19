@@ -562,7 +562,7 @@ export default function MyPage() {
       {/* 요약 카드 */}
       {stats && (
         <div className="bg-[#111111] border border-neutral-800 rounded-lg p-5 mb-4">
-          <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center justify-between mb-5 flex-wrap gap-y-4">
             <div className="text-center flex-1">
               <p className="text-xs text-neutral-500 mb-1">총 퀴즈 횟수</p>
               <p className="text-xl font-bold text-white">{stats.totalSessions}
@@ -593,7 +593,7 @@ export default function MyPage() {
       {/* 카테고리별 프로필 */}
       <div className="mb-6">
         <p className="text-xs text-neutral-500 mb-3">카테고리별 현황</p>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {profileStats.map(({ cat, label, total, accuracy, level, badge }) => {
             const info = LEVEL_INFO[level];
             const progress = getLevelProgress(total, level);
@@ -635,7 +635,7 @@ export default function MyPage() {
       </div>
 
       {/* 탭 */}
-      <div className="flex gap-1 mb-4 border-b border-neutral-800 pb-0">
+      <div className="flex gap-1 mb-4 border-b border-neutral-800 pb-0 overflow-x-auto">
         {(["history", "my-questions", "liked"] as ActiveTab[]).map((tab) => {
           const labels: Record<ActiveTab, string> = {
             history: "풀이 기록",
@@ -646,7 +646,7 @@ export default function MyPage() {
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`px-4 py-2 text-sm transition-colors border-b-2 -mb-px ${
+              className={`flex-shrink-0 px-4 py-2 text-sm transition-colors border-b-2 -mb-px ${
                 activeTab === tab
                   ? "border-white text-white"
                   : "border-transparent text-neutral-500 hover:text-neutral-300"
