@@ -69,11 +69,12 @@ export async function POST(req: Request) {
     if (existing.requesterId !== userId) {
       return NextResponse.json({ error: '상대방이 이미 친구 요청을 보냈습니다. 알림에서 수락해보세요.' }, { status: 409 });
     }
-    // 내가 보낸 PENDING 요청 - 알림이 삭제된 경우 재생성
+    // 내가 보낸 요청 - 상태를 PENDING으로 되돌리고 알림 재생성
     const me = await prisma.user.findUnique({ where: { id: userId }, select: { nickname: true } });
     await prisma.$transaction([
+      prisma.friendship.update({ where: { id: existing.id }, data: { status: 'PENDING' } }),
       prisma.notification.deleteMany({
-        where: { userId: target.id, type: 'FRIEND_REQUEST', isRead: false },
+        where: { userId: target.id, type: 'FRIEND_REQUEST' },
       }),
       prisma.notification.create({
         data: {
