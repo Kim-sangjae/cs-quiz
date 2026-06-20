@@ -31,17 +31,14 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     },
   });
 
-  if (action === 'accept') {
-    const me = await prisma.user.findUnique({ where: { id: userId }, select: { nickname: true } });
-    await prisma.notification.create({
-      data: {
-        userId: friendship.requesterId,
-        type: 'FRIEND_ACCEPTED',
-        payload: { fromNickname: me?.nickname ?? '(닉네임 없음)' },
-        actionUrl: '/friends',
-      },
-    });
-  }
+  const me = await prisma.user.findUnique({ where: { id: userId }, select: { nickname: true } });
+  await prisma.notification.create({
+    data: {
+      userId: friendship.requesterId,
+      type: action === 'accept' ? 'FRIEND_ACCEPTED' : 'FRIEND_REJECTED',
+      payload: { fromNickname: me?.nickname ?? '(닉네임 없음)' },
+    },
+  });
 
   return NextResponse.json({ ok: true });
 }
