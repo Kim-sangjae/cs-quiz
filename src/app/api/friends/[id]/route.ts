@@ -19,7 +19,17 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   if (friendship.status !== 'PENDING') return NextResponse.json({ error: '이미 처리된 요청입니다' }, { status: 400 });
 
   const newStatus = action === 'accept' ? 'ACCEPTED' : 'REJECTED';
+
   await prisma.friendship.update({ where: { id }, data: { status: newStatus } });
+
+  // 수락/거절 완료된 FRIEND_REQUEST 알림 삭제
+  await prisma.notification.deleteMany({
+    where: {
+      userId,
+      type: 'FRIEND_REQUEST',
+      payload: { path: ['friendshipId'], equals: id },
+    },
+  });
 
   if (action === 'accept') {
     const me = await prisma.user.findUnique({ where: { id: userId }, select: { nickname: true } });

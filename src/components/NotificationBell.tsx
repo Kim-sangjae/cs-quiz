@@ -89,12 +89,8 @@ export default function NotificationBell() {
         if (!r.ok) throw new Error('오류가 발생했습니다');
         return r.json();
       }),
-    onSuccess: (_result, { friendshipId }) => {
-      const notif = (data?.notifications ?? []).find(
-        (n) => n.type === 'FRIEND_REQUEST' && n.payload.friendshipId === friendshipId
-      );
-      if (notif) markReadMutation.mutate(notif.id);
-      else queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
       queryClient.invalidateQueries({ queryKey: ['friends'] });
       setPendingFriendship(null);
     },
