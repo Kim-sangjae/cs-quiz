@@ -61,9 +61,30 @@ export async function POST(req: Request) {
       ],
     },
   });
+
   if (existing) {
-    const msg = existing.status === 'ACCEPTED' ? '이미 친구입니다' : '이미 친구 요청이 존재합니다';
-    return NextResponse.json({ error: msg }, { status: 409 });
+    if (existing.status === 'ACCEPTED') {
+      return NextResponse.json({ error: '이미 친구입니다' }, { status: 409 });
+    }
+    if (existing.requesterId !== userId) {
+      return NextResponse.json({ error: '상대방이 이미 친구 요청을 보냈습니다. 알림에서 수락해보세요.' }, { status: 409 });
+    }
+    // 내가 보낸 PENDING 요청 - 알림이 삭제된 경우 재생성
+    const me = await prisma.user.findUnique({ where: { id: userId }, select: { nickname: true } });
+    await prisma.$transaction([
+      prisma.notification.deleteMany({
+        where: { userId: target.id, type: 'FRIEND_REQUEST', isRead: false },
+      }),
+      prisma.notification.create({
+        data: {
+          userId: target.id,
+          type: 'FRIEND_REQUEST',
+          payload: { fromNickname: me?.nickname ?? '(닉네임 없음)', friendshipId: existing.id },
+          actionUrl: '/friends',
+        },
+      }),
+    ]);
+    return NextResponse.json({ ok: true }, { status: 200 });
   }
 
   const [friendship, me] = await Promise.all([
