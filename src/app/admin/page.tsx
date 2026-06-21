@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { useSupabaseRealtime } from '@/hooks/useSupabaseRealtime';
 
 type Tab = 'questions' | 'board' | 'reports' | 'users' | 'inquiries' | 'logs' | 'analytics';
 
@@ -1774,9 +1773,7 @@ function AnalyticsTab() {
     staleTime: 15_000,
   });
 
-  // Supabase Presence로 현재 접속자 실시간 반영 (online-users 채널 — 유저와 동일)
-  const { onlineUsers } = useSupabaseRealtime();
-  const onlineCount = onlineUsers.length;
+  const onlineCount = data?.onlineNow ?? 0;
 
   const qStats = data?.questionStats;
   const totalQ = qStats ? Object.values(qStats).reduce((a, b) => a + b, 0) : 0;
