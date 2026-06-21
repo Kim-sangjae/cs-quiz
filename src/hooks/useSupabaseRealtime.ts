@@ -69,6 +69,9 @@ export function useSupabaseRealtime(): UseSupabaseRealtimeReturn {
       .on('broadcast', { event: 'friend_rejected' }, () => {
         queryClient.invalidateQueries({ queryKey: ['notifications'] });
       })
+      .on('broadcast', { event: 'friend_removed' }, () => {
+        queryClient.invalidateQueries({ queryKey: ['friends'] });
+      })
       .subscribe();
 
     broadcastChannelRef.current = broadcastChannel;

@@ -6,7 +6,7 @@ import { useSession } from 'next-auth/react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
-type Tab = 'questions' | 'board' | 'reports' | 'users' | 'inquiries' | 'logs';
+type Tab = 'questions' | 'board' | 'reports' | 'users' | 'inquiries' | 'logs' | 'analytics';
 
 const CATEGORY_LABEL: Record<string, string> = {
   ds: '자료구조', algo: '알고리즘', os: '운영체제',
@@ -107,6 +107,7 @@ export default function AdminPage() {
   }
 
   const tabs: { key: Tab; label: string; count?: number }[] = [
+    { key: 'analytics', label: '애널리틱스' },
     { key: 'questions', label: '승인 대기', count: badge?.questions },
     { key: 'board', label: '게시판 관리' },
     { key: 'reports', label: '신고 접수', count: badge?.reports },
@@ -138,6 +139,7 @@ export default function AdminPage() {
           </button>
         ))}
       </div>
+      {activeTab === 'analytics' && <AnalyticsTab />}
       {activeTab === 'questions' && <QuestionsTab prevSeenAt={prevSeenAt} />}
       {activeTab === 'board' && <BoardTab requestConfirm={requestConfirm} />}
       {activeTab === 'reports' && <ReportsTab prevSeenAt={prevSeenAt} />}
@@ -1662,5 +1664,84 @@ function LogsTab() {
         {selectedLog && <LogDetailPanel log={selectedLog} onClose={() => setSelectedLog(null)} />}
       </div>
     </>
+  );
+}
+
+interface AnalyticsData {
+  onlineNow: number;
+  todayVisitors: number;
+  totalUsers: number;
+  activeBattles: number;
+  dailyVisits: { date: string; count: number }[];
+}
+
+function AnalyticsTab() {
+  const { data, isLoading } = useQuery<AnalyticsData>({
+    queryKey: ['admin', 'analytics'],
+    queryFn: () => fetch('/api/admin/analytics').then((r) => r.json()),
+    refetchInterval: 60_000,
+    staleTime: 30_000,
+  });
+
+  const maxCount = Math.max(...(data?.dailyVisits.map((d) => d.count) ?? [1]), 1);
+
+  const statCards = [
+    { label: '현재 접속자', value: data?.onlineNow ?? 0, color: 'text-emerald-400', dot: 'bg-emerald-500', pulse: true },
+    { label: '오늘 방문자', value: data?.todayVisitors ?? 0, color: 'text-blue-400', dot: 'bg-blue-500', pulse: false },
+    { label: '총 가입자', value: data?.totalUsers ?? 0, color: 'text-neutral-200', dot: null, pulse: false },
+    { label: '진행 중 대전', value: data?.activeBattles ?? 0, color: 'text-amber-400', dot: 'bg-amber-500', pulse: false },
+  ];
+
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {statCards.map((card) => (
+          <div key={card.label} className="bg-[#111111] border border-neutral-800 rounded-xl px-4 py-4">
+            <div className="flex items-center gap-1.5 mb-2">
+              {card.dot && <span className={`w-2 h-2 rounded-full ${card.dot} ${card.pulse ? 'animate-pulse' : ''}`} />}
+              <span className="text-xs text-neutral-500">{card.label}</span>
+            </div>
+            {isLoading ? (
+              <div className="h-7 w-16 bg-neutral-800 rounded animate-pulse" />
+            ) : (
+              <span className={`text-2xl font-semibold ${card.color}`}>
+                {card.value.toLocaleString()}
+              </span>
+            )}
+          </div>
+        ))}
+      </div>
+
+      <div className="bg-[#111111] border border-neutral-800 rounded-xl px-4 py-5">
+        <h3 className="text-sm font-medium text-neutral-300 mb-4">최근 30일 일별 방문자</h3>
+        {isLoading ? (
+          <div className="h-32 bg-neutral-800 rounded animate-pulse" />
+        ) : !data || data.dailyVisits.length === 0 ? (
+          <p className="text-sm text-neutral-600 text-center py-8">방문 데이터가 없습니다</p>
+        ) : (
+          <div className="flex items-end gap-1 h-32">
+            {data.dailyVisits.map((d) => {
+              const heightPct = Math.max((d.count / maxCount) * 100, 4);
+              const label = d.date.slice(5);
+              return (
+                <div key={d.date} className="flex-1 flex flex-col items-center gap-1 group min-w-0">
+                  <span className="text-[9px] text-neutral-600 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                    {d.count}명
+                  </span>
+                  <div
+                    className="w-full bg-blue-500/70 hover:bg-blue-400 rounded-sm transition-colors"
+                    style={{ height: `${heightPct}%` }}
+                    title={`${d.date}: ${d.count}명`}
+                  />
+                  <span className="text-[8px] text-neutral-700 hidden sm:block truncate w-full text-center">
+                    {label}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
   );
 }

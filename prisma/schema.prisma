@@ -34,6 +34,7 @@ model User {
   sentRequests     Friendship[]  @relation("FriendRequester")
   receivedRequests Friendship[]  @relation("FriendAddressee")
   presence         UserPresence?
+  dailyVisits      DailyVisit[]
   hostedRooms      GameRoom[]    @relation("GameRoomHost")
   guestRooms       GameRoom[]    @relation("GameRoomGuest")
 }
@@ -284,6 +285,15 @@ enum GameRoomStatus {
   WAITING
   PLAYING
   FINISHED
+}
+
+model DailyVisit {
+  userId String
+  date   String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, date])
 }
 
 model AuditLog {
