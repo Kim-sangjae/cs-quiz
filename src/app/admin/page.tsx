@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { supabaseBrowser } from '@/lib/supabase-browser';
 
 type Tab = 'questions' | 'board' | 'reports' | 'users' | 'inquiries' | 'logs' | 'analytics';
 
@@ -1671,76 +1672,151 @@ interface AnalyticsData {
   onlineNow: number;
   todayVisitors: number;
   totalUsers: number;
-  activeBattles: number;
+  totalBattles: number;
+  todayAttempts: number;
+  totalAttempts: number;
+  questionStats: { official: number; approved: number; pending: number; rejected: number; blinded: number };
   dailyVisits: { date: string; count: number }[];
+  dailyAttempts: { date: string; count: number }[];
+}
+
+function MiniBarChart({ data, color }: { data: { date: string; count: number }[]; color: string }) {
+  const maxCount = Math.max(...data.map((d) => d.count), 1);
+  return (
+    <div className="flex items-end gap-px h-16">
+      {data.map((d) => {
+        const heightPct = Math.max((d.count / maxCount) * 100, 4);
+        return (
+          <div key={d.date} className="flex-1 flex flex-col items-center group min-w-0" title={`${d.date}: ${d.count}`}>
+            <div
+              className={`w-full rounded-sm transition-opacity hover:opacity-100 opacity-70 ${color}`}
+              style={{ height: `${heightPct}%` }}
+            />
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function StatCard({ label, value, sub, color, dot, pulse, loading }: {
+  label: string; value: string | number; sub?: string;
+  color: string; dot?: string; pulse?: boolean; loading: boolean;
+}) {
+  return (
+    <div className="bg-[#111111] border border-neutral-800 rounded-xl px-4 py-4">
+      <div className="flex items-center gap-1.5 mb-2">
+        {dot && <span className={`w-2 h-2 rounded-full ${dot} ${pulse ? 'animate-pulse' : ''}`} />}
+        <span className="text-xs text-neutral-500">{label}</span>
+      </div>
+      {loading ? (
+        <div className="h-7 w-16 bg-neutral-800 rounded animate-pulse" />
+      ) : (
+        <div>
+          <span className={`text-2xl font-semibold ${color}`}>{typeof value === 'number' ? value.toLocaleString() : value}</span>
+          {sub && <span className="text-xs text-neutral-600 ml-1.5">{sub}</span>}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function AnalyticsTab() {
   const { data, isLoading } = useQuery<AnalyticsData>({
     queryKey: ['admin', 'analytics'],
     queryFn: () => fetch('/api/admin/analytics').then((r) => r.json()),
-    refetchInterval: 60_000,
-    staleTime: 30_000,
+    refetchInterval: 30_000,
+    staleTime: 15_000,
   });
 
-  const maxCount = Math.max(...(data?.dailyVisits.map((d) => d.count) ?? [1]), 1);
+  // Supabase Presence로 현재 접속자 실시간 반영
+  const [onlineCount, setOnlineCount] = useState(0);
+  useEffect(() => {
+    const ch = supabaseBrowser.channel('online-users-admin');
+    ch.on('presence', { event: 'sync' }, () => {
+      setOnlineCount(Object.keys(ch.presenceState()).length);
+    }).subscribe();
+    return () => { supabaseBrowser.removeChannel(ch); };
+  }, []);
 
-  const statCards = [
-    { label: '현재 접속자', value: data?.onlineNow ?? 0, color: 'text-emerald-400', dot: 'bg-emerald-500', pulse: true },
-    { label: '오늘 방문자', value: data?.todayVisitors ?? 0, color: 'text-blue-400', dot: 'bg-blue-500', pulse: false },
-    { label: '총 가입자', value: data?.totalUsers ?? 0, color: 'text-neutral-200', dot: null, pulse: false },
-    { label: '진행 중 대전', value: data?.activeBattles ?? 0, color: 'text-amber-400', dot: 'bg-amber-500', pulse: false },
-  ];
+  const qStats = data?.questionStats;
+  const totalQ = qStats ? Object.values(qStats).reduce((a, b) => a + b, 0) : 0;
 
   return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {statCards.map((card) => (
-          <div key={card.label} className="bg-[#111111] border border-neutral-800 rounded-xl px-4 py-4">
-            <div className="flex items-center gap-1.5 mb-2">
-              {card.dot && <span className={`w-2 h-2 rounded-full ${card.dot} ${card.pulse ? 'animate-pulse' : ''}`} />}
-              <span className="text-xs text-neutral-500">{card.label}</span>
-            </div>
-            {isLoading ? (
-              <div className="h-7 w-16 bg-neutral-800 rounded animate-pulse" />
-            ) : (
-              <span className={`text-2xl font-semibold ${card.color}`}>
-                {card.value.toLocaleString()}
-              </span>
-            )}
-          </div>
-        ))}
+    <div className="space-y-5">
+      {/* Row 1: 접속 · 방문 */}
+      <div>
+        <p className="text-[11px] text-neutral-600 font-medium uppercase tracking-wider mb-2">접속 현황</p>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <StatCard label="현재 접속자" value={onlineCount} dot="bg-emerald-500" pulse color="text-emerald-400" loading={false} />
+          <StatCard label="오늘 방문자" value={data?.todayVisitors ?? 0} dot="bg-blue-500" color="text-blue-400" loading={isLoading} />
+          <StatCard label="총 가입자" value={data?.totalUsers ?? 0} color="text-neutral-200" loading={isLoading} />
+          <StatCard label="총 대전 수" value={data?.totalBattles ?? 0} color="text-purple-400" loading={isLoading} />
+        </div>
       </div>
 
-      <div className="bg-[#111111] border border-neutral-800 rounded-xl px-4 py-5">
-        <h3 className="text-sm font-medium text-neutral-300 mb-4">최근 30일 일별 방문자</h3>
+      {/* Row 2: 퀴즈 활동 */}
+      <div>
+        <p className="text-[11px] text-neutral-600 font-medium uppercase tracking-wider mb-2">퀴즈 활동</p>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <StatCard label="오늘 풀기" value={data?.todayAttempts ?? 0} dot="bg-emerald-500" color="text-emerald-400" loading={isLoading} />
+          <StatCard label="누적 풀기" value={data?.totalAttempts ?? 0} color="text-neutral-200" loading={isLoading} />
+          <StatCard label="대기 중 문제" value={qStats?.pending ?? 0} dot="bg-amber-500" color="text-amber-400" loading={isLoading} />
+        </div>
+      </div>
+
+      {/* 문제 현황 */}
+      <div className="bg-[#111111] border border-neutral-800 rounded-xl px-4 py-4">
+        <p className="text-xs font-medium text-neutral-300 mb-3">문제 현황 (총 {totalQ.toLocaleString()}개)</p>
         {isLoading ? (
-          <div className="h-32 bg-neutral-800 rounded animate-pulse" />
-        ) : !data || data.dailyVisits.length === 0 ? (
-          <p className="text-sm text-neutral-600 text-center py-8">방문 데이터가 없습니다</p>
-        ) : (
-          <div className="flex items-end gap-1 h-32">
-            {data.dailyVisits.map((d) => {
-              const heightPct = Math.max((d.count / maxCount) * 100, 4);
-              const label = d.date.slice(5);
+          <div className="h-10 bg-neutral-800 rounded animate-pulse" />
+        ) : qStats ? (
+          <div className="space-y-2">
+            {[
+              { key: 'official', label: '기본 문제', color: 'bg-blue-500' },
+              { key: 'approved', label: '승인됨', color: 'bg-emerald-500' },
+              { key: 'pending', label: '대기 중', color: 'bg-amber-500' },
+              { key: 'rejected', label: '반려됨', color: 'bg-red-500' },
+              { key: 'blinded', label: '블라인드', color: 'bg-orange-500' },
+            ].map(({ key, label, color }) => {
+              const val = qStats[key as keyof typeof qStats];
+              const pct = totalQ > 0 ? Math.round((val / totalQ) * 100) : 0;
               return (
-                <div key={d.date} className="flex-1 flex flex-col items-center gap-1 group min-w-0">
-                  <span className="text-[9px] text-neutral-600 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-                    {d.count}명
-                  </span>
-                  <div
-                    className="w-full bg-blue-500/70 hover:bg-blue-400 rounded-sm transition-colors"
-                    style={{ height: `${heightPct}%` }}
-                    title={`${d.date}: ${d.count}명`}
-                  />
-                  <span className="text-[8px] text-neutral-700 hidden sm:block truncate w-full text-center">
-                    {label}
-                  </span>
+                <div key={key} className="flex items-center gap-3">
+                  <span className="text-xs text-neutral-500 w-16 flex-shrink-0">{label}</span>
+                  <div className="flex-1 h-1.5 bg-neutral-800 rounded-full overflow-hidden">
+                    <div className={`h-full ${color} rounded-full`} style={{ width: `${pct}%` }} />
+                  </div>
+                  <span className="text-xs text-neutral-400 w-12 text-right">{val.toLocaleString()}</span>
                 </div>
               );
             })}
           </div>
-        )}
+        ) : null}
+      </div>
+
+      {/* 그래프 2개 */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="bg-[#111111] border border-neutral-800 rounded-xl px-4 py-4">
+          <p className="text-xs font-medium text-neutral-300 mb-3">30일 일별 방문자</p>
+          {isLoading ? (
+            <div className="h-16 bg-neutral-800 rounded animate-pulse" />
+          ) : data && data.dailyVisits.length > 0 ? (
+            <MiniBarChart data={data.dailyVisits} color="bg-blue-500" />
+          ) : (
+            <p className="text-xs text-neutral-600 text-center py-4">데이터 없음</p>
+          )}
+        </div>
+        <div className="bg-[#111111] border border-neutral-800 rounded-xl px-4 py-4">
+          <p className="text-xs font-medium text-neutral-300 mb-3">30일 일별 퀴즈 풀기</p>
+          {isLoading ? (
+            <div className="h-16 bg-neutral-800 rounded animate-pulse" />
+          ) : data && data.dailyAttempts.length > 0 ? (
+            <MiniBarChart data={data.dailyAttempts} color="bg-emerald-500" />
+          ) : (
+            <p className="text-xs text-neutral-600 text-center py-4">데이터 없음</p>
+          )}
+        </div>
       </div>
     </div>
   );
