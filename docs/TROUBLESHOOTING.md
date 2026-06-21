@@ -50,6 +50,12 @@
 |------|------|------|
 | 대화 시작부터 토큰을 많이 소비함 | `CLAUDE.md`의 `@./docs/*.md` 문법은 해당 파일을 컨텍스트에 자동 주입 | `@` 접두사 제거 → 필요한 파일만 작업 중 수동으로 Read |
 
+### Supabase Realtime
+
+| 문제 | 원인 | 해결 |
+|------|------|------|
+| `cannot add 'presence' callbacks for realtime:online-users after subscribe()` | `useSupabaseRealtime` 훅을 `FriendPanel`과 `AnalyticsTab` 두 곳에서 호출 → Supabase JS가 동일 채널명을 캐시하여 이미 구독된 채널 객체를 반환 → `.on()` 재호출 오류 | `RealtimeContext`(Provider 패턴)로 구독을 앱 최상단에서 **한 번만** 실행. 모든 컴포넌트는 `useRealtime()` 훅으로 동일 Context 소비 |
+
 ---
 
 ## 설계 시행착오
