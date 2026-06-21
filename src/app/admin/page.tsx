@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { useRealtime } from '@/contexts/RealtimeContext';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -1773,7 +1774,8 @@ function AnalyticsTab() {
     staleTime: 15_000,
   });
 
-  const onlineCount = data?.onlineNow ?? 0;
+  const { onlineUsers } = useRealtime();
+  const onlineCount = onlineUsers.length;
 
   const qStats = data?.questionStats;
   const totalQ = qStats ? Object.values(qStats).reduce((a, b) => a + b, 0) : 0;
