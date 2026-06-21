@@ -5,6 +5,7 @@ import { useSession } from 'next-auth/react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
+import { useSupabaseRealtime } from '@/hooks/useSupabaseRealtime';
 
 interface Friend {
   friendshipId: string;
@@ -237,12 +238,14 @@ export default function FriendPanel() {
   const panelRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { onlineUsers, realtimeActive } = useSupabaseRealtime();
 
   const { data } = useQuery<{ friends: Friend[] }>({
     queryKey: ['friends'],
     queryFn: () => fetch('/api/friends').then((r) => r.json()),
     enabled: status === 'authenticated',
-    refetchInterval: open ? 5_000 : 30_000,
+    // Realtime이 살아있으면 온라인 상태는 Presence로 처리하므로 폴링 간격 늘림
+    refetchInterval: open ? (realtimeActive ? 15_000 : 5_000) : 30_000,
   });
 
   const { data: battleRoomsData } = useQuery<{ rooms: { id: string; status: string }[] }>({
@@ -323,7 +326,11 @@ export default function FriendPanel() {
 
   if (status !== 'authenticated') return null;
 
-  const friends = data?.friends ?? [];
+  const onlineUserIds = new Set(onlineUsers.map((u) => u.userId));
+
+  const friends = (data?.friends ?? []).map((f) =>
+    realtimeActive ? { ...f, isOnline: onlineUserIds.has(f.userId) } : f
+  );
   const onlineCount = friends.filter((f) => f.isOnline).length;
 
   return (

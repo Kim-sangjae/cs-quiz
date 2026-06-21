@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { broadcastToUser } from '@/lib/broadcast';
 
 const TWO_MINUTES = 2 * 60 * 1000;
 
@@ -85,6 +86,7 @@ export async function POST(req: Request) {
         },
       }),
     ]);
+    await broadcastToUser(target.id, 'friend_request', { fromNickname: me?.nickname ?? '' });
     return NextResponse.json({ ok: true }, { status: 200 });
   }
 
@@ -101,6 +103,7 @@ export async function POST(req: Request) {
       actionUrl: '/friends',
     },
   });
+  await broadcastToUser(target.id, 'friend_request', { fromNickname: me?.nickname ?? '' });
 
   return NextResponse.json({ ok: true }, { status: 201 });
 }

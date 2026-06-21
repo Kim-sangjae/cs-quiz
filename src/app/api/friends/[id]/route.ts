@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { broadcastToUser } from '@/lib/broadcast';
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
@@ -32,13 +33,18 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   });
 
   const me = await prisma.user.findUnique({ where: { id: userId }, select: { nickname: true } });
+  const myNickname = me?.nickname ?? '(닉네임 없음)';
+
   await prisma.notification.create({
     data: {
       userId: friendship.requesterId,
       type: action === 'accept' ? 'FRIEND_ACCEPTED' : 'FRIEND_REJECTED',
-      payload: { fromNickname: me?.nickname ?? '(닉네임 없음)' },
+      payload: { fromNickname: myNickname },
     },
   });
+
+  const broadcastEvent = action === 'accept' ? 'friend_accepted' : 'friend_rejected';
+  await broadcastToUser(friendship.requesterId, broadcastEvent, { fromNickname: myNickname });
 
   return NextResponse.json({ ok: true });
 }
