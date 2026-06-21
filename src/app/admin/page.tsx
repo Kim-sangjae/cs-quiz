@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { supabaseBrowser } from '@/lib/supabase-browser';
+import { useSupabaseRealtime } from '@/hooks/useSupabaseRealtime';
 
 type Tab = 'questions' | 'board' | 'reports' | 'users' | 'inquiries' | 'logs' | 'analytics';
 
@@ -1670,28 +1670,51 @@ function LogsTab() {
 
 interface AnalyticsData {
   onlineNow: number;
-  todayVisitors: number;
+  periodVisitors: number;
+  periodAttempts: number;
   totalUsers: number;
   totalBattles: number;
-  todayAttempts: number;
   totalAttempts: number;
   questionStats: { official: number; approved: number; pending: number; rejected: number; blinded: number };
-  dailyVisits: { date: string; count: number }[];
-  dailyAttempts: { date: string; count: number }[];
+  inquiryStats: { pending: number; inProgress: number; resolved: number };
+  reportStats: { pending: number; reviewed: number };
+  chartVisits: { label: string; count: number }[];
+  chartAttempts: { label: string; count: number }[];
 }
 
-function MiniBarChart({ data, color }: { data: { date: string; count: number }[]; color: string }) {
+type Period = 'day' | 'month' | 'year';
+
+const PERIOD_LABEL: Record<Period, string> = { day: '일', month: '월', year: '년' };
+const PERIOD_VISITOR_LABEL: Record<Period, string> = { day: '오늘 방문자', month: '이번 달 방문자', year: '올해 방문자' };
+const PERIOD_ATTEMPT_LABEL: Record<Period, string> = { day: '오늘 풀기', month: '이번 달 풀기', year: '올해 풀기' };
+
+function formatChartLabel(label: string, period: Period): string {
+  if (period === 'day') return label.slice(5).replace('-', '/');
+  if (period === 'month') return label.slice(2).replace('-', '.');
+  return label;
+}
+
+function MiniBarChart({ data, color, period }: { data: { label: string; count: number }[]; color: string; period: Period }) {
   const maxCount = Math.max(...data.map((d) => d.count), 1);
   return (
-    <div className="flex items-end gap-px h-16">
+    <div className="flex items-end gap-px h-20">
       {data.map((d) => {
-        const heightPct = Math.max((d.count / maxCount) * 100, 4);
+        const heightPct = Math.max((d.count / maxCount) * 100, 3);
         return (
-          <div key={d.date} className="flex-1 flex flex-col items-center group min-w-0" title={`${d.date}: ${d.count}`}>
+          <div
+            key={d.label}
+            className="flex-1 flex flex-col items-center group min-w-0"
+            title={`${d.label}: ${d.count}`}
+          >
             <div
-              className={`w-full rounded-sm transition-opacity hover:opacity-100 opacity-70 ${color}`}
+              className={`w-full rounded-sm opacity-70 hover:opacity-100 transition-opacity ${color}`}
               style={{ height: `${heightPct}%` }}
             />
+            {data.length <= 14 && (
+              <span className="text-[8px] text-neutral-700 mt-0.5 hidden sm:block truncate w-full text-center">
+                {formatChartLabel(d.label, period)}
+              </span>
+            )}
           </div>
         );
       })}
@@ -1699,9 +1722,8 @@ function MiniBarChart({ data, color }: { data: { date: string; count: number }[]
   );
 }
 
-function StatCard({ label, value, sub, color, dot, pulse, loading }: {
-  label: string; value: string | number; sub?: string;
-  color: string; dot?: string; pulse?: boolean; loading: boolean;
+function AStatCard({ label, value, color, dot, pulse, loading }: {
+  label: string; value: number; color: string; dot?: string; pulse?: boolean; loading: boolean;
 }) {
   return (
     <div className="bg-[#111111] border border-neutral-800 rounded-xl px-4 py-4">
@@ -1710,48 +1732,86 @@ function StatCard({ label, value, sub, color, dot, pulse, loading }: {
         <span className="text-xs text-neutral-500">{label}</span>
       </div>
       {loading ? (
-        <div className="h-7 w-16 bg-neutral-800 rounded animate-pulse" />
+        <div className="h-7 w-14 bg-neutral-800 rounded animate-pulse" />
       ) : (
-        <div>
-          <span className={`text-2xl font-semibold ${color}`}>{typeof value === 'number' ? value.toLocaleString() : value}</span>
-          {sub && <span className="text-xs text-neutral-600 ml-1.5">{sub}</span>}
-        </div>
+        <span className={`text-2xl font-semibold ${color}`}>{value.toLocaleString()}</span>
       )}
     </div>
   );
 }
 
+function StatusBar({ items, total, loading }: {
+  items: { key: string; label: string; color: string; value: number }[];
+  total: number;
+  loading: boolean;
+}) {
+  return loading ? (
+    <div className="h-10 bg-neutral-800 rounded animate-pulse" />
+  ) : (
+    <div className="space-y-2">
+      {items.map(({ key, label, color, value }) => {
+        const pct = total > 0 ? Math.round((value / total) * 100) : 0;
+        return (
+          <div key={key} className="flex items-center gap-3">
+            <span className="text-xs text-neutral-500 w-20 flex-shrink-0">{label}</span>
+            <div className="flex-1 h-1.5 bg-neutral-800 rounded-full overflow-hidden">
+              <div className={`h-full ${color} rounded-full`} style={{ width: `${pct}%` }} />
+            </div>
+            <span className="text-xs text-neutral-400 w-10 text-right">{value.toLocaleString()}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function AnalyticsTab() {
+  const [period, setPeriod] = useState<Period>('day');
   const { data, isLoading } = useQuery<AnalyticsData>({
-    queryKey: ['admin', 'analytics'],
-    queryFn: () => fetch('/api/admin/analytics').then((r) => r.json()),
+    queryKey: ['admin', 'analytics', period],
+    queryFn: () => fetch(`/api/admin/analytics?period=${period}`).then((r) => r.json()),
     refetchInterval: 30_000,
     staleTime: 15_000,
   });
 
-  // Supabase Presence로 현재 접속자 실시간 반영
-  const [onlineCount, setOnlineCount] = useState(0);
-  useEffect(() => {
-    const ch = supabaseBrowser.channel('online-users-admin');
-    ch.on('presence', { event: 'sync' }, () => {
-      setOnlineCount(Object.keys(ch.presenceState()).length);
-    }).subscribe();
-    return () => { supabaseBrowser.removeChannel(ch); };
-  }, []);
+  // Supabase Presence로 현재 접속자 실시간 반영 (online-users 채널 — 유저와 동일)
+  const { onlineUsers } = useSupabaseRealtime();
+  const onlineCount = onlineUsers.length;
 
   const qStats = data?.questionStats;
   const totalQ = qStats ? Object.values(qStats).reduce((a, b) => a + b, 0) : 0;
+  const iStats = data?.inquiryStats;
+  const totalI = iStats ? Object.values(iStats).reduce((a, b) => a + b, 0) : 0;
+  const rStats = data?.reportStats;
+  const totalR = rStats ? (rStats.pending + rStats.reviewed) : 0;
 
   return (
     <div className="space-y-5">
-      {/* Row 1: 접속 · 방문 */}
+      {/* 기간 필터 */}
+      <div className="flex gap-1">
+        {(['day', 'month', 'year'] as Period[]).map((p) => (
+          <button
+            key={p}
+            onClick={() => setPeriod(p)}
+            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+              period === p
+                ? 'bg-white text-black'
+                : 'text-neutral-400 hover:text-white border border-neutral-800 hover:border-neutral-600'
+            }`}
+          >
+            {PERIOD_LABEL[p]}
+          </button>
+        ))}
+      </div>
+
+      {/* Row 1: 접속 현황 */}
       <div>
         <p className="text-[11px] text-neutral-600 font-medium uppercase tracking-wider mb-2">접속 현황</p>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <StatCard label="현재 접속자" value={onlineCount} dot="bg-emerald-500" pulse color="text-emerald-400" loading={false} />
-          <StatCard label="오늘 방문자" value={data?.todayVisitors ?? 0} dot="bg-blue-500" color="text-blue-400" loading={isLoading} />
-          <StatCard label="총 가입자" value={data?.totalUsers ?? 0} color="text-neutral-200" loading={isLoading} />
-          <StatCard label="총 대전 수" value={data?.totalBattles ?? 0} color="text-purple-400" loading={isLoading} />
+          <AStatCard label="현재 접속자" value={onlineCount} dot="bg-emerald-500" pulse color="text-emerald-400" loading={false} />
+          <AStatCard label={PERIOD_VISITOR_LABEL[period]} value={data?.periodVisitors ?? 0} dot="bg-blue-500" color="text-blue-400" loading={isLoading} />
+          <AStatCard label="총 가입자" value={data?.totalUsers ?? 0} color="text-neutral-200" loading={isLoading} />
+          <AStatCard label="총 대전 수" value={data?.totalBattles ?? 0} color="text-purple-400" loading={isLoading} />
         </div>
       </div>
 
@@ -1759,63 +1819,76 @@ function AnalyticsTab() {
       <div>
         <p className="text-[11px] text-neutral-600 font-medium uppercase tracking-wider mb-2">퀴즈 활동</p>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          <StatCard label="오늘 풀기" value={data?.todayAttempts ?? 0} dot="bg-emerald-500" color="text-emerald-400" loading={isLoading} />
-          <StatCard label="누적 풀기" value={data?.totalAttempts ?? 0} color="text-neutral-200" loading={isLoading} />
-          <StatCard label="대기 중 문제" value={qStats?.pending ?? 0} dot="bg-amber-500" color="text-amber-400" loading={isLoading} />
+          <AStatCard label={PERIOD_ATTEMPT_LABEL[period]} value={data?.periodAttempts ?? 0} dot="bg-emerald-500" color="text-emerald-400" loading={isLoading} />
+          <AStatCard label="누적 풀기" value={data?.totalAttempts ?? 0} color="text-neutral-200" loading={isLoading} />
+          <AStatCard label="대기 중 문제" value={qStats?.pending ?? 0} dot="bg-amber-500" color="text-amber-400" loading={isLoading} />
+        </div>
+      </div>
+
+      {/* 그래프 2개 */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="bg-[#111111] border border-neutral-800 rounded-xl px-4 py-4">
+          <p className="text-xs font-medium text-neutral-300 mb-3">방문자 추이</p>
+          {isLoading ? (
+            <div className="h-20 bg-neutral-800 rounded animate-pulse" />
+          ) : data && data.chartVisits.length > 0 ? (
+            <MiniBarChart data={data.chartVisits} color="bg-blue-500" period={period} />
+          ) : (
+            <p className="text-xs text-neutral-600 text-center py-4">데이터 없음</p>
+          )}
+        </div>
+        <div className="bg-[#111111] border border-neutral-800 rounded-xl px-4 py-4">
+          <p className="text-xs font-medium text-neutral-300 mb-3">퀴즈 풀기 추이</p>
+          {isLoading ? (
+            <div className="h-20 bg-neutral-800 rounded animate-pulse" />
+          ) : data && data.chartAttempts.length > 0 ? (
+            <MiniBarChart data={data.chartAttempts} color="bg-emerald-500" period={period} />
+          ) : (
+            <p className="text-xs text-neutral-600 text-center py-4">데이터 없음</p>
+          )}
         </div>
       </div>
 
       {/* 문제 현황 */}
       <div className="bg-[#111111] border border-neutral-800 rounded-xl px-4 py-4">
         <p className="text-xs font-medium text-neutral-300 mb-3">문제 현황 (총 {totalQ.toLocaleString()}개)</p>
-        {isLoading ? (
-          <div className="h-10 bg-neutral-800 rounded animate-pulse" />
-        ) : qStats ? (
-          <div className="space-y-2">
-            {[
-              { key: 'official', label: '기본 문제', color: 'bg-blue-500' },
-              { key: 'approved', label: '승인됨', color: 'bg-emerald-500' },
-              { key: 'pending', label: '대기 중', color: 'bg-amber-500' },
-              { key: 'rejected', label: '반려됨', color: 'bg-red-500' },
-              { key: 'blinded', label: '블라인드', color: 'bg-orange-500' },
-            ].map(({ key, label, color }) => {
-              const val = qStats[key as keyof typeof qStats];
-              const pct = totalQ > 0 ? Math.round((val / totalQ) * 100) : 0;
-              return (
-                <div key={key} className="flex items-center gap-3">
-                  <span className="text-xs text-neutral-500 w-16 flex-shrink-0">{label}</span>
-                  <div className="flex-1 h-1.5 bg-neutral-800 rounded-full overflow-hidden">
-                    <div className={`h-full ${color} rounded-full`} style={{ width: `${pct}%` }} />
-                  </div>
-                  <span className="text-xs text-neutral-400 w-12 text-right">{val.toLocaleString()}</span>
-                </div>
-              );
-            })}
-          </div>
-        ) : null}
+        <StatusBar
+          loading={isLoading}
+          total={totalQ}
+          items={[
+            { key: 'official', label: '기본 문제', color: 'bg-blue-500', value: qStats?.official ?? 0 },
+            { key: 'approved', label: '승인됨', color: 'bg-emerald-500', value: qStats?.approved ?? 0 },
+            { key: 'pending', label: '대기 중', color: 'bg-amber-500', value: qStats?.pending ?? 0 },
+            { key: 'rejected', label: '반려됨', color: 'bg-red-500', value: qStats?.rejected ?? 0 },
+            { key: 'blinded', label: '블라인드', color: 'bg-orange-500', value: qStats?.blinded ?? 0 },
+          ]}
+        />
       </div>
 
-      {/* 그래프 2개 */}
+      {/* 문의 / 신고 현황 */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="bg-[#111111] border border-neutral-800 rounded-xl px-4 py-4">
-          <p className="text-xs font-medium text-neutral-300 mb-3">30일 일별 방문자</p>
-          {isLoading ? (
-            <div className="h-16 bg-neutral-800 rounded animate-pulse" />
-          ) : data && data.dailyVisits.length > 0 ? (
-            <MiniBarChart data={data.dailyVisits} color="bg-blue-500" />
-          ) : (
-            <p className="text-xs text-neutral-600 text-center py-4">데이터 없음</p>
-          )}
+          <p className="text-xs font-medium text-neutral-300 mb-3">문의 현황 (총 {totalI.toLocaleString()}건)</p>
+          <StatusBar
+            loading={isLoading}
+            total={totalI}
+            items={[
+              { key: 'pending', label: '미처리', color: 'bg-amber-500', value: iStats?.pending ?? 0 },
+              { key: 'inProgress', label: '처리 중', color: 'bg-blue-500', value: iStats?.inProgress ?? 0 },
+              { key: 'resolved', label: '해결됨', color: 'bg-emerald-500', value: iStats?.resolved ?? 0 },
+            ]}
+          />
         </div>
         <div className="bg-[#111111] border border-neutral-800 rounded-xl px-4 py-4">
-          <p className="text-xs font-medium text-neutral-300 mb-3">30일 일별 퀴즈 풀기</p>
-          {isLoading ? (
-            <div className="h-16 bg-neutral-800 rounded animate-pulse" />
-          ) : data && data.dailyAttempts.length > 0 ? (
-            <MiniBarChart data={data.dailyAttempts} color="bg-emerald-500" />
-          ) : (
-            <p className="text-xs text-neutral-600 text-center py-4">데이터 없음</p>
-          )}
+          <p className="text-xs font-medium text-neutral-300 mb-3">신고 현황 (총 {totalR.toLocaleString()}건)</p>
+          <StatusBar
+            loading={isLoading}
+            total={totalR}
+            items={[
+              { key: 'pending', label: '미처리', color: 'bg-red-500', value: rStats?.pending ?? 0 },
+              { key: 'reviewed', label: '처리 완료', color: 'bg-emerald-500', value: rStats?.reviewed ?? 0 },
+            ]}
+          />
         </div>
       </div>
     </div>
