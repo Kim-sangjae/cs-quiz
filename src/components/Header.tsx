@@ -32,7 +32,7 @@ export default function Header() {
     if (status !== 'authenticated') return;
     const ping = () => fetch('/api/presence/heartbeat', { method: 'POST' }).catch(() => {});
     ping();
-    const id = setInterval(ping, 30_000);
+    const id = setInterval(ping, 15_000);
     return () => clearInterval(id);
   }, [status]);
 

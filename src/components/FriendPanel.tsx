@@ -242,7 +242,7 @@ export default function FriendPanel() {
     queryKey: ['friends'],
     queryFn: () => fetch('/api/friends').then((r) => r.json()),
     enabled: status === 'authenticated',
-    refetchInterval: 30_000,
+    refetchInterval: open ? 5_000 : 30_000,
   });
 
   const { data: battleRoomsData } = useQuery<{ rooms: { id: string; status: string }[] }>({
