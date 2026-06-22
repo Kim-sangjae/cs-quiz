@@ -8,6 +8,9 @@ export const authConfig: NextAuthConfig = {
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
     }),
   ],
+  pages: {
+    error: '/auth/error',
+  },
   session: { strategy: 'jwt' },
   callbacks: {
     jwt({ token, user, trigger, session }) {
