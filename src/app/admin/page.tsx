@@ -7,7 +7,7 @@ import { useSession } from 'next-auth/react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
-type Tab = 'questions' | 'board' | 'reports' | 'users' | 'inquiries' | 'logs' | 'analytics';
+type Tab = 'questions' | 'board' | 'reports' | 'users' | 'inquiries' | 'logs' | 'analytics' | 'errors';
 
 const CATEGORY_LABEL: Record<string, string> = {
   ds: '자료구조', algo: '알고리즘', os: '운영체제',
@@ -115,6 +115,7 @@ export default function AdminPage() {
     { key: 'users', label: '유저 관리' },
     { key: 'inquiries', label: '문의 관리', count: badge?.inquiries },
     { key: 'logs', label: '활동 로그' },
+    { key: 'errors', label: '오류 로그' },
   ];
 
   return (
@@ -147,6 +148,7 @@ export default function AdminPage() {
       {activeTab === 'users' && <UsersTab currentUserId={session.user?.id ?? ''} requestConfirm={requestConfirm} />}
       {activeTab === 'inquiries' && <InquiriesTab prevSeenAt={prevSeenAt} />}
       {activeTab === 'logs' && <LogsTab />}
+      {activeTab === 'errors' && <ErrorLogsTab />}
       {confirm && (
         <ConfirmDialog
           message={confirm.message}
@@ -2008,6 +2010,151 @@ function AnalyticsTab() {
           />
         </div>
       </div>
+    </div>
+  );
+}
+
+// ───────── 오류 로그 탭 ─────────
+
+interface AdminErrorLog {
+  id: string;
+  userId: string | null;
+  statusCode: number | null;
+  errorCode: string | null;
+  message: string;
+  path: string | null;
+  digest: string | null;
+  createdAt: string;
+  user: { nickname: string | null; email: string } | null;
+}
+
+const STATUS_COLOR: Record<number, string> = {
+  404: 'text-amber-400 border-amber-500/30',
+  500: 'text-red-400 border-red-500/30',
+};
+
+function ErrorLogsTab() {
+  const queryClient = useQueryClient();
+  const [page, setPage] = useState(1);
+  const [confirmClear, setConfirmClear] = useState(false);
+
+  const { data, isLoading } = useQuery<{ total: number; logs: AdminErrorLog[] }>({
+    queryKey: ['admin', 'error-logs', page],
+    queryFn: () => fetch(`/api/admin/errors?page=${page}`).then((r) => r.json()),
+    staleTime: 15_000,
+  });
+
+  const logs = data?.logs ?? [];
+  const total = data?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / 50));
+
+  async function handleDelete(id: string) {
+    await fetch(`/api/admin/errors?id=${id}`, { method: 'DELETE' });
+    queryClient.invalidateQueries({ queryKey: ['admin', 'error-logs'] });
+  }
+
+  async function handleClearAll() {
+    await fetch('/api/admin/errors', { method: 'DELETE' });
+    queryClient.invalidateQueries({ queryKey: ['admin', 'error-logs'] });
+    setConfirmClear(false);
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <p className="text-xs text-neutral-500">총 {total.toLocaleString()}건</p>
+        {total > 0 && (
+          confirmClear ? (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-neutral-400">전체 삭제하시겠습니까?</span>
+              <button onClick={handleClearAll} className="text-xs text-red-400 hover:text-red-300 transition-colors">확인</button>
+              <button onClick={() => setConfirmClear(false)} className="text-xs text-neutral-500 hover:text-white transition-colors">취소</button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setConfirmClear(true)}
+              className="text-xs text-neutral-600 hover:text-red-400 transition-colors"
+            >
+              전체 삭제
+            </button>
+          )
+        )}
+      </div>
+
+      {isLoading && <p className="text-neutral-500 text-sm text-center py-8">로딩 중...</p>}
+      {!isLoading && logs.length === 0 && (
+        <p className="text-neutral-500 text-sm text-center py-8">기록된 오류가 없습니다.</p>
+      )}
+
+      <div className="space-y-2">
+        {logs.map((log) => {
+          const sc = log.statusCode ? (STATUS_COLOR[log.statusCode] ?? 'text-neutral-400 border-neutral-700') : 'text-neutral-400 border-neutral-700';
+          return (
+            <div key={log.id} className="bg-[#111111] border border-neutral-800 rounded-xl px-4 py-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap mb-1">
+                    {log.statusCode && (
+                      <span className={`text-[11px] font-mono border rounded px-1.5 py-0.5 ${sc}`}>
+                        {log.statusCode}
+                      </span>
+                    )}
+                    {log.errorCode && (
+                      <span className="text-[11px] font-mono text-neutral-500 border border-neutral-800 rounded px-1.5 py-0.5">
+                        {log.errorCode}
+                      </span>
+                    )}
+                    <span className="text-[11px] text-neutral-600">
+                      {new Date(log.createdAt).toLocaleString('ko-KR')}
+                    </span>
+                  </div>
+                  <p className="text-sm text-neutral-200 break-all">{log.message}</p>
+                  {log.path && (
+                    <p className="text-xs text-neutral-600 mt-0.5 font-mono break-all">{log.path}</p>
+                  )}
+                  {log.digest && (
+                    <p className="text-xs text-neutral-700 mt-0.5 font-mono">digest: {log.digest}</p>
+                  )}
+                  {log.user && (
+                    <p className="text-xs text-neutral-600 mt-1">
+                      유저: {log.user.nickname ?? log.user.email}
+                    </p>
+                  )}
+                </div>
+                <button
+                  onClick={() => handleDelete(log.id)}
+                  className="flex-shrink-0 text-neutral-700 hover:text-red-400 transition-colors"
+                  title="삭제"
+                >
+                  <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {totalPages > 1 && (
+        <div className="flex justify-center gap-2 pt-2">
+          <button
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={page === 1}
+            className="px-3 py-1.5 text-xs rounded border border-neutral-800 text-neutral-400 hover:text-white disabled:opacity-30 transition-colors"
+          >
+            이전
+          </button>
+          <span className="text-xs text-neutral-500 flex items-center">{page} / {totalPages}</span>
+          <button
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            disabled={page === totalPages}
+            className="px-3 py-1.5 text-xs rounded border border-neutral-800 text-neutral-400 hover:text-white disabled:opacity-30 transition-colors"
+          >
+            다음
+          </button>
+        </div>
+      )}
     </div>
   );
 }

@@ -31,6 +31,7 @@ model User {
   notifications    Notification[]
   inquiries        Inquiry[]
   auditLogs        AuditLog[]
+  errorLogs        ErrorLog[]
   sentRequests     Friendship[]  @relation("FriendRequester")
   receivedRequests Friendship[]  @relation("FriendAddressee")
   presence         UserPresence?
@@ -307,4 +308,19 @@ model AuditLog {
   createdAt  DateTime @default(now())
 
   actor User? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+}
+
+model ErrorLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  statusCode Int?
+  errorCode  String?
+  message    String
+  path       String?
+  digest     String?
+  createdAt  DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
 }
