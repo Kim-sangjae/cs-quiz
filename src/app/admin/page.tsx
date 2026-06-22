@@ -2100,17 +2100,30 @@ const STATUS_COLOR: Record<number, string> = {
 function ErrorLogsTab() {
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
+  const [statusCodeFilter, setStatusCodeFilter] = useState('');
+  const [errorCodeFilter, setErrorCodeFilter] = useState('');
+  const [sort, setSort] = useState<'desc' | 'asc'>('desc');
   const [confirmClear, setConfirmClear] = useState(false);
 
-  const { data, isLoading } = useQuery<{ total: number; logs: AdminErrorLog[] }>({
-    queryKey: ['admin', 'error-logs', page],
-    queryFn: () => fetch(`/api/admin/errors?page=${page}`).then((r) => r.json()),
+  function resetPage() { setPage(1); }
+
+  const params = new URLSearchParams({ page: String(page), sort });
+  if (statusCodeFilter) params.set('statusCode', statusCodeFilter);
+  if (errorCodeFilter) params.set('errorCode', errorCodeFilter);
+
+  const { data, isLoading } = useQuery<{
+    total: number; totalPages: number;
+    logs: AdminErrorLog[]; errorCodes: string[];
+  }>({
+    queryKey: ['admin', 'error-logs', page, statusCodeFilter, errorCodeFilter, sort],
+    queryFn: () => fetch(`/api/admin/errors?${params}`).then((r) => r.json()),
     staleTime: 15_000,
   });
 
   const logs = data?.logs ?? [];
   const total = data?.total ?? 0;
-  const totalPages = Math.max(1, Math.ceil(total / 50));
+  const totalPages = data?.totalPages ?? 1;
+  const errorCodes = data?.errorCodes ?? [];
 
   async function handleDelete(id: string) {
     await fetch(`/api/admin/errors?id=${id}`, { method: 'DELETE' });
@@ -2125,24 +2138,55 @@ function ErrorLogsTab() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <p className="text-xs text-neutral-500">총 {total.toLocaleString()}건</p>
-        {total > 0 && (
-          confirmClear ? (
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-neutral-400">전체 삭제하시겠습니까?</span>
-              <button onClick={handleClearAll} className="text-xs text-red-400 hover:text-red-300 transition-colors">확인</button>
-              <button onClick={() => setConfirmClear(false)} className="text-xs text-neutral-500 hover:text-white transition-colors">취소</button>
-            </div>
-          ) : (
-            <button
-              onClick={() => setConfirmClear(true)}
-              className="text-xs text-neutral-600 hover:text-red-400 transition-colors"
-            >
-              전체 삭제
-            </button>
-          )
+      {/* 필터 바 */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <select
+          value={statusCodeFilter}
+          onChange={(e) => { setStatusCodeFilter(e.target.value); resetPage(); }}
+          className="bg-[#1a1a1a] border border-neutral-700 rounded-md px-3 py-1.5 text-sm text-white focus:outline-none focus:border-neutral-500"
+        >
+          <option value="">전체 코드</option>
+          <option value="404">404</option>
+          <option value="500">500</option>
+        </select>
+
+        {errorCodes.length > 0 && (
+          <select
+            value={errorCodeFilter}
+            onChange={(e) => { setErrorCodeFilter(e.target.value); resetPage(); }}
+            className="bg-[#1a1a1a] border border-neutral-700 rounded-md px-3 py-1.5 text-sm text-white focus:outline-none focus:border-neutral-500"
+          >
+            <option value="">전체 유형</option>
+            {errorCodes.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
         )}
+
+        <select
+          value={sort}
+          onChange={(e) => { setSort(e.target.value as 'desc' | 'asc'); resetPage(); }}
+          className="bg-[#1a1a1a] border border-neutral-700 rounded-md px-3 py-1.5 text-sm text-white focus:outline-none focus:border-neutral-500"
+        >
+          <option value="desc">최신순</option>
+          <option value="asc">오래된순</option>
+        </select>
+
+        <span className="text-xs text-neutral-500 ml-1">총 {total.toLocaleString()}건</span>
+
+        <div className="ml-auto">
+          {total > 0 && (
+            confirmClear ? (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-neutral-400">전체 삭제?</span>
+                <button onClick={handleClearAll} className="text-xs text-red-400 hover:text-red-300 transition-colors">확인</button>
+                <button onClick={() => setConfirmClear(false)} className="text-xs text-neutral-500 hover:text-white transition-colors">취소</button>
+              </div>
+            ) : (
+              <button onClick={() => setConfirmClear(true)} className="text-xs text-neutral-600 hover:text-red-400 transition-colors">
+                전체 삭제
+              </button>
+            )
+          )}
+        </div>
       </div>
 
       {isLoading && <p className="text-neutral-500 text-sm text-center py-8">로딩 중...</p>}
@@ -2180,9 +2224,7 @@ function ErrorLogsTab() {
                     <p className="text-xs text-neutral-700 mt-0.5 font-mono">digest: {log.digest}</p>
                   )}
                   {log.user && (
-                    <p className="text-xs text-neutral-600 mt-1">
-                      유저: {log.user.nickname ?? log.user.email}
-                    </p>
+                    <p className="text-xs text-neutral-600 mt-1">유저: {log.user.nickname ?? log.user.email}</p>
                   )}
                 </div>
                 <button
@@ -2201,7 +2243,14 @@ function ErrorLogsTab() {
       </div>
 
       {totalPages > 1 && (
-        <div className="flex justify-center gap-2 pt-2">
+        <div className="flex items-center justify-center gap-2 pt-2">
+          <button
+            onClick={() => setPage(1)}
+            disabled={page === 1}
+            className="px-2.5 py-1.5 text-xs rounded border border-neutral-800 text-neutral-400 hover:text-white disabled:opacity-30 transition-colors"
+          >
+            처음
+          </button>
           <button
             onClick={() => setPage((p) => Math.max(1, p - 1))}
             disabled={page === 1}
@@ -2209,13 +2258,20 @@ function ErrorLogsTab() {
           >
             이전
           </button>
-          <span className="text-xs text-neutral-500 flex items-center">{page} / {totalPages}</span>
+          <span className="text-xs text-neutral-500 px-1">{page} / {totalPages}</span>
           <button
             onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
             disabled={page === totalPages}
             className="px-3 py-1.5 text-xs rounded border border-neutral-800 text-neutral-400 hover:text-white disabled:opacity-30 transition-colors"
           >
             다음
+          </button>
+          <button
+            onClick={() => setPage(totalPages)}
+            disabled={page === totalPages}
+            className="px-2.5 py-1.5 text-xs rounded border border-neutral-800 text-neutral-400 hover:text-white disabled:opacity-30 transition-colors"
+          >
+            마지막
           </button>
         </div>
       )}
