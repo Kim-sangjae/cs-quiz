@@ -44,7 +44,7 @@ interface ReportItem {
 }
 interface ReportGroup {
   question: { id: string; category: string; question: string; status: string };
-  reportCount: number; latestReportAt: string; reports: ReportItem[];
+  reportCount: number; latestReportAt: string; dismissed: boolean; reports: ReportItem[];
 }
 interface BoardQuestion {
   id: string; category: string; question: string;
@@ -77,6 +77,7 @@ export default function AdminPage() {
   const [activeTab, setActiveTab] = useState<Tab>('questions');
   const [confirm, setConfirm] = useState<ConfirmState | null>(null);
   const [prevSeenAt, setPrevSeenAt] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   const { data: badge } = useQuery<{ questions: number; reports: number; inquiries: number }>({
     queryKey: ['admin', 'badge'],
@@ -101,6 +102,12 @@ export default function AdminPage() {
     setConfirm({ message, onConfirm });
   }
 
+  async function handleRefresh() {
+    setRefreshing(true);
+    await queryClient.invalidateQueries({ queryKey: ['admin'] });
+    setRefreshing(false);
+  }
+
   if (status === 'loading') return null;
   if (!session || session.user?.role !== 'ADMIN') {
     router.replace('/');
@@ -120,7 +127,26 @@ export default function AdminPage() {
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
-      <h1 className="text-2xl font-semibold text-white mb-6">관리자 패널</h1>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-semibold text-white">관리자 패널</h1>
+        <button
+          onClick={handleRefresh}
+          disabled={refreshing}
+          className="flex items-center gap-1.5 text-xs text-neutral-500 hover:text-white border border-neutral-800 hover:border-neutral-600 rounded-lg px-3 py-1.5 transition-colors disabled:opacity-40"
+          title="새로고침"
+        >
+          <svg
+            width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"
+            className={refreshing ? 'animate-spin' : ''}
+          >
+            <polyline points="23 4 23 10 17 10" />
+            <polyline points="1 20 1 14 7 14" />
+            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+          </svg>
+          {refreshing ? '새로고침 중...' : '새로고침'}
+        </button>
+      </div>
       <div className="flex gap-1 mb-6 border-b border-neutral-800 overflow-x-auto">
         {tabs.map((t) => (
           <button
@@ -795,6 +821,7 @@ function BoardTab({ requestConfirm }: { requestConfirm: (msg: string, fn: () => 
 function ReportsTab({ prevSeenAt }: { prevSeenAt: string | null }) {
   const queryClient = useQueryClient();
   const [reasonFilter, setReasonFilter] = useState<string>('');
+  const [statusFilter, setStatusFilter] = useState<'pending' | 'dismissed' | 'all'>('pending');
   const [sortOrder, setSortOrder] = useState<'count' | 'asc'>('count');
 
   const { data: reportGroups = [] } = useQuery<ReportGroup[]>({
@@ -816,11 +843,39 @@ function ReportsTab({ prevSeenAt }: { prevSeenAt: string | null }) {
   });
 
   const filtered = reportGroups
-    .filter((g) => !reasonFilter || g.reports.some((r) => r.reason === reasonFilter))
+    .filter((g) => {
+      if (statusFilter === 'pending' && g.dismissed) return false;
+      if (statusFilter === 'dismissed' && !g.dismissed) return false;
+      return !reasonFilter || g.reports.some((r) => r.reason === reasonFilter);
+    })
     .sort((a, b) => sortOrder === 'count' ? b.reportCount - a.reportCount : a.reportCount - b.reportCount);
+
+  const pendingCount = reportGroups.filter((g) => !g.dismissed).length;
+  const dismissedCount = reportGroups.filter((g) => g.dismissed).length;
 
   return (
     <div className="space-y-4">
+      {/* 상태 필터 토글 */}
+      <div className="flex gap-1">
+        {([
+          { key: 'pending', label: `대기 중 ${pendingCount}` },
+          { key: 'dismissed', label: `무시됨 ${dismissedCount}` },
+          { key: 'all', label: '전체' },
+        ] as const).map(({ key, label }) => (
+          <button
+            key={key}
+            onClick={() => setStatusFilter(key)}
+            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+              statusFilter === key
+                ? 'bg-white text-black'
+                : 'text-neutral-400 hover:text-white border border-neutral-800 hover:border-neutral-600'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
       <div className="flex items-center gap-3 flex-wrap">
         <select
           value={reasonFilter}
@@ -840,22 +895,29 @@ function ReportsTab({ prevSeenAt }: { prevSeenAt: string | null }) {
         </select>
         <span className="text-xs text-neutral-500">{filtered.length}건</span>
       </div>
+
       {filtered.length === 0 ? (
-        <p className="text-neutral-500 text-sm text-center py-8">처리할 신고가 없습니다.</p>
+        <p className="text-neutral-500 text-sm text-center py-8">
+          {statusFilter === 'dismissed' ? '무시 처리된 신고가 없습니다.' : '처리할 신고가 없습니다.'}
+        </p>
       ) : filtered.map((group) => (
-        <div key={group.question.id} className="bg-[#111111] border border-neutral-800 rounded-lg p-5">
+        <div
+          key={group.question.id}
+          className={`border rounded-lg p-5 ${group.dismissed ? 'bg-neutral-900/50 border-neutral-800/50 opacity-70' : 'bg-[#111111] border-neutral-800'}`}
+        >
           <div className="flex items-start justify-between gap-4 mb-3">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <span className="text-xs text-neutral-500 border border-neutral-800 rounded px-2 py-0.5">
                 {CATEGORY_LABEL[group.question.category] ?? group.question.category}
               </span>
               <span className="text-xs text-neutral-500">신고 {group.reportCount}건</span>
-              {group.question.status === 'BLINDED' && (
-                <span className="text-xs text-red-400 border border-red-500/30 rounded px-1.5 py-0.5">
-                  블라인드됨
-                </span>
+              {group.dismissed && (
+                <span className="text-xs text-neutral-500 border border-neutral-700 rounded px-1.5 py-0.5">무시됨</span>
               )}
-              {prevSeenAt && new Date(group.latestReportAt) > new Date(prevSeenAt) && (
+              {group.question.status === 'BLINDED' && (
+                <span className="text-xs text-red-400 border border-red-500/30 rounded px-1.5 py-0.5">블라인드됨</span>
+              )}
+              {!group.dismissed && prevSeenAt && new Date(group.latestReportAt) > new Date(prevSeenAt) && (
                 <span className="text-[10px] font-bold text-amber-400 border border-amber-500/40 rounded px-1.5 py-0.5">NEW</span>
               )}
             </div>
@@ -863,7 +925,7 @@ function ReportsTab({ prevSeenAt }: { prevSeenAt: string | null }) {
               href={`/board/${group.question.id}`}
               target="_blank"
               rel="noreferrer"
-              className="text-xs text-neutral-500 hover:text-white transition-colors underline"
+              className="text-xs text-neutral-500 hover:text-white transition-colors underline flex-shrink-0"
             >
               문제 보기
             </a>
@@ -882,22 +944,24 @@ function ReportsTab({ prevSeenAt }: { prevSeenAt: string | null }) {
               </div>
             ))}
           </div>
-          <div className="flex gap-2">
-            <button
-              onClick={() => mutation.mutate({ questionId: group.question.id, action: 'blind' })}
-              disabled={mutation.isPending || group.question.status === 'BLINDED'}
-              className="rounded-md bg-red-500/10 border border-red-500/30 text-red-400 text-xs px-3 py-1.5 hover:bg-red-500/20 transition-colors disabled:opacity-40"
-            >
-              블라인드
-            </button>
-            <button
-              onClick={() => mutation.mutate({ questionId: group.question.id, action: 'dismiss' })}
-              disabled={mutation.isPending}
-              className="rounded-md bg-[#1a1a1a] border border-neutral-700 text-neutral-400 text-xs px-3 py-1.5 hover:text-white transition-colors disabled:opacity-40"
-            >
-              무시
-            </button>
-          </div>
+          {!group.dismissed && (
+            <div className="flex gap-2">
+              <button
+                onClick={() => mutation.mutate({ questionId: group.question.id, action: 'blind' })}
+                disabled={mutation.isPending || group.question.status === 'BLINDED'}
+                className="rounded-md bg-red-500/10 border border-red-500/30 text-red-400 text-xs px-3 py-1.5 hover:bg-red-500/20 transition-colors disabled:opacity-40"
+              >
+                블라인드
+              </button>
+              <button
+                onClick={() => mutation.mutate({ questionId: group.question.id, action: 'dismiss' })}
+                disabled={mutation.isPending}
+                className="rounded-md bg-[#1a1a1a] border border-neutral-700 text-neutral-400 text-xs px-3 py-1.5 hover:text-white transition-colors disabled:opacity-40"
+              >
+                무시
+              </button>
+            </div>
+          )}
         </div>
       ))}
     </div>

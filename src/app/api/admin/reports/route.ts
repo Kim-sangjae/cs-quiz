@@ -9,12 +9,12 @@ export async function GET() {
   }
 
   const reports = await prisma.report.findMany({
-    where: { status: 'PENDING' },
     select: {
       id: true,
       reason: true,
       description: true,
       questionId: true,
+      status: true,
       createdAt: true,
       question: { select: { id: true, category: true, question: true, status: true } },
       reporter: { select: { nickname: true } },
@@ -26,18 +26,33 @@ export async function GET() {
     question: typeof reports[number]['question'];
     reportCount: number;
     latestReportAt: string;
+    dismissed: boolean;
     reports: typeof reports;
   }>();
 
   for (const report of reports) {
     const key = report.questionId;
     if (!map.has(key)) {
-      map.set(key, { question: report.question, reportCount: 0, latestReportAt: report.createdAt.toISOString(), reports: [] });
+      map.set(key, {
+        question: report.question,
+        reportCount: 0,
+        latestReportAt: report.createdAt.toISOString(),
+        dismissed: false,
+        reports: [],
+      });
     }
     const entry = map.get(key)!;
     entry.reportCount += 1;
     entry.latestReportAt = report.createdAt.toISOString();
     entry.reports.push(report);
+    if (report.status === 'PENDING') {
+      entry.dismissed = false;
+    }
+  }
+
+  // dismissed = 해당 문제의 모든 신고가 REVIEWED 상태인 경우
+  for (const [, entry] of map) {
+    entry.dismissed = entry.reports.every((r) => r.status === 'REVIEWED');
   }
 
   const grouped = Array.from(map.values()).sort((a, b) => b.reportCount - a.reportCount);
