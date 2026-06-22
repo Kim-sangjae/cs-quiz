@@ -7,6 +7,7 @@ export interface Question {
   options: [string, string, string, string];
   answer: 0 | 1 | 2 | 3;
   explanation: string;
+  authorNickname?: string | null;
 }
 
 export interface UserAnswer {

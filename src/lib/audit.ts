@@ -2,6 +2,7 @@ import { prisma } from './prisma';
 
 export type AuditAction =
   | 'LOGIN'
+  | 'LOGIN_FAIL'
   | 'QUESTION_APPROVE'
   | 'QUESTION_REJECT'
   | 'QUESTION_BLIND'

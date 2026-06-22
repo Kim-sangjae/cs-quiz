@@ -25,6 +25,9 @@ export default function ResultCard({
           {question.category}
         </span>
         <span className="text-sm text-neutral-500">Q.{questionNumber}</span>
+        {question.authorNickname && (
+          <span className="text-[10px] text-neutral-700">등록: {question.authorNickname}</span>
+        )}
       </div>
 
       <p className="text-base font-medium text-white leading-relaxed mb-6">

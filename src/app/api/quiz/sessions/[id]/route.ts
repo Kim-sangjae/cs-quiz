@@ -19,11 +19,12 @@ export async function GET(
   const questionIds = session.questionIds as string[];
   const dbQuestions = await prisma.question.findMany({
     where: { id: { in: questionIds } },
+    include: { author: { select: { nickname: true } } },
   });
 
   const questionsMap = new Map(dbQuestions.map((q) => [q.id, q]));
   const questions: Question[] = questionIds
-    .map((qid) => {
+    .map((qid): Question | null => {
       const q = questionsMap.get(qid);
       if (!q) return null;
       return {
@@ -33,6 +34,7 @@ export async function GET(
         options: q.options as [string, string, string, string],
         answer: q.answer as 0 | 1 | 2 | 3,
         explanation: q.explanation,
+        authorNickname: q.author?.nickname ?? null,
       };
     })
     .filter((q): q is Question => q !== null);

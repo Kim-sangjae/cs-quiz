@@ -16,6 +16,7 @@ export default async function QuizPlayPage({
     const ids = reviewIds.split(",").filter(Boolean).slice(0, 30);
     const dbQuestions = await prisma.question.findMany({
       where: { id: { in: ids } },
+      include: { author: { select: { nickname: true } } },
     });
     const qMap = new Map(dbQuestions.map((q) => [q.id, q]));
     questions = ids
@@ -28,6 +29,7 @@ export default async function QuizPlayPage({
         options: q.options as [string, string, string, string],
         answer: q.answer as 0 | 1 | 2 | 3,
         explanation: q.explanation,
+        authorNickname: q.author?.nickname ?? null,
       }));
   } else {
     const dbQuestions = await prisma.question.findMany({
@@ -35,6 +37,7 @@ export default async function QuizPlayPage({
         status: { in: ["OFFICIAL", "APPROVED"] },
         ...(category && category !== "all" ? { category } : {}),
       },
+      include: { author: { select: { nickname: true } } },
     });
     questions = dbQuestions.map((q) => ({
       id: q.id,
@@ -43,6 +46,7 @@ export default async function QuizPlayPage({
       options: q.options as [string, string, string, string],
       answer: q.answer as 0 | 1 | 2 | 3,
       explanation: q.explanation,
+      authorNickname: q.author?.nickname ?? null,
     }));
     questions = sample(questions, 30);
   }

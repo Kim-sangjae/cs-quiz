@@ -5,6 +5,7 @@ import { getServerUser } from "@/lib/auth";
 import { buildRankings, getMyRanks, getHomepagePersonalization, type CategoryRankings, type MyRankEntry, type HomepagePersonalization } from "@/lib/rankings";
 import RankingSection from "@/components/RankingSection";
 import DailyChallenge from "@/components/DailyChallenge";
+import OnlineCountBadge from "@/components/OnlineCountBadge";
 
 const total = questions.length;
 
@@ -62,9 +63,12 @@ export default async function Home() {
 
         {/* Hero */}
         <div className="mb-12">
-          <div className="inline-flex items-center gap-1.5 text-xs text-neutral-500 border border-neutral-800 rounded-full px-3 py-1 mb-6">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            전체 {total}문제 · 6개 카테고리
+          <div className="flex items-center gap-2 mb-6 flex-wrap">
+            <div className="inline-flex items-center gap-1.5 text-xs text-neutral-500 border border-neutral-800 rounded-full px-3 py-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              전체 {total}문제 · 6개 카테고리
+            </div>
+            <OnlineCountBadge />
           </div>
           <h1 className="text-3xl font-bold text-white tracking-tight mb-3">CS Quiz</h1>
           <p className="text-neutral-400 text-base leading-relaxed mb-8">

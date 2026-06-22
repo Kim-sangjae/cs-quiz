@@ -1292,6 +1292,7 @@ function ConfirmDialog({ message, onConfirm, onCancel }: {
 
 const ACTION_LABEL: Record<string, string> = {
   LOGIN: '로그인',
+  LOGIN_FAIL: '로그인 실패',
   QUESTION_APPROVE: '문제 승인',
   QUESTION_REJECT: '문제 거절',
   QUESTION_BLIND: '문제 블라인드',
@@ -1309,6 +1310,7 @@ const ACTION_LABEL: Record<string, string> = {
 
 const ACTION_COLOR: Record<string, string> = {
   LOGIN: 'text-blue-400 border-blue-500/30',
+  LOGIN_FAIL: 'text-red-400 border-red-500/30',
   QUESTION_APPROVE: 'text-green-400 border-green-500/30',
   QUESTION_REJECT: 'text-red-400 border-red-500/30',
   QUESTION_BLIND: 'text-orange-400 border-orange-500/30',
@@ -1680,18 +1682,17 @@ interface AnalyticsData {
   reportStats: { pending: number; reviewed: number };
   chartVisits: { label: string; count: number }[];
   chartAttempts: { label: string; count: number }[];
+  categoryStats: { category: string; attempts: number; avgScore: number }[];
 }
 
 type Period = 'day' | 'month' | 'year';
 
 const PERIOD_LABEL: Record<Period, string> = { day: '일', month: '월', year: '년' };
-const PERIOD_VISITOR_LABEL: Record<Period, string> = { day: '오늘 방문자', month: '이번 달 방문자', year: '올해 방문자' };
-const PERIOD_ATTEMPT_LABEL: Record<Period, string> = { day: '오늘 풀기', month: '이번 달 풀기', year: '올해 풀기' };
 
 function formatChartLabel(label: string, period: Period): string {
-  if (period === 'day') return label.slice(5).replace('-', '/');
-  if (period === 'month') return label.slice(2).replace('-', '.');
-  return label;
+  if (period === 'year') return `${parseInt(label.slice(5))}월`;
+  if (period === 'month') return label.slice(8);
+  return label.slice(5).replace('-', '/');
 }
 
 function MiniBarChart({ data, color, period }: { data: { label: string; count: number }[]; color: string; period: Period }) {
@@ -1767,9 +1768,35 @@ function StatusBar({ items, total, loading }: {
 
 function AnalyticsTab() {
   const [period, setPeriod] = useState<Period>('day');
+  const [target, setTarget] = useState('');
+
+  const today = new Date().toISOString().slice(0, 10);
+  const currentMonthStr = today.slice(0, 7);
+  const currentYearStr = today.slice(0, 4);
+
+  const effectiveTarget =
+    target ||
+    (period === 'month' ? currentMonthStr : period === 'year' ? currentYearStr : '');
+
+  // 최근 12개월
+  const availableMonths: string[] = [];
+  for (let i = 0; i < 12; i++) {
+    const d = new Date();
+    d.setDate(1);
+    d.setMonth(d.getMonth() - i);
+    availableMonths.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+  }
+
+  // 최근 5년
+  const availableYears = Array.from({ length: 5 }, (_, i) => String(new Date().getFullYear() - i));
+
   const { data, isLoading } = useQuery<AnalyticsData>({
-    queryKey: ['admin', 'analytics', period],
-    queryFn: () => fetch(`/api/admin/analytics?period=${period}`).then((r) => r.json()),
+    queryKey: ['admin', 'analytics', period, effectiveTarget],
+    queryFn: () => {
+      const params = new URLSearchParams({ period });
+      if (effectiveTarget) params.set('target', effectiveTarget);
+      return fetch(`/api/admin/analytics?${params}`).then((r) => r.json());
+    },
     refetchInterval: 30_000,
     staleTime: 15_000,
   });
@@ -1782,25 +1809,86 @@ function AnalyticsTab() {
   const iStats = data?.inquiryStats;
   const totalI = iStats ? Object.values(iStats).reduce((a, b) => a + b, 0) : 0;
   const rStats = data?.reportStats;
-  const totalR = rStats ? (rStats.pending + rStats.reviewed) : 0;
+  const totalR = rStats ? rStats.pending + rStats.reviewed : 0;
+
+  const categoryStats = data?.categoryStats ?? [];
+  const sortedCats = [...categoryStats].sort((a, b) => b.attempts - a.attempts);
+  const popularCat = sortedCats[0]?.category;
+  const weakCat = categoryStats.length > 0
+    ? [...categoryStats].sort((a, b) => a.avgScore - b.avgScore)[0]?.category
+    : null;
+
+  function getPeriodLabel(type: 'visitor' | 'attempt'): string {
+    if (period === 'day') return type === 'visitor' ? '오늘 방문자' : '오늘 풀기';
+    if (period === 'month' && effectiveTarget) {
+      const [y, m] = effectiveTarget.split('-');
+      return type === 'visitor' ? `${y}년 ${parseInt(m)}월 방문자` : `${y}년 ${parseInt(m)}월 풀기`;
+    }
+    if (period === 'year' && effectiveTarget) {
+      return type === 'visitor' ? `${effectiveTarget}년 방문자` : `${effectiveTarget}년 풀기`;
+    }
+    return type === 'visitor' ? '기간 방문자' : '기간 풀기';
+  }
 
   return (
     <div className="space-y-5">
       {/* 기간 필터 */}
-      <div className="flex gap-1">
-        {(['day', 'month', 'year'] as Period[]).map((p) => (
-          <button
-            key={p}
-            onClick={() => setPeriod(p)}
-            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-              period === p
-                ? 'bg-white text-black'
-                : 'text-neutral-400 hover:text-white border border-neutral-800 hover:border-neutral-600'
-            }`}
-          >
-            {PERIOD_LABEL[p]}
-          </button>
-        ))}
+      <div className="space-y-2">
+        <div className="flex gap-1">
+          {(['day', 'month', 'year'] as Period[]).map((p) => (
+            <button
+              key={p}
+              onClick={() => { setPeriod(p); setTarget(''); }}
+              className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                period === p
+                  ? 'bg-white text-black'
+                  : 'text-neutral-400 hover:text-white border border-neutral-800 hover:border-neutral-600'
+              }`}
+            >
+              {PERIOD_LABEL[p]}
+            </button>
+          ))}
+        </div>
+
+        {period === 'month' && (
+          <div className="flex flex-wrap gap-1">
+            {availableMonths.map((m) => {
+              const [y, mo] = m.split('-');
+              const label = y === currentYearStr ? `${parseInt(mo)}월` : `${y}년 ${parseInt(mo)}월`;
+              return (
+                <button
+                  key={m}
+                  onClick={() => setTarget(m)}
+                  className={`px-2.5 py-1 text-xs rounded transition-colors ${
+                    effectiveTarget === m
+                      ? 'bg-neutral-700 text-white border border-neutral-600'
+                      : 'border border-neutral-800 text-neutral-500 hover:text-neutral-300 hover:border-neutral-600'
+                  }`}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {period === 'year' && (
+          <div className="flex gap-1 flex-wrap">
+            {availableYears.map((y) => (
+              <button
+                key={y}
+                onClick={() => setTarget(y)}
+                className={`px-2.5 py-1 text-xs rounded transition-colors ${
+                  effectiveTarget === y
+                    ? 'bg-neutral-700 text-white border border-neutral-600'
+                    : 'border border-neutral-800 text-neutral-500 hover:text-neutral-300 hover:border-neutral-600'
+                }`}
+              >
+                {y}년
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Row 1: 접속 현황 */}
@@ -1808,7 +1896,7 @@ function AnalyticsTab() {
         <p className="text-[11px] text-neutral-600 font-medium uppercase tracking-wider mb-2">접속 현황</p>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <AStatCard label="현재 접속자" value={onlineCount} dot="bg-emerald-500" pulse color="text-emerald-400" loading={false} />
-          <AStatCard label={PERIOD_VISITOR_LABEL[period]} value={data?.periodVisitors ?? 0} dot="bg-blue-500" color="text-blue-400" loading={isLoading} />
+          <AStatCard label={getPeriodLabel('visitor')} value={data?.periodVisitors ?? 0} dot="bg-blue-500" color="text-blue-400" loading={isLoading} />
           <AStatCard label="총 가입자" value={data?.totalUsers ?? 0} color="text-neutral-200" loading={isLoading} />
           <AStatCard label="총 대전 수" value={data?.totalBattles ?? 0} color="text-purple-400" loading={isLoading} />
         </div>
@@ -1818,11 +1906,40 @@ function AnalyticsTab() {
       <div>
         <p className="text-[11px] text-neutral-600 font-medium uppercase tracking-wider mb-2">퀴즈 활동</p>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          <AStatCard label={PERIOD_ATTEMPT_LABEL[period]} value={data?.periodAttempts ?? 0} dot="bg-emerald-500" color="text-emerald-400" loading={isLoading} />
+          <AStatCard label={getPeriodLabel('attempt')} value={data?.periodAttempts ?? 0} dot="bg-emerald-500" color="text-emerald-400" loading={isLoading} />
           <AStatCard label="누적 풀기" value={data?.totalAttempts ?? 0} color="text-neutral-200" loading={isLoading} />
           <AStatCard label="대기 중 문제" value={qStats?.pending ?? 0} dot="bg-amber-500" color="text-amber-400" loading={isLoading} />
         </div>
       </div>
+
+      {/* 카테고리별 활동 */}
+      {sortedCats.length > 0 && (
+        <div className="bg-[#111111] border border-neutral-800 rounded-xl px-4 py-4">
+          <p className="text-xs font-medium text-neutral-300 mb-3">카테고리별 활동</p>
+          <div className="space-y-2.5">
+            {sortedCats.map((cs) => {
+              const maxAttempts = sortedCats[0]?.attempts ?? 1;
+              const barWidth = Math.max(Math.round((cs.attempts / maxAttempts) * 100), 2);
+              const isPopular = cs.category === popularCat;
+              const isWeak = cs.category === weakCat && cs.category !== popularCat;
+              return (
+                <div key={cs.category} className="flex items-center gap-3">
+                  <span className="text-xs text-neutral-500 w-20 flex-shrink-0">{CATEGORY_LABEL[cs.category] ?? cs.category}</span>
+                  <div className="flex-1 h-1.5 bg-neutral-800 rounded-full overflow-hidden">
+                    <div className="h-full bg-sky-500 rounded-full" style={{ width: `${barWidth}%` }} />
+                  </div>
+                  <span className="text-xs text-neutral-400 w-12 text-right flex-shrink-0">{cs.attempts.toLocaleString()}회</span>
+                  <span className="text-[10px] text-neutral-600 w-10 text-right flex-shrink-0">{cs.avgScore.toFixed(0)}/30</span>
+                  <div className="w-8 flex-shrink-0">
+                    {isPopular && <span className="text-[10px] text-emerald-400 border border-emerald-500/30 rounded px-1">인기</span>}
+                    {isWeak && <span className="text-[10px] text-amber-400 border border-amber-500/30 rounded px-1">취약</span>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* 그래프 2개 */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

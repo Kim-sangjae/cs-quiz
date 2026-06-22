@@ -63,6 +63,7 @@ function ProfileModal({
   onRemove: (friendshipId: string) => void;
 }) {
   const [step, setStep] = useState<'profile' | 'battle'>('profile');
+  const [confirmingRemove, setConfirmingRemove] = useState(false);
   const [category, setCategory] = useState('ds');
 
   const { data: profile, isLoading } = useQuery<UserProfile>({
@@ -170,22 +171,42 @@ function ProfileModal({
             </div>
 
             {/* 버튼 */}
-            <div className="border-t border-neutral-800 px-4 py-3 flex gap-2">
-              {friend.isOnline && (
+            {confirmingRemove ? (
+              <div className="border-t border-neutral-800 px-4 py-3 space-y-2">
+                <p className="text-xs text-neutral-400 text-center">{friend.nickname}님을 친구 목록에서 삭제할까요?</p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => onRemove(friend.friendshipId)}
+                    className="flex-1 rounded-lg bg-red-500/15 border border-red-500/30 text-xs text-red-400 font-medium py-2 hover:bg-red-500/25 transition-colors"
+                  >
+                    삭제
+                  </button>
+                  <button
+                    onClick={() => setConfirmingRemove(false)}
+                    className="flex-1 rounded-lg border border-neutral-700 text-xs text-neutral-400 py-2 hover:text-white transition-colors"
+                  >
+                    취소
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="border-t border-neutral-800 px-4 py-3 flex gap-2">
+                {friend.isOnline && (
+                  <button
+                    onClick={() => setStep('battle')}
+                    className="flex-1 rounded-lg bg-white text-black text-xs font-semibold py-2.5 hover:bg-neutral-200 transition-colors"
+                  >
+                    대전 신청
+                  </button>
+                )}
                 <button
-                  onClick={() => setStep('battle')}
-                  className="flex-1 rounded-lg bg-white text-black text-xs font-semibold py-2.5 hover:bg-neutral-200 transition-colors"
+                  onClick={() => setConfirmingRemove(true)}
+                  className={`${friend.isOnline ? '' : 'flex-1'} rounded-lg border border-neutral-800 text-xs text-neutral-500 py-2.5 px-3 hover:border-red-900 hover:text-red-400 transition-colors`}
                 >
-                  대전 신청
+                  친구 삭제
                 </button>
-              )}
-              <button
-                onClick={() => onRemove(friend.friendshipId)}
-                className={`${friend.isOnline ? '' : 'flex-1'} rounded-lg border border-neutral-800 text-xs text-neutral-500 py-2.5 px-3 hover:border-red-900 hover:text-red-400 transition-colors`}
-              >
-                친구 삭제
-              </button>
-            </div>
+              </div>
+            )}
           </>
         )}
 

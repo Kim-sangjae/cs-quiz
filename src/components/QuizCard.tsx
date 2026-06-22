@@ -11,6 +11,7 @@ interface QuizCardProps {
   selectedIndex: number | null;
   onSelect: (index: 0 | 1 | 2 | 3) => void;
   questionId?: string;
+  authorNickname?: string | null;
 }
 
 const LABELS = ['A', 'B', 'C', 'D'] as const;
@@ -29,6 +30,7 @@ export default function QuizCard({
   selectedIndex,
   onSelect,
   questionId,
+  authorNickname,
 }: QuizCardProps) {
   return (
     <div className="bg-[#111111] border border-neutral-800 rounded-xl p-6">
@@ -37,6 +39,9 @@ export default function QuizCard({
           {CATEGORY_LABEL[category] ?? category}
         </span>
         <span className="text-xs text-neutral-600">Q.{questionNumber} / {total}</span>
+        {authorNickname && (
+          <span className="text-[10px] text-neutral-700">등록: {authorNickname}</span>
+        )}
         {questionId && (
           <div className="ml-auto">
             <ReportModal questionId={questionId} initialReported={false} />

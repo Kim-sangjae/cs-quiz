@@ -24,9 +24,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   },
   callbacks: {
     async signIn({ user }) {
-      if (user?.id) {
-        writeLog({ actorId: user.id, actorRole: (user as { role?: string }).role ?? 'USER', action: 'LOGIN' });
+      if (!user?.id) return true;
+      const dbUser = await prisma.user.findUnique({
+        where: { id: user.id },
+        select: { deletedAt: true, role: true },
+      });
+      if (dbUser?.deletedAt) {
+        writeLog({ actorId: user.id, actorRole: dbUser.role, action: 'LOGIN_FAIL', payload: { reason: '비활성화된 계정' } });
+        return false;
       }
+      writeLog({ actorId: user.id, actorRole: dbUser?.role ?? 'USER', action: 'LOGIN' });
       return true;
     },
     async jwt({ token, user, trigger, session }) {

@@ -19,19 +19,32 @@ export async function GET(req: NextRequest) {
 
   const { searchParams } = new URL(req.url);
   const period = (searchParams.get('period') ?? 'day') as 'day' | 'month' | 'year';
+  const target = searchParams.get('target') ?? null;
 
   const today = new Date().toISOString().slice(0, 10);
   const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000);
 
-  const chartFrom =
-    period === 'year'
-      ? new Date(Date.now() - 5 * 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
-      : period === 'month'
-      ? new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
-      : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  let chartFrom: string;
+  let chartTo: string;
+  let keyFn: (date: string) => string;
 
-  const keyFn = (date: string) =>
-    period === 'day' ? date : period === 'month' ? date.slice(0, 7) : date.slice(0, 4);
+  if (period === 'day') {
+    chartFrom = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    chartTo = today;
+    keyFn = (date) => date;
+  } else if (period === 'month') {
+    const tm = target ?? today.slice(0, 7);
+    const [y, m] = tm.split('-').map(Number);
+    const lastDay = new Date(y, m, 0).getDate();
+    chartFrom = `${tm}-01`;
+    chartTo = `${tm}-${String(lastDay).padStart(2, '0')}`;
+    keyFn = (date) => date;
+  } else {
+    const ty = target ?? today.slice(0, 4);
+    chartFrom = `${ty}-01-01`;
+    chartTo = `${ty}-12-31`;
+    keyFn = (date) => date.slice(0, 7);
+  }
 
   const [
     onlineNow,
@@ -44,6 +57,7 @@ export async function GET(req: NextRequest) {
     reviewedReports,
     visitRows,
     sessionRows,
+    categorySessions,
   ] = await Promise.all([
     prisma.userPresence.count({ where: { lastSeenAt: { gte: twoMinutesAgo } } }),
     prisma.user.count({ where: { deletedAt: null } }),
@@ -53,10 +67,23 @@ export async function GET(req: NextRequest) {
     prisma.inquiry.groupBy({ by: ['status'], _count: { id: true } }),
     prisma.report.count({ where: { status: 'PENDING' } }),
     prisma.report.count({ where: { status: 'REVIEWED' } }),
-    prisma.dailyVisit.findMany({ where: { date: { gte: chartFrom } }, select: { date: true } }),
+    prisma.dailyVisit.findMany({
+      where: { date: { gte: chartFrom, lte: chartTo } },
+      select: { date: true },
+    }),
     prisma.quizSession.findMany({
-      where: { submittedAt: { gte: new Date(`${chartFrom}T00:00:00.000Z`) } },
+      where: {
+        submittedAt: {
+          gte: new Date(`${chartFrom}T00:00:00.000Z`),
+          lte: new Date(`${chartTo}T23:59:59.999Z`),
+        },
+      },
       select: { submittedAt: true },
+    }),
+    prisma.quizSession.groupBy({
+      by: ['category'],
+      _count: { id: true },
+      _avg: { score: true },
     }),
   ]);
 
@@ -70,12 +97,21 @@ export async function GET(req: NextRequest) {
   const chartVisits = allKeys.map((label) => ({ label, count: visitsByKey[label] ?? 0 }));
   const chartAttempts = allKeys.map((label) => ({ label, count: attemptsByKey[label] ?? 0 }));
 
-  const periodKey = keyFn(today);
-  const periodVisitors = visitsByKey[periodKey] ?? 0;
-  const periodAttempts = attemptsByKey[periodKey] ?? 0;
+  const periodVisitors = period === 'day'
+    ? visitsByKey[today] ?? 0
+    : Object.values(visitsByKey).reduce((a, b) => a + b, 0);
+  const periodAttempts = period === 'day'
+    ? attemptsByKey[today] ?? 0
+    : Object.values(attemptsByKey).reduce((a, b) => a + b, 0);
 
   const qMap = Object.fromEntries(questionStats.map((s) => [s.status, s._count.id]));
   const iMap = Object.fromEntries(inquiryStats.map((s) => [s.status, s._count.id]));
+
+  const categoryStats = categorySessions.map((cs) => ({
+    category: cs.category,
+    attempts: cs._count.id,
+    avgScore: Math.round((cs._avg.score ?? 0) * 10) / 10,
+  }));
 
   return NextResponse.json({
     onlineNow,
@@ -99,5 +135,6 @@ export async function GET(req: NextRequest) {
     reportStats: { pending: pendingReports, reviewed: reviewedReports },
     chartVisits,
     chartAttempts,
+    categoryStats,
   });
 }
