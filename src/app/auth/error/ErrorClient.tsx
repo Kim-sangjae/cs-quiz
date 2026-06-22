@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 
-export default function ErrorClient({ error }: { error: string }) {
+export default function ErrorClient({ error, email }: { error: string; email: string }) {
   const isDeactivated = error === 'AccessDenied';
 
   if (!isDeactivated) {
@@ -20,20 +20,19 @@ export default function ErrorClient({ error }: { error: string }) {
     );
   }
 
-  return <DeactivatedView />;
+  return <DeactivatedView email={email} />;
 }
 
-function DeactivatedView() {
+function DeactivatedView({ email }: { email: string }) {
   const [showForm, setShowForm] = useState(false);
-  const [email, setEmail] = useState('');
   const [content, setContent] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!email.trim() || !content.trim()) {
-      toast.error('이메일과 내용을 모두 입력해주세요.');
+    if (!content.trim()) {
+      toast.error('문의 내용을 입력해주세요.');
       return;
     }
     setSubmitting(true);
@@ -41,7 +40,7 @@ function DeactivatedView() {
       const res = await fetch('/api/inquiries/public', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim(), content: content.trim() }),
+        body: JSON.stringify({ email, content: content.trim() }),
       });
       if (!res.ok) {
         const data = await res.json() as { error?: string };
@@ -73,6 +72,9 @@ function DeactivatedView() {
               관리자에 의해 계정이 비활성화되었습니다.<br />
               문제가 있다고 생각되시면 관리자에게 문의해주세요.
             </p>
+            {email && (
+              <p className="text-xs text-neutral-600 mt-2">{email}</p>
+            )}
           </div>
         </div>
 
@@ -113,16 +115,12 @@ function DeactivatedView() {
         {/* 문의 폼 */}
         {showForm && !submitted && (
           <form onSubmit={handleSubmit} className="space-y-3">
-            <div>
-              <label className="text-xs text-neutral-400 mb-1.5 block">이메일</label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="가입한 이메일 주소"
-                className="w-full bg-[#111111] border border-neutral-700 rounded-lg px-3 py-2.5 text-sm text-white placeholder-neutral-600 focus:outline-none focus:border-neutral-500"
-              />
-            </div>
+            {email && (
+              <div className="bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-2.5">
+                <p className="text-[11px] text-neutral-500 mb-0.5">계정 이메일</p>
+                <p className="text-sm text-neutral-300">{email}</p>
+              </div>
+            )}
             <div>
               <label className="text-xs text-neutral-400 mb-1.5 block">문의 내용</label>
               <textarea

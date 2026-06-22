@@ -31,7 +31,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       });
       if (dbUser?.deletedAt) {
         writeLog({ actorId: user.id, actorRole: dbUser.role, action: 'LOGIN_FAIL', payload: { reason: '비활성화된 계정' } });
-        return false;
+        const params = new URLSearchParams({ error: 'AccessDenied', email: user.email ?? '' });
+        return `/auth/error?${params}`;
       }
       writeLog({ actorId: user.id, actorRole: dbUser?.role ?? 'USER', action: 'LOGIN' });
       return true;

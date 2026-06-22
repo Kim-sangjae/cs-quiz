@@ -16,8 +16,8 @@ export default function AuthErrorPage({
 async function ErrorContent({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; email?: string }>;
 }) {
-  const { error } = await searchParams;
-  return <ErrorClient error={error ?? ''} />;
+  const { error, email } = await searchParams;
+  return <ErrorClient error={error ?? ''} email={email ?? ''} />;
 }
