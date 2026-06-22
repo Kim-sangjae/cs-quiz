@@ -1129,6 +1129,7 @@ function InquiriesTab({ prevSeenAt }: { prevSeenAt: string | null }) {
       if (res.ok) {
         toast.success('저장되었습니다.');
         queryClient.invalidateQueries({ queryKey: ['admin', 'inquiries'] });
+        queryClient.invalidateQueries({ queryKey: ['admin', 'badge'] });
         setReplyDraft((d) => { const n = { ...d }; delete n[inq.id]; return n; });
         setStatusDraft((d) => { const n = { ...d }; delete n[inq.id]; return n; });
       } else {
@@ -1200,7 +1201,7 @@ function InquiriesTab({ prevSeenAt }: { prevSeenAt: string | null }) {
                 <div>
                   <div className="flex items-center gap-2">
                     <p className="text-sm font-medium text-white">{inq.title}</p>
-                    {prevSeenAt && new Date(inq.createdAt) > new Date(prevSeenAt) && (
+                    {prevSeenAt && new Date(inq.createdAt) > new Date(prevSeenAt) && inq.status === 'PENDING' && (
                       <span className="text-[10px] font-bold text-amber-400 border border-amber-500/40 rounded px-1.5 py-0.5">NEW</span>
                     )}
                   </div>
