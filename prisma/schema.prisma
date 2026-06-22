@@ -272,11 +272,12 @@ model GameRoom {
   questionIds  Json
   hostAnswers  Json           @default("[]")
   guestAnswers Json           @default("[]")
-  currentQ     Int            @default(0)
-  hostScore    Int            @default(0)
-  guestScore   Int            @default(0)
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
+  currentQ      Int            @default(0)
+  hostScore     Int            @default(0)
+  guestScore    Int            @default(0)
+  quitRequestBy String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
 
   host  User  @relation("GameRoomHost",  fields: [hostId],  references: [id])
   guest User? @relation("GameRoomGuest", fields: [guestId], references: [id])

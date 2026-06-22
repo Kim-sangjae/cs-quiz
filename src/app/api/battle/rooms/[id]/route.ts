@@ -72,7 +72,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     status: 'PLAYING',
     category: room.category,
     currentQ,
-    totalQ: 5,
+    totalQ: questionIds.length,
     host: room.host,
     guest: room.guest,
     hostScore: room.hostScore,
@@ -84,5 +84,6 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     mySelected: isHost
       ? (hostAnswers.length > currentQ ? hostAnswers[currentQ] : null)
       : (guestAnswers.length > currentQ ? guestAnswers[currentQ] : null),
+    quitRequestBy: room.quitRequestBy ?? null,
   });
 }

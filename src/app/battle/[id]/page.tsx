@@ -28,6 +28,7 @@ interface RoomState {
   hostAnswered?: boolean;
   guestAnswered?: boolean;
   mySelected?: number | null;
+  quitRequestBy?: string | null;
   question?: { id: string; question: string; options: string[] };
   questions?: { question: string; options: string[]; answer: number; explanation: string }[];
   hostAnswers?: number[];
@@ -42,6 +43,7 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
 
   const hadWaiting = useRef(false);
   const [wasRejected, setWasRejected] = useState(false);
+  const hasAutoSubmittedRef = useRef(false);
 
   // 15초 카운트다운
   const [timeLeft, setTimeLeft] = useState(TIMEOUT_SECS);
@@ -73,11 +75,12 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
     }
   }, [isError, queryClient]);
 
-  // question 변경 시 타이머 리셋
+  // question 변경 시 타이머 + 자동제출 플래그 리셋
   useEffect(() => {
     if (room?.status !== 'PLAYING') return;
     if (lastCurrentQ.current !== room.currentQ) {
       lastCurrentQ.current = room.currentQ ?? null;
+      hasAutoSubmittedRef.current = false;
       setTimeLeft(TIMEOUT_SECS);
     }
   }, [room?.currentQ, room?.status]);
@@ -107,11 +110,23 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
     onError: (e: Error) => toast.error(e.message),
   });
 
-  // 시간 초과 자동 제출
+  // 시간 초과 자동 제출 (ref로 중복 방지)
   useEffect(() => {
-    if (room?.status !== 'PLAYING' || myAnswered || timeLeft > 0 || submitAnswer.isPending) return;
+    if (room?.status !== 'PLAYING' || myAnswered || timeLeft > 0 || hasAutoSubmittedRef.current) return;
+    hasAutoSubmittedRef.current = true;
     submitAnswer.mutate(-1);
-  }, [timeLeft, room?.status, myAnswered, submitAnswer.isPending]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [timeLeft, room?.status, myAnswered]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const quitAction = useMutation({
+    mutationFn: (action: 'request' | 'accept' | 'reject') =>
+      fetch(`/api/battle/rooms/${id}/quit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action }),
+      }).then((r) => r.json()),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['battle', id] }),
+    onError: () => toast.error('오류가 발생했습니다'),
+  });
 
   const joinRoom = useMutation({
     mutationFn: () =>
@@ -215,6 +230,35 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
       {/* PLAYING */}
       {room.status === 'PLAYING' && room.question && (
         <>
+          {/* 상대방이 중단 요청 → 동의 모달 */}
+          {room.quitRequestBy && room.quitRequestBy !== room.myRole && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+              <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px]" />
+              <div className="relative w-full max-w-xs bg-[#111111] border border-neutral-700 rounded-2xl shadow-2xl overflow-hidden">
+                <div className="px-6 pt-6 pb-4 text-center">
+                  <p className="text-sm font-semibold text-white mb-1">대결 중단 요청</p>
+                  <p className="text-sm text-neutral-400">{oppNickname}님이 대결 중단을 요청했습니다.<br />동의하시겠습니까?</p>
+                </div>
+                <div className="border-t border-neutral-800 flex">
+                  <button
+                    onClick={() => quitAction.mutate('reject')}
+                    disabled={quitAction.isPending}
+                    className="flex-1 py-3.5 text-sm text-neutral-400 hover:bg-neutral-800/50 transition-colors border-r border-neutral-800"
+                  >
+                    거절
+                  </button>
+                  <button
+                    onClick={() => quitAction.mutate('accept')}
+                    disabled={quitAction.isPending}
+                    className="flex-1 py-3.5 text-sm font-semibold text-red-400 hover:bg-neutral-800/50 transition-colors"
+                  >
+                    동의
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* 점수판 + 타이머 */}
           <div className="flex items-center justify-between mb-5 bg-[#111111] border border-neutral-800 rounded-xl px-5 py-3">
             <div className="text-center">
@@ -265,16 +309,25 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
             </div>
           </div>
 
-          <div className="mt-3 text-center">
-            {myAnswered ? (
-              <p className="text-xs text-neutral-500">
-                {(room.myRole === 'host' ? room.guestAnswered : room.hostAnswered)
-                  ? '다음 문제로 이동 중...'
-                  : `${oppNickname}님 답변 대기 중...`}
-              </p>
-            ) : (
-              <p className="text-xs text-neutral-600">답변을 선택하세요 (제한 시간 {TIMEOUT_SECS}초)</p>
-            )}
+          <div className="mt-3 flex items-center justify-between">
+            <div className="text-center flex-1">
+              {myAnswered ? (
+                <p className="text-xs text-neutral-500">
+                  {(room.myRole === 'host' ? room.guestAnswered : room.hostAnswered)
+                    ? '다음 문제로 이동 중...'
+                    : `${oppNickname}님 답변 대기 중...`}
+                </p>
+              ) : (
+                <p className="text-xs text-neutral-600">답변을 선택하세요 (제한 시간 {TIMEOUT_SECS}초)</p>
+              )}
+            </div>
+            <button
+              onClick={() => quitAction.mutate('request')}
+              disabled={quitAction.isPending}
+              className="text-xs text-neutral-700 hover:text-red-400 border border-neutral-800 hover:border-red-500/30 rounded px-2.5 py-1 transition-colors"
+            >
+              {room.quitRequestBy === room.myRole ? '중단 요청 취소' : '대결 중단'}
+            </button>
           </div>
         </>
       )}
