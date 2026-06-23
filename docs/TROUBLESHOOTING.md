@@ -50,6 +50,15 @@
 |------|------|------|
 | 대화 시작부터 토큰을 많이 소비함 | `CLAUDE.md`의 `@./docs/*.md` 문법은 해당 파일을 컨텍스트에 자동 주입 | `@` 접두사 제거 → 필요한 파일만 작업 중 수동으로 Read |
 
+### OG 메타태그 / 카카오 공유
+
+| 문제 | 원인 | 해결 |
+|------|------|------|
+| Discord·카카오톡 URL 붙여넣기 시 미리보기 없음 | `localhost`는 외부 서버가 접근 불가 → OG 태그 파싱 불가 | 배포 도메인에서만 확인 가능. 로컬 테스트 불가 |
+| 카카오 SDK 공유 시 "앱 키 오류" | Kakao Developers 플랫폼에 현재 도메인 미등록 | [developers.kakao.com](https://developers.kakao.com) → 내 애플리케이션 → 플랫폼 → 웹 → 도메인 추가 |
+| OG 이미지 URL이 `localhost`로 잡힘 | `metadataBase`가 `NEXTAUTH_URL` 환경변수를 읽는데 배포 시 미설정 | `.env.production`에 `NEXTAUTH_URL=https://실제도메인` 설정 |
+| result 페이지에서 `generateMetadata` 동작 안 함 | `"use client"` 파일에서는 `generateMetadata` export 불가 | `page.tsx`를 서버 컴포넌트로 분리, 클라이언트 코드는 `ResultClient.tsx`로 이동 |
+
 ### Supabase Realtime
 
 | 문제 | 원인 | 해결 |

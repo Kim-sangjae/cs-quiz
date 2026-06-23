@@ -10,7 +10,9 @@ src/
 │   ├── quiz/
 │   │   ├── page.tsx                      # 카테고리 선택
 │   │   └── play/page.tsx                 # 퀴즈 진행
-│   ├── result/[sessionId]/page.tsx       # 결과
+│   ├── result/[sessionId]/
+│   │   ├── page.tsx                      # 결과 (서버 컴포넌트 — generateMetadata + OG 태그)
+│   │   └── ResultClient.tsx              # 결과 UI (Client 컴포넌트)
 │   ├── board/
 │   │   ├── page.tsx                      # 목록
 │   │   ├── [id]/page.tsx                 # 상세
@@ -54,19 +56,26 @@ src/
 │           ├── badge/seen/route.ts       # POST — adminLastSeenAt 갱신
 │           ├── questions/route.ts
 │           ├── questions/[id]/route.ts
+│           ├── questions/bulk/route.ts   # POST — 일괄 승인/거절/블라인드
 │           ├── board/route.ts
 │           ├── reports/route.ts
 │           ├── reports/[id]/route.ts
+│           ├── reports/bulk/route.ts     # POST — 일괄 처리(무시/블라인드)
 │           ├── inquiries/route.ts        # GET — 전체 문의 목록
 │           ├── inquiries/[id]/route.ts   # PATCH — 답변/상태 변경
+│           ├── inquiries/bulk/route.ts   # POST — 일괄 상태 변경
 │           ├── logs/route.ts             # GET — 감사 로그 (페이지네이션, 필터)
 │           └── users/
 │               ├── route.ts
-│               └── [id]/route.ts
+│               ├── [id]/route.ts
+│               └── bulk/route.ts         # POST — 일괄 권한 변경/삭제
+├── public/
+│   ├── og-image-dark.png                 # OG 이미지 (다크 배경 — layout + result 메타태그)
+│   └── og-image-light.png                # OG 이미지 (화이트 배경 — 보존용)
 ├── components/
-│   ├── Header.tsx                        # 공통 헤더 (Client)
+│   ├── Header.tsx                        # 공통 헤더 (Client, PWA 설치 버튼 포함)
 │   ├── NotificationBell.tsx              # 알림 벨 (Client, 30초 폴링)
-│   ├── ResultCard.tsx                    # 오답/전체 리뷰 카드 (Client, 신고 버튼 포함)
+│   ├── ResultCard.tsx                    # 오답/전체 리뷰 카드 (Client, 신고+북마크 버튼 포함)
 │   ├── QuizCard.tsx                      # 퀴즈 문제 카드
 │   ├── Navigator.tsx                     # 문제 번호 점프 네비게이터
 │   ├── ProgressBar.tsx                   # 진행률 바
@@ -101,7 +110,8 @@ src/
 | `app/page.tsx` | Server | 정적 + 랭킹 SSR |
 | `app/quiz/page.tsx` | Server | 문제 수 조회 |
 | `app/quiz/play/page.tsx` | Client | useState 퀴즈 상태 |
-| `app/result/[sessionId]/page.tsx` | Client | sessionStorage + router |
+| `app/result/[sessionId]/page.tsx` | **Server** | generateMetadata (OG 태그) — Prisma 직접 조회 |
+| `app/result/[sessionId]/ResultClient.tsx` | Client | 결과 UI, 공유, 북마크 상태 |
 | `app/board/page.tsx` | Server + Client 검색바 | URL params SSR |
 | `app/board/[id]/page.tsx` | Server + Client 버튼 | 좋아요/신고만 Client |
 | `app/board/submit/page.tsx` | Client | 폼 상태 |
@@ -112,7 +122,7 @@ src/
 | `app/mypage/[category]/page.tsx` | Client | 카테고리별 오답 목록 |
 | `components/Header.tsx` | Client | useSession, useRouter |
 | `components/NotificationBell.tsx` | Client | 30초 폴링 |
-| `components/ResultCard.tsx` | Client | 신고 모달(ReportModal) 포함 |
+| `components/ResultCard.tsx` | Client | 신고 모달(ReportModal) + 북마크 버튼 포함 |
 
 `"use client"` 경계는 이벤트 핸들러·브라우저 API가 필요한 가장 아래쪽 컴포넌트에만 선언.
 

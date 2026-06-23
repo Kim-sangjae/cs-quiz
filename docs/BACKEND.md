@@ -52,13 +52,26 @@
 ## 환경 변수
 
 ```
-DATABASE_URL=          # Supabase connection pooler (런타임)
-DIRECT_URL=            # Supabase direct connection (마이그레이션)
-NEXTAUTH_SECRET=       # openssl rand -base64 32
-NEXTAUTH_URL=          # http://localhost:3000 (dev)
+DATABASE_URL=               # Supabase connection pooler (런타임)
+DIRECT_URL=                 # Supabase direct connection (마이그레이션)
+NEXTAUTH_SECRET=            # openssl rand -base64 32
+NEXTAUTH_URL=               # http://localhost:3000 (dev) | 배포 시 실제 도메인 필수 (OG 이미지 URL 기준)
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
-OPENAI_API_KEY=        # 보기 자동 생성(gpt-4o-mini) + 유사 문제 임베딩(text-embedding-3-small)
+OPENAI_API_KEY=             # 보기 자동 생성(gpt-4o-mini) + 유사 문제 임베딩(text-embedding-3-small)
+NEXT_PUBLIC_KAKAO_APP_KEY=  # Kakao Developers JavaScript 앱 키 (공유 SDK, 무료)
 ```
 
+> `NEXT_PUBLIC_KAKAO_APP_KEY`: [developers.kakao.com](https://developers.kakao.com) → 내 애플리케이션 → 앱 키 → JavaScript 키. 플랫폼에 배포 도메인 등록 필요.
+
 - **.env.local 절대 커밋 금지**: `git add -A` 대신 파일 명시적 지정
+
+## 주요 API 추가 이력
+
+| 엔드포인트 | 변경 | 내용 |
+|-----------|------|------|
+| `GET /api/questions/[id]/like` | 추가 | 북마크 상태 조회 (`{ liked: boolean, likeCount: number }`) |
+| `POST /api/admin/questions/bulk` | 추가 | 일괄 승인/거절/블라인드 |
+| `POST /api/admin/reports/bulk` | 추가 | 일괄 무시/블라인드 |
+| `POST /api/admin/inquiries/bulk` | 추가 | 일괄 상태 변경 |
+| `POST /api/admin/users/bulk` | 추가 | 일괄 권한 변경/삭제 |

@@ -87,6 +87,21 @@ border-red-500 bg-red-500/10 text-red-400 cursor-default
 border-neutral-800 bg-[#1a1a1a] text-neutral-600 cursor-default opacity-50
 ```
 
+### 북마크 버튼
+```
+비활성: border border-neutral-800 text-neutral-500 hover:border-neutral-600 hover:text-neutral-300
+활성:   border-yellow-500/50 bg-yellow-500/10 text-yellow-400
+아이콘: 리본 SVG (fill="currentColor" when active, fill="none" when inactive)
+크기:   text-xs px-2.5 py-1 rounded-md (ResultCard 내부)
+       text-xs px-3 py-1.5 rounded-md (QuestionDrawer 내부)
+```
+
+### 카카오 공유 버튼
+```
+bg-[#FEE500] text-[#3A1D1D] font-semibold
+hover:bg-[#F5DC00]
+```
+
 ### Primary 버튼 (제출, 시작)
 ```
 rounded-md bg-white text-black text-sm font-medium px-6 py-2.5

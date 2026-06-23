@@ -221,3 +221,46 @@ MVP 속도 최우선. 외부 의존성 최소화. 작동하는 최소 구현을 
 - pg_trgm: 문자 수준 비교라 의미 기반 중복 탐지 불가. 실제 운영에서 한계 확인 후 폐기
 
 → 임베딩 전략 탐색 과정(pg_trgm → 문제만 임베딩 → 결합 임베딩)은 [TROUBLESHOOTING.md#TS-001](./TROUBLESHOOTING.md#ts-001-유사-문제-감지--임베딩-전략-탐색) 참조.
+
+---
+
+### ADR-022: 좋아요와 북마크를 단일 Like 모델로 통합
+
+**결정**: 기존 `Like` 모델을 그대로 유지하고 UI 명칭만 "좋아요" → "북마크"로 변경. DB 스키마 변경 없음.
+
+**이유**:
+- 좋아요와 북마크의 데이터 구조가 동일 (`userId + questionId` 토글)
+- 마이페이지의 "좋아요한 문제"와 "북마크한 문제"는 기능이 완전히 겹침 — 분리 시 두 개의 중복 테이블 필요
+- 퀴즈·대결·결과·게시판 전 영역에서 단일 API(`/api/questions/[id]/like`)로 통합 관리
+
+**트레이드오프**: 좋아요(공감)와 북마크(저장)를 의미론적으로 구분할 수 없음. 현재 규모에서는 하나의 목적(나중에 다시 보기)으로 충분.
+
+---
+
+### ADR-023: result 페이지 서버/클라이언트 분리 (OG 메타태그)
+
+**결정**: `result/[sessionId]/page.tsx`를 서버 컴포넌트로 전환, 모든 클라이언트 코드는 `ResultClient.tsx`로 분리.
+
+**이유**:
+- Next.js `generateMetadata`는 서버 컴포넌트에서만 동작
+- `"use client"` 파일에서는 `generateMetadata` export 불가 → 페이지 분리 필수
+- 서버 컴포넌트에서 Prisma로 QuizSession 직접 조회 → `score`, `category`, `questionIds` 기반 동적 OG 태그 생성
+- Discord·카카오톡 등에서 URL 붙여넣기 시 결과별 개인화된 미리보기 카드 표시
+
+**트레이드오프**: 파일이 두 개로 늘어나 구조가 복잡해짐. 그러나 Next.js의 표준 서버/클라이언트 분리 패턴이므로 유지보수 부담 낮음.
+
+---
+
+### ADR-024: 카카오 공유에 SDK 방식 + Web Share API fallback 적용
+
+**결정**: "공유하기" 버튼 클릭 시 공유 모달을 표시. 모달 내에서 ① 카카오 SDK (`sendDefault`) ② Web Share API ③ 링크 복사 순으로 선택.
+
+**이유**:
+- Web Share API는 Windows 시스템 공유 시트를 열지만 KakaoTalk이 Windows 공유 대상으로 등록되지 않음 → 카카오 전송 불가
+- 카카오 SDK (`sharer.kakao.com`)는 Windows 데스크탑에서도 웹 팝업으로 친구 선택 후 전송 가능
+- 모바일에서는 Web Share API가 시스템 공유 시트(카카오톡 포함)를 열기 때문에 두 옵션 모두 제공하는 게 최적
+- 단일 "공유하기" 버튼에 모달로 통합해 상단 버튼 수를 최소화
+
+**트레이드오프**: 카카오 SDK는 `NEXT_PUBLIC_KAKAO_APP_KEY` 환경변수 + Kakao Developers 플랫폼 도메인 등록이 필요. 키 미설정 시 카카오 버튼 미표시(graceful degradation).
+
+**localhost 주의**: `localhost` URL은 카카오/Discord 서버가 접근 불가 → OG 미리보기·카카오 SDK 공유가 정상 동작하지 않음. 배포 도메인에서만 확인 가능.
