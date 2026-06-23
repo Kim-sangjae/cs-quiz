@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useSession, signIn } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 
 const CATEGORY_LABEL: Record<string, string> = {
   ds: '자료구조', algo: '알고리즘', os: '운영체제',
@@ -33,6 +34,7 @@ function storageKey(date: string) {
 
 export default function DailyChallenge() {
   const { status } = useSession();
+  const router = useRouter();
   const [q, setQ] = useState<DailyQuestion | null>(null);
   const [result, setResult] = useState<DailyResult | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -141,7 +143,7 @@ export default function DailyChallenge() {
           {status === 'unauthenticated' && !result && (
             <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-[#111111]/80 backdrop-blur-[2px]">
               <button
-                onClick={() => signIn('google')}
+                onClick={() => router.push('/auth/login')}
                 className="rounded-md bg-white text-black text-sm font-medium px-5 py-2.5 hover:bg-neutral-200 transition-colors"
               >
                 로그인 후 도전하기

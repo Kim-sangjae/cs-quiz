@@ -23,18 +23,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
   },
   callbacks: {
-    async signIn({ user }) {
+    async signIn({ user, account }) {
       if (!user?.id) return true;
       const dbUser = await prisma.user.findUnique({
         where: { id: user.id },
         select: { deletedAt: true, role: true },
       });
       if (dbUser?.deletedAt) {
-        writeLog({ actorId: user.id, actorRole: dbUser.role, action: 'LOGIN_FAIL', payload: { reason: '비활성화된 계정' } });
+        writeLog({ actorId: user.id, actorRole: dbUser.role, action: 'LOGIN_FAIL', payload: { reason: '비활성화된 계정', provider: account?.provider } });
         const params = new URLSearchParams({ error: 'AccessDenied', email: user.email ?? '' });
         return `/auth/error?${params}`;
       }
-      writeLog({ actorId: user.id, actorRole: dbUser?.role ?? 'USER', action: 'LOGIN' });
+      writeLog({ actorId: user.id, actorRole: dbUser?.role ?? 'USER', action: 'LOGIN', payload: { provider: account?.provider ?? 'unknown' } });
       return true;
     },
     async jwt({ token, user, trigger, session }) {
