@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma';
 import type { UserAnswer } from '@/types';
 import type { BadgeType } from '@/lib/badges';
 import { awardBadges } from '@/lib/award-badges';
+import { updateReviewSchedules } from '@/lib/review-schedule';
 
 export async function POST(req: NextRequest) {
   const user = await getServerUser();
@@ -172,6 +173,11 @@ export async function POST(req: NextRequest) {
   } catch (e) {
     console.error('[sessions/POST] badge check failed:', e);
   }
+
+  updateReviewSchedules(
+    user.id,
+    answersWithCorrectness.map((a) => ({ questionId: a.questionId, isCorrect: a.isCorrect }))
+  ).catch(() => {});
 
   return NextResponse.json({ sessionId: session.id });
 }

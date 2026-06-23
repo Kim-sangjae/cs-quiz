@@ -38,6 +38,7 @@ model User {
   dailyVisits                DailyVisit[]
   dailyChallengeCompletions  DailyChallengeCompletion[]
   badges                     UserBadge[]
+  reviewSchedules            ReviewSchedule[]
   hostedRooms                GameRoom[]    @relation("GameRoomHost")
   guestRooms                 GameRoom[]    @relation("GameRoomGuest")
 }
@@ -98,10 +99,11 @@ model Question {
   embedding       Unsupported("vector(1536)")?
   createdAt       DateTime       @default(now())
 
-  author   User?             @relation(fields: [authorId], references: [id])
-  attempts QuestionAttempt[]
-  likes    Like[]
-  reports  Report[]
+  author          User?             @relation(fields: [authorId], references: [id])
+  attempts        QuestionAttempt[]
+  likes           Like[]
+  reports         Report[]
+  reviewSchedules ReviewSchedule[]
 }
 
 enum QuestionStatus {
@@ -373,4 +375,20 @@ model ErrorLog {
   user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([createdAt])
+}
+
+model ReviewSchedule {
+  id           String   @id @default(cuid())
+  userId       String
+  questionId   String
+  step         Int      @default(0)
+  nextReviewAt DateTime
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, questionId])
+  @@index([userId, nextReviewAt])
 }

@@ -482,6 +482,7 @@ export default function MyPage() {
   const [likedPage, setLikedPage] = useState(0);
 
   const [earnedBadges, setEarnedBadges] = useState<{ badge: string; earnedAt: string }[] | null>(null);
+  const [reviewInfo, setReviewInfo] = useState<{ dueIds: string[]; total: number } | null>(null);
 
   type BattleRecord = {
     id: string;
@@ -507,14 +508,17 @@ export default function MyPage() {
       fetch("/api/mypage/stats").then((r) => r.json()),
       fetch("/api/mypage/sessions").then((r) => r.json()),
       fetch("/api/mypage/liked-questions").then((r) => r.json()),
+      fetch("/api/mypage/reviews").then((r) => r.json()).catch(() => ({ due: [], total: 0 })),
     ])
-      .then(([statsData, sessionsData, likedData]) => {
+      .then(([statsData, sessionsData, likedData, reviewData]) => {
         const sd = statsData as StatsData & { categoryAttemptCounts?: Record<string, number> };
         setStats(sd);
         if (sd.categoryAttemptCounts) setCategoryAttemptCounts(sd.categoryAttemptCounts);
         setDailyCompletions(sd.dailyCompletions ?? []);
         setSessions((sessionsData as { sessions: ApiSession[] }).sessions ?? []);
         setLikedQuestions((likedData as { questions: LikedQuestion[] }).questions ?? []);
+        const rd = reviewData as { due: { questionId: string }[]; total: number };
+        setReviewInfo({ dueIds: (rd.due ?? []).map((d) => d.questionId), total: rd.total ?? 0 });
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -647,6 +651,28 @@ export default function MyPage() {
           <AttendanceCalendar completions={dailyCompletions} />
           {sessions.length >= 2 && <ScoreTrend sessions={sessions} />}
           <WeeklyReport sessions={sessions} />
+        </div>
+      )}
+
+      {/* 복습 스케줄 */}
+      {reviewInfo && reviewInfo.total > 0 && (
+        <div className="bg-[#111111] border border-neutral-800 rounded-lg px-4 py-3 mb-4 flex items-center justify-between">
+          <div>
+            <p className="text-xs text-neutral-500 mb-0.5">복습 스케줄</p>
+            <p className="text-sm text-white">
+              오늘{' '}
+              <span className="font-semibold text-amber-400">{reviewInfo.dueIds.length}개</span>
+              <span className="text-neutral-500 ml-1.5">전체 {reviewInfo.total}개</span>
+            </p>
+          </div>
+          {reviewInfo.dueIds.length > 0 && (
+            <button
+              onClick={() => router.push(`/quiz/play?reviewIds=${reviewInfo.dueIds.join(',')}`)}
+              className="text-xs rounded-md bg-amber-500 text-black font-medium px-3 py-1.5 hover:bg-amber-400 transition-colors flex-shrink-0"
+            >
+              복습 시작
+            </button>
+          )}
         </div>
       )}
 
