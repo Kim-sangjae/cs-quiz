@@ -203,6 +203,7 @@ enum NotificationType {
   FRIEND_REJECTED
   BATTLE_INVITE
   BATTLE_REJECTED
+  BATTLE_QUIT_REQUEST
 }
 
 enum BadgeType {

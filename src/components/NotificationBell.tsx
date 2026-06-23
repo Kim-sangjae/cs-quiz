@@ -31,7 +31,7 @@ interface NotificationPayload {
 
 interface Notification {
   id: string;
-  type: 'QUESTION_APPROVED' | 'QUESTION_REJECTED' | 'ROLE_CHANGED' | 'INQUIRY_REPLIED' | 'LEVEL_UP' | 'BADGE_EARNED' | 'FRIEND_REQUEST' | 'FRIEND_ACCEPTED' | 'FRIEND_REJECTED' | 'BATTLE_INVITE' | 'BATTLE_REJECTED';
+  type: 'QUESTION_APPROVED' | 'QUESTION_REJECTED' | 'ROLE_CHANGED' | 'INQUIRY_REPLIED' | 'LEVEL_UP' | 'BADGE_EARNED' | 'FRIEND_REQUEST' | 'FRIEND_ACCEPTED' | 'FRIEND_REJECTED' | 'BATTLE_INVITE' | 'BATTLE_REJECTED' | 'BATTLE_QUIT_REQUEST';
   payload: NotificationPayload;
   actionUrl: string | null;
   isRead: boolean;
@@ -56,6 +56,7 @@ function getNotificationMessage(n: Notification): string {
   if (n.type === 'FRIEND_REJECTED') return `${payload.fromNickname ?? '누군가'}님이 친구 요청을 거절했습니다.`;
   if (n.type === 'BATTLE_INVITE') return `${payload.fromNickname ?? '누군가'}님이 대전을 신청했습니다.`;
   if (n.type === 'BATTLE_REJECTED') return `${payload.fromNickname ?? '누군가'}님이 대전 신청을 거절했습니다.`;
+  if (n.type === 'BATTLE_QUIT_REQUEST') return `${payload.fromNickname ?? '누군가'}님이 대결 중단을 요청했습니다.`;
   return '새 알림이 있습니다.';
 }
 

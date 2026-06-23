@@ -43,7 +43,9 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
 
   const hadWaiting = useRef(false);
   const [wasRejected, setWasRejected] = useState(false);
+  const [waitTimedOut, setWaitTimedOut] = useState(false);
   const hasAutoSubmittedRef = useRef(false);
+  const waitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [bookmarks, setBookmarks] = useState<Record<string, boolean>>({});
 
@@ -81,6 +83,29 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
   useEffect(() => {
     if (room?.status === 'WAITING' && room.myRole === 'host') hadWaiting.current = true;
   }, [room?.status, room?.myRole]);
+
+  // 20초 대기 타임아웃 (host만)
+  useEffect(() => {
+    if (room?.status !== 'WAITING' || room?.myRole !== 'host') return;
+    waitTimerRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/battle/rooms/${id}/cancel`, { method: 'POST' });
+        if (res.ok) setWaitTimedOut(true);
+        // 404/400: 이미 수락됨 → 무시
+      } catch { /* ignore */ }
+    }, 20000);
+    return () => { if (waitTimerRef.current) clearTimeout(waitTimerRef.current); };
+  }, [id, room?.status, room?.myRole]);
+
+  // PLAYING 중 이탈방지 (브라우저 새로고침/닫기)
+  useEffect(() => {
+    if (room?.status !== 'PLAYING') return;
+    function handleBeforeUnload(e: BeforeUnloadEvent) {
+      e.preventDefault();
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [room?.status]);
 
   useEffect(() => {
     if (isError && hadWaiting.current) {
@@ -206,7 +231,12 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
     <main className="max-w-2xl mx-auto px-4 sm:px-6 py-10">
       <div className="flex items-center gap-3 mb-6">
         <button
-          onClick={() => router.back()}
+          onClick={() => {
+            if (room?.status === 'PLAYING') {
+              if (!confirm('대결이 진행 중입니다. 정말 나가시겠습니까?')) return;
+            }
+            router.back();
+          }}
           className="text-xs text-neutral-500 hover:text-neutral-300 transition-colors"
         >
           ← 뒤로
@@ -220,15 +250,28 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
       {room.status === 'WAITING' && (
         <div className="bg-[#111111] border border-neutral-800 rounded-xl p-6 text-center">
           {room.myRole === 'host' ? (
-            <>
-              <p className="text-sm text-neutral-400 mb-2">{oppNickname}님을 기다리는 중...</p>
-              <p className="text-xs text-neutral-600 mb-4">상대방이 알림에서 대전을 수락하면 시작됩니다</p>
-              <div className="flex justify-center gap-1">
-                {[0, 1, 2].map((i) => (
-                  <span key={i} className="w-1.5 h-1.5 rounded-full bg-neutral-600 animate-pulse" style={{ animationDelay: `${i * 150}ms` }} />
-                ))}
-              </div>
-            </>
+            waitTimedOut ? (
+              <>
+                <p className="text-sm text-white mb-1">상대방의 응답이 없습니다</p>
+                <p className="text-xs text-neutral-500 mb-4">대전 요청이 자동으로 취소되었습니다</p>
+                <button
+                  onClick={() => router.back()}
+                  className="rounded-md border border-neutral-700 text-xs text-neutral-400 px-4 py-2 hover:border-neutral-500 hover:text-white transition-colors"
+                >
+                  확인
+                </button>
+              </>
+            ) : (
+              <>
+                <p className="text-sm text-neutral-400 mb-2">{oppNickname}님을 기다리는 중...</p>
+                <p className="text-xs text-neutral-600 mb-4">20초 내 응답이 없으면 자동 취소됩니다</p>
+                <div className="flex justify-center gap-1">
+                  {[0, 1, 2].map((i) => (
+                    <span key={i} className="w-1.5 h-1.5 rounded-full bg-neutral-600 animate-pulse" style={{ animationDelay: `${i * 150}ms` }} />
+                  ))}
+                </div>
+              </>
+            )
           ) : (
             <>
               <p className="text-sm text-white mb-1">{room.host.nickname}님의 대전 신청</p>

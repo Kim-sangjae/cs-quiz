@@ -68,6 +68,7 @@ function ProfileModal({
   const [step, setStep] = useState<'profile' | 'battle'>('profile');
   const [confirmingRemove, setConfirmingRemove] = useState(false);
   const [category, setCategory] = useState('ds');
+  const [hoveredBadge, setHoveredBadge] = useState<string | null>(null);
 
   const { data: profile, isLoading } = useQuery<UserProfile>({
     queryKey: ['profile', friend.userId],
@@ -182,18 +183,23 @@ function ProfileModal({
                     const meta = BADGE_META[badge as BadgeType];
                     if (!meta) return null;
                     return (
-                      <div key={badge} className="relative group">
-                        <span className="text-lg cursor-default select-none">{meta.icon}</span>
-                        <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden group-hover:block z-50">
-                          <div className="bg-[#0a0a0a] border border-neutral-700 rounded-lg px-2.5 py-1.5 text-center shadow-xl whitespace-nowrap">
-                            <p className="text-[11px] font-medium text-white">{meta.label}</p>
-                            <p className="text-[10px] text-neutral-400 mt-0.5">{meta.description}</p>
-                          </div>
-                        </div>
-                      </div>
+                      <span
+                        key={badge}
+                        className="text-lg cursor-default select-none"
+                        onMouseEnter={() => setHoveredBadge(badge)}
+                        onMouseLeave={() => setHoveredBadge(null)}
+                      >
+                        {meta.icon}
+                      </span>
                     );
                   })}
                 </div>
+                {hoveredBadge && BADGE_META[hoveredBadge as BadgeType] && (
+                  <div className="mt-2 px-2.5 py-1.5 bg-neutral-900 rounded-lg border border-neutral-800">
+                    <p className="text-[11px] font-medium text-white">{BADGE_META[hoveredBadge as BadgeType].label}</p>
+                    <p className="text-[10px] text-neutral-500 mt-0.5">{BADGE_META[hoveredBadge as BadgeType].description}</p>
+                  </div>
+                )}
               </div>
             )}
 
