@@ -16,12 +16,12 @@ export const BADGE_META: Record<BadgeType, BadgeMeta> = {
   PERFECT_SCORE: { label: '완벽',            description: '퀴즈 만점 달성',              icon: '⭐' },
   STREAK_3:      { label: '3일 연속',        description: '3일 연속 학습',               icon: '📅' },
   STREAK_7:      { label: '7일 연속',        description: '7일 연속 학습',               icon: '🗓️' },
-  CAT_DS:        { label: '자료구조 마스터',  description: '자료구조 정답 30개 달성',      icon: '🏗️' },
-  CAT_ALGO:      { label: '알고리즘 마스터',  description: '알고리즘 정답 30개 달성',      icon: '⚡' },
-  CAT_OS:        { label: 'OS 마스터',       description: '운영체제 정답 30개 달성',      icon: '💻' },
-  CAT_NETWORK:   { label: '네트워크 마스터',  description: '네트워크 정답 30개 달성',      icon: '🌐' },
-  CAT_DB:        { label: 'DB 마스터',       description: 'DB 정답 30개 달성',           icon: '🗃️' },
-  CAT_ARCH:      { label: '컴퓨터구조 마스터', description: '컴퓨터구조 정답 30개 달성',   icon: '🔧' },
+  CAT_DS:        { label: '자료구조 마스터',  description: '자료구조 15회 · 정답률 80%+',  icon: '🏗️' },
+  CAT_ALGO:      { label: '알고리즘 마스터',  description: '알고리즘 15회 · 정답률 80%+',  icon: '⚡' },
+  CAT_OS:        { label: 'OS 마스터',       description: '운영체제 15회 · 정답률 80%+',  icon: '💻' },
+  CAT_NETWORK:   { label: '네트워크 마스터',  description: '네트워크 15회 · 정답률 80%+',  icon: '🌐' },
+  CAT_DB:        { label: 'DB 마스터',       description: 'DB 15회 · 정답률 80%+',       icon: '🗃️' },
+  CAT_ARCH:      { label: '컴퓨터구조 마스터', description: '컴퓨터구조 15회 · 정답률 80%+', icon: '🔧' },
 };
 
 export const ALL_BADGES: BadgeType[] = Object.keys(BADGE_META) as BadgeType[];

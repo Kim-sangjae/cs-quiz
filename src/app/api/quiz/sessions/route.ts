@@ -133,14 +133,19 @@ export async function POST(req: NextRequest) {
     if (newStreak >= 3) candidates.push('STREAK_3');
     if (newStreak >= 7) candidates.push('STREAK_7');
 
-    // Category mastery (누적 정답 30개)
-    const CATS = ['ds', 'algo', 'os', 'network', 'db', 'arch'] as const;
-    for (const cat of CATS) {
-      const correctCount = await prisma.questionAttempt.count({
-        where: { userId: user.id, isCorrect: true, question: { category: cat } },
+    // Category mastery (해당 카테고리 10회 이상 + 평균 정답률 80% 이상)
+    if (category !== 'all') {
+      const catSessions = await prisma.quizSession.findMany({
+        where: { userId: user.id, category },
+        select: { score: true, questionIds: true },
       });
-      if (correctCount >= 30) {
-        candidates.push(`CAT_${cat.toUpperCase()}` as BadgeType);
+      if (catSessions.length >= 15) {
+        const avgAccuracy =
+          catSessions.reduce((sum, s) => sum + s.score / (s.questionIds as string[]).length, 0) /
+          catSessions.length;
+        if (avgAccuracy >= 0.8) {
+          candidates.push(`CAT_${category.toUpperCase()}` as BadgeType);
+        }
       }
     }
 
