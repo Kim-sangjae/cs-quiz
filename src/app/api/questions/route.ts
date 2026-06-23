@@ -142,7 +142,7 @@ export async function POST(req: NextRequest) {
 
   // 첫 문제 등록 뱃지 체크
   const submitCount = await prisma.question.count({ where: { authorId: user.id } });
-  if (submitCount === 1) {
+  if (submitCount >= 1) {
     awardBadges(user.id, ['FIRST_SUBMIT']).catch(() => {});
   }
 

@@ -17,7 +17,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const { id: targetId } = await params;
   const myId = session.user.id;
 
-  const [user, attempts, rooms, presence] = await Promise.all([
+  const [user, attempts, rooms, presence, userBadges] = await Promise.all([
     prisma.user.findUnique({
       where: { id: targetId },
       select: { nickname: true },
@@ -39,6 +39,11 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       select: { hostId: true, guestId: true, hostScore: true, guestScore: true },
     }),
     prisma.userPresence.findUnique({ where: { userId: targetId } }),
+    prisma.userBadge.findMany({
+      where: { userId: targetId },
+      select: { badge: true, earnedAt: true },
+      orderBy: { earnedAt: 'asc' },
+    }),
   ]);
 
   if (!user) return NextResponse.json({ error: 'Not found' }, { status: 404 });
@@ -70,5 +75,6 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     battleLosses,
     battleTotal,
     isOnline,
+    badges: userBadges.map((b) => b.badge),
   });
 }

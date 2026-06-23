@@ -1430,12 +1430,24 @@ export default function MyPage() {
                   return (
                     <div
                       key={badgeKey}
-                      className={`flex flex-col items-center text-center p-3 rounded-lg border transition-colors ${
+                      className={`relative group flex flex-col items-center text-center p-3 rounded-lg border transition-colors ${
                         earned
                           ? "bg-[#111111] border-neutral-700"
                           : "bg-[#1a1a1a] border-neutral-800 opacity-50 grayscale"
                       }`}
                     >
+                      {/* 호버 툴팁 — 미획득 업적에서 설명 선명하게 보기 */}
+                      <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-50">
+                        <div className="bg-[#0a0a0a] border border-neutral-700 rounded-lg px-2.5 py-1.5 text-center shadow-xl whitespace-nowrap opacity-100 grayscale-0">
+                          <p className="text-[11px] font-medium text-white">{meta.label}</p>
+                          <p className="text-[10px] text-neutral-400 mt-0.5">{meta.description}</p>
+                          {earned && (
+                            <p className="text-[10px] text-neutral-500 mt-0.5">
+                              {new Date(earned.earnedAt).toLocaleDateString("ko-KR", { year: "numeric", month: "short", day: "numeric" })}
+                            </p>
+                          )}
+                        </div>
+                      </div>
                       <span className="text-2xl mb-1.5">{meta.icon}</span>
                       <span className="text-xs font-medium text-white leading-tight mb-0.5">{meta.label}</span>
                       <span className="text-[10px] text-neutral-400 leading-tight">{meta.description}</span>

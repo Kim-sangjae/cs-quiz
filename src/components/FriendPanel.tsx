@@ -6,6 +6,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { useSupabaseRealtime } from '@/hooks/useSupabaseRealtime';
+import { BADGE_META } from '@/lib/badges';
+import type { BadgeType } from '@/lib/badges';
 
 interface Friend {
   friendshipId: string;
@@ -25,6 +27,7 @@ interface UserProfile {
   battleLosses: number;
   battleTotal: number;
   isOnline: boolean;
+  badges: string[];
 }
 
 function formatLastSeen(lastSeenAt: string | null, isOnline: boolean): string {
@@ -169,6 +172,30 @@ function ProfileModal({
                 </div>
               ) : null}
             </div>
+
+            {/* 업적 */}
+            {profile && profile.badges.length > 0 && (
+              <div className="border-t border-neutral-800 px-5 py-3.5">
+                <p className="text-[10px] text-neutral-500 mb-2">달성한 업적</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {profile.badges.map((badge) => {
+                    const meta = BADGE_META[badge as BadgeType];
+                    if (!meta) return null;
+                    return (
+                      <div key={badge} className="relative group">
+                        <span className="text-lg cursor-default select-none">{meta.icon}</span>
+                        <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden group-hover:block z-50">
+                          <div className="bg-[#0a0a0a] border border-neutral-700 rounded-lg px-2.5 py-1.5 text-center shadow-xl whitespace-nowrap">
+                            <p className="text-[11px] font-medium text-white">{meta.label}</p>
+                            <p className="text-[10px] text-neutral-400 mt-0.5">{meta.description}</p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* 버튼 */}
             {confirmingRemove ? (
