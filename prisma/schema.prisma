@@ -34,10 +34,11 @@ model User {
   errorLogs        ErrorLog[]
   sentRequests     Friendship[]  @relation("FriendRequester")
   receivedRequests Friendship[]  @relation("FriendAddressee")
-  presence         UserPresence?
-  dailyVisits      DailyVisit[]
-  hostedRooms      GameRoom[]    @relation("GameRoomHost")
-  guestRooms       GameRoom[]    @relation("GameRoomGuest")
+  presence                   UserPresence?
+  dailyVisits                DailyVisit[]
+  dailyChallengeCompletions  DailyChallengeCompletion[]
+  hostedRooms                GameRoom[]    @relation("GameRoomHost")
+  guestRooms                 GameRoom[]    @relation("GameRoomGuest")
 }
 
 model Account {
@@ -296,6 +297,18 @@ model DailyVisit {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@id([userId, date])
+}
+
+model DailyChallengeCompletion {
+  userId    String
+  date      String    // YYYY-MM-DD
+  correct   Boolean
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, date])
+  @@index([userId])
 }
 
 model AuditLog {

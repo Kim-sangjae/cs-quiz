@@ -6,7 +6,7 @@ export async function GET() {
   const user = await getServerUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const [totalSessions, dbUser, attempts] = await Promise.all([
+  const [totalSessions, dbUser, attempts, completions] = await Promise.all([
     prisma.quizSession.count({ where: { userId: user.id } }),
     prisma.user.findUnique({
       where: { id: user.id },
@@ -18,6 +18,12 @@ export async function GET() {
       JOIN "Question" q ON qa."questionId" = q.id
       WHERE qa."userId" = ${user.id}
     `,
+    prisma.dailyChallengeCompletion.findMany({
+      where: { userId: user.id },
+      select: { date: true, correct: true },
+      orderBy: { date: 'desc' },
+      take: 90,
+    }),
   ]);
 
   const totalAttempts = attempts.length;
@@ -54,5 +60,6 @@ export async function GET() {
     weakestCategory,
     streakCount: dbUser?.streakCount ?? 0,
     categoryAttemptCounts,
+    dailyCompletions: completions.map((c) => ({ date: c.date, correct: c.correct })),
   });
 }

@@ -51,19 +51,55 @@ export async function POST(req: Request) {
     select: { id: true },
   });
 
-  const updated = await prisma.dailyChallengeStat.upsert({
-    where: { date: today },
-    create: {
-      date: today,
-      questionId: dbQ?.id ?? '',
-      attemptCount: 1,
-      correctCount: correct ? 1 : 0,
-    },
-    update: {
-      attemptCount: { increment: 1 },
-      ...(correct ? { correctCount: { increment: 1 } } : {}),
-    },
-  });
+  const userId = session.user.id;
+
+  const [updated, existing] = await Promise.all([
+    prisma.dailyChallengeStat.upsert({
+      where: { date: today },
+      create: {
+        date: today,
+        questionId: dbQ?.id ?? '',
+        attemptCount: 1,
+        correctCount: correct ? 1 : 0,
+      },
+      update: {
+        attemptCount: { increment: 1 },
+        ...(correct ? { correctCount: { increment: 1 } } : {}),
+      },
+    }),
+    prisma.dailyChallengeCompletion.findUnique({
+      where: { userId_date: { userId, date: today } },
+    }),
+  ]);
+
+  // 오늘 처음 푸는 경우에만 출석 기록 + streak 갱신
+  if (!existing) {
+    await prisma.dailyChallengeCompletion.create({
+      data: { userId, date: today, correct },
+    });
+
+    try {
+      const dbUser = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { lastQuizDate: true, streakCount: true },
+      });
+      const yesterdayDate = new Date(today);
+      yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+      const yesterday = yesterdayDate.toISOString().slice(0, 10);
+      let newStreakCount = 1;
+      if (dbUser?.lastQuizDate) {
+        const lastDate = dbUser.lastQuizDate.toISOString().slice(0, 10);
+        if (lastDate === today) newStreakCount = dbUser.streakCount;
+        else if (lastDate === yesterday) newStreakCount = dbUser.streakCount + 1;
+      }
+      await prisma.user.update({
+        where: { id: userId },
+        data: { streakCount: newStreakCount, lastQuizDate: new Date() },
+      });
+    } catch (e) {
+      console.error('[daily/POST] streak update failed:', e);
+    }
+  }
 
   const newCorrectRate = updated.attemptCount > 0
     ? Math.round((updated.correctCount / updated.attemptCount) * 100)
@@ -75,5 +111,6 @@ export async function POST(req: Request) {
     explanation: q.explanation,
     correctRate: newCorrectRate,
     attemptCount: updated.attemptCount,
+    alreadyCompleted: !!existing,
   });
 }

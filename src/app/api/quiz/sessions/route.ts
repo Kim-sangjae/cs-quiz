@@ -69,37 +69,6 @@ export async function POST(req: NextRequest) {
     return created;
   });
 
-  // Streak update — outside transaction; failure must not affect quiz save
-  try {
-    const dbUser = await prisma.user.findUnique({
-      where: { id: user.id },
-      select: { lastQuizDate: true, streakCount: true },
-    });
-
-    const today = new Date().toISOString().slice(0, 10);
-    const yesterdayDate = new Date(today);
-    yesterdayDate.setDate(yesterdayDate.getDate() - 1);
-    const yesterday = yesterdayDate.toISOString().slice(0, 10);
-
-    let newStreakCount = 1;
-    if (dbUser?.lastQuizDate) {
-      const lastDate = dbUser.lastQuizDate.toISOString().slice(0, 10);
-      if (lastDate === today) {
-        newStreakCount = dbUser.streakCount;
-      } else if (lastDate === yesterday) {
-        newStreakCount = dbUser.streakCount + 1;
-      }
-      // else: reset to 1 (already set above)
-    }
-
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { streakCount: newStreakCount, lastQuizDate: new Date() },
-    });
-  } catch (e) {
-    console.error('[sessions/POST] streak update failed:', e);
-  }
-
   // Level-up detection — outside transaction; failure must not block response
   const KNOWN_CATEGORIES = new Set(['ds', 'algo', 'os', 'network', 'db', 'arch']);
   if (KNOWN_CATEGORIES.has(category)) {

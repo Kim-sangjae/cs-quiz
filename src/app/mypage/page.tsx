@@ -54,11 +54,14 @@ type ApiSession = {
   questions: ApiQuestion[];
 };
 
+type DailyCompletion = { date: string; correct: boolean };
+
 type StatsData = {
   totalSessions: number;
   overallAccuracy: number;
   weakestCategory: string | null;
   streakCount: number;
+  dailyCompletions: DailyCompletion[];
 };
 
 type MyQuestion = {
@@ -333,15 +336,11 @@ function ScoreTrend({ sessions }: { sessions: ApiSession[] }) {
   );
 }
 
-function AttendanceCalendar({ sessions }: { sessions: ApiSession[] }) {
+function AttendanceCalendar({ completions }: { completions: DailyCompletion[] }) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const activeDays = new Set<string>();
-  for (const s of sessions) {
-    const d = new Date(s.submittedAt);
-    activeDays.add(d.toLocaleDateString("en-CA"));
-  }
+  const activeDays = new Set<string>(completions.map((c) => c.date));
 
   // 최근 28일 (4주) 슬라이딩 윈도우
   const days = Array.from({ length: 28 }, (_, i) => {
@@ -355,7 +354,7 @@ function AttendanceCalendar({ sessions }: { sessions: ApiSession[] }) {
   return (
     <div>
       <div className="flex items-center justify-between mb-2">
-        <p className="text-xs text-neutral-500">최근 4주</p>
+        <p className="text-xs text-neutral-500">오늘의 문제 출석 (최근 4주)</p>
         <span className="text-xs font-medium text-emerald-400">{activeCount}일 출석</span>
       </div>
       <div className="grid grid-cols-7 gap-0.5">
@@ -436,6 +435,7 @@ export default function MyPage() {
   const [sessions, setSessions] = useState<ApiSession[]>([]);
   const [categoryAttemptCounts, setCategoryAttemptCounts] = useState<Record<string, number>>({});
   const [stats, setStats] = useState<StatsData | null>(null);
+  const [dailyCompletions, setDailyCompletions] = useState<DailyCompletion[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [activeTab, setActiveTab] = useState<ActiveTab>("history");
@@ -496,6 +496,7 @@ export default function MyPage() {
         const sd = statsData as StatsData & { categoryAttemptCounts?: Record<string, number> };
         setStats(sd);
         if (sd.categoryAttemptCounts) setCategoryAttemptCounts(sd.categoryAttemptCounts);
+        setDailyCompletions(sd.dailyCompletions ?? []);
         setSessions((sessionsData as { sessions: ApiSession[] }).sessions ?? []);
         setLikedQuestions((likedData as { questions: LikedQuestion[] }).questions ?? []);
       })
@@ -619,7 +620,7 @@ export default function MyPage() {
               </p>
             </div>
           </div>
-          {sessions.length > 0 && <AttendanceCalendar sessions={sessions} />}
+          <AttendanceCalendar completions={dailyCompletions} />
           {sessions.length >= 2 && <ScoreTrend sessions={sessions} />}
           <WeeklyReport sessions={sessions} />
         </div>
