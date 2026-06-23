@@ -25,7 +25,7 @@ const SORTS = [
   { value: 'likes', label: '좋아요순' },
 ] as const;
 
-export default function FilterBar() {
+export default function FilterBar({ isLoggedIn = false }: { isLoggedIn?: boolean }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -33,6 +33,7 @@ export default function FilterBar() {
   const cat = searchParams.get('cat') ?? 'all';
   const status = searchParams.get('status') ?? 'all';
   const sort = searchParams.get('sort') ?? 'newest';
+  const untried = searchParams.get('untried') === '1';
 
   const update = useCallback(
     (key: string, value: string) => {
@@ -77,6 +78,18 @@ export default function FilterBar() {
               {s.label}
             </button>
           ))}
+          {isLoggedIn && (
+            <button
+              onClick={() => update('untried', untried ? '0' : '1')}
+              className={`rounded px-3 py-1 text-xs transition-colors ${
+                untried
+                  ? 'border border-neutral-500 text-white'
+                  : 'border border-neutral-800 text-neutral-500 hover:border-neutral-600 hover:text-neutral-300'
+              }`}
+            >
+              미도전
+            </button>
+          )}
         </div>
 
         <div className="flex gap-1.5 sm:ml-auto">

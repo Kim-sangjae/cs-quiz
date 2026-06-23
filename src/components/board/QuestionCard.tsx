@@ -35,6 +35,7 @@ interface QuestionCardProps {
   createdAt: Date | string;
   author: { nickname: string | null } | null;
   likeCount: number;
+  myAttempt?: { count: number; lastCorrect: boolean } | null;
   onClick?: () => void;
 }
 
@@ -48,6 +49,7 @@ export default function QuestionCard({
   createdAt,
   author,
   likeCount,
+  myAttempt,
   onClick,
 }: QuestionCardProps) {
   const accuracyText =
@@ -79,6 +81,11 @@ export default function QuestionCard({
         <div className="flex items-center gap-3">
           <span>시도 {attemptCount}회</span>
           <span>정답률 {accuracyText}</span>
+          {myAttempt ? (
+            <span className={myAttempt.lastCorrect ? 'text-emerald-500' : 'text-red-400'}>
+              내 {myAttempt.count}회 · {myAttempt.lastCorrect ? '정답' : '오답'}
+            </span>
+          ) : null}
           <span>♥ {likeCount}</span>
           <span>{relativeTime(createdAt)}</span>
         </div>

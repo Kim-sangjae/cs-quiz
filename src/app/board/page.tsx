@@ -36,6 +36,8 @@ export default async function BoardPage({ searchParams }: PageProps) {
   const sort = typeof params.sort === 'string' ? params.sort : 'newest';
   const page = Math.max(1, parseInt(typeof params.page === 'string' ? params.page : '1', 10));
 
+  const untried = params.untried === '1';
+
   const user = await getServerUser();
   const isAdmin = user?.role === 'ADMIN';
 
@@ -51,6 +53,16 @@ export default async function BoardPage({ searchParams }: PageProps) {
     ...(cat !== 'all' && VALID_CATEGORIES.includes(cat) ? { category: cat } : {}),
     ...(q ? { question: { contains: q, mode: 'insensitive' } } : {}),
   };
+
+  if (untried && user) {
+    const tried = await prisma.questionAttempt.findMany({
+      where: { userId: user.id },
+      select: { questionId: true },
+      distinct: ['questionId'],
+    });
+    const triedIds = tried.map((t) => t.questionId);
+    where.id = { notIn: triedIds };
+  }
 
   let questions: Array<{
     id: string;
@@ -93,6 +105,22 @@ export default async function BoardPage({ searchParams }: PageProps) {
 
   const pageCount = Math.ceil(totalCount / PAGE_SIZE);
 
+  type MyAttemptEntry = { count: number; lastCorrect: boolean };
+  const myAttempts: Record<string, MyAttemptEntry> = {};
+  if (user && questions.length > 0) {
+    const questionIds = questions.map((q) => q.id);
+    const attempts = await prisma.questionAttempt.findMany({
+      where: { userId: user.id, questionId: { in: questionIds } },
+      select: { questionId: true, isCorrect: true },
+      orderBy: { attemptedAt: 'desc' },
+    });
+    for (const a of attempts) {
+      const e = myAttempts[a.questionId];
+      if (!e) myAttempts[a.questionId] = { count: 1, lastCorrect: a.isCorrect };
+      else e.count++;
+    }
+  }
+
   return (
     <main className="max-w-2xl mx-auto px-4 sm:px-6 py-8">
       <div className="flex items-start justify-between mb-6">
@@ -113,7 +141,7 @@ export default async function BoardPage({ searchParams }: PageProps) {
           <SearchBar />
         </Suspense>
         <Suspense>
-          <FilterBar />
+          <FilterBar isLoggedIn={!!user} />
         </Suspense>
       </div>
 
@@ -134,6 +162,7 @@ export default async function BoardPage({ searchParams }: PageProps) {
               author: q.author,
               likeCount: q._count.likes,
             }))}
+            myAttempts={myAttempts}
           />
           <Suspense>
             <Pagination currentPage={page} pageCount={pageCount} />

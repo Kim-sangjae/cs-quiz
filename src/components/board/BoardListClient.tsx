@@ -16,7 +16,15 @@ interface BoardQuestion {
   likeCount: number;
 }
 
-export default function BoardListClient({ questions }: { questions: BoardQuestion[] }) {
+type MyAttempts = Record<string, { count: number; lastCorrect: boolean }>;
+
+export default function BoardListClient({
+  questions,
+  myAttempts = {},
+}: {
+  questions: BoardQuestion[];
+  myAttempts?: MyAttempts;
+}) {
   const [drawerQuestionId, setDrawerQuestionId] = useState<string | null>(null);
 
   return (
@@ -26,6 +34,7 @@ export default function BoardListClient({ questions }: { questions: BoardQuestio
           <QuestionCard
             key={q.id}
             {...q}
+            myAttempt={myAttempts[q.id] ?? null}
             onClick={() => setDrawerQuestionId(q.id)}
           />
         ))}
