@@ -7,6 +7,7 @@ import { useSession } from "next-auth/react";
 import { toast } from "sonner";
 import QuestionDrawer from "@/components/QuestionDrawer";
 import type { Category } from "@/types";
+import { BADGE_META, ALL_BADGES } from "@/lib/badges";
 
 const CATEGORY_LABELS: Record<Category, string> = {
   ds: "자료구조",
@@ -193,7 +194,7 @@ const STATUS_STYLE: Record<string, string> = {
 
 const NICKNAME_REGEX = /^[a-zA-Z0-9가-힣]{2,12}$/;
 
-type ActiveTab = "history" | "battle" | "my-questions" | "liked";
+type ActiveTab = "history" | "battle" | "my-questions" | "liked" | "badges";
 type MyQStatus = "all" | "pending" | "approved" | "rejected";
 type HistorySort = "newest" | "oldest" | "wrong_desc" | "wrong_asc";
 
@@ -477,6 +478,8 @@ export default function MyPage() {
   const [likedCat, setLikedCat] = useState("all");
   const [likedPage, setLikedPage] = useState(0);
 
+  const [earnedBadges, setEarnedBadges] = useState<{ badge: string; earnedAt: string }[] | null>(null);
+
   type BattleRecord = {
     id: string;
     opponent: { id: string; nickname: string };
@@ -533,6 +536,14 @@ export default function MyPage() {
       .catch(() => setLikedQuestions([]))
       .finally(() => setLikedLoading(false));
   }, [activeTab, likedQuestions]);
+
+  useEffect(() => {
+    if (activeTab !== "badges" || earnedBadges !== null) return;
+    fetch("/api/mypage/badges")
+      .then((r) => r.json())
+      .then((data) => setEarnedBadges((data as { badges: { badge: string; earnedAt: string }[] }).badges ?? []))
+      .catch(() => setEarnedBadges([]));
+  }, [activeTab, earnedBadges]);
 
   useEffect(() => {
     if (activeTab !== "battle") return;
@@ -682,12 +693,13 @@ export default function MyPage() {
 
       {/* 탭 */}
       <div className="flex gap-1 mb-4 border-b border-neutral-800 pb-0 overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-        {(["history", "battle", "my-questions", "liked"] as ActiveTab[]).map((tab) => {
+        {(["history", "battle", "my-questions", "liked", "badges"] as ActiveTab[]).map((tab) => {
           const labels: Record<ActiveTab, string> = {
             history: "풀이 기록",
             battle: "대전 기록",
             "my-questions": "내가 등록한 문제",
             liked: "북마크한 문제",
+            badges: "뱃지",
           };
           return (
             <button
@@ -1330,6 +1342,46 @@ export default function MyPage() {
             );
           })()}
         </>
+      )}
+
+      {/* 탭 5: 뱃지 */}
+      {activeTab === "badges" && (
+        <div>
+          {earnedBadges === null ? (
+            <div className="py-12 text-center text-neutral-500 text-sm">불러오는 중...</div>
+          ) : (
+            <>
+              <p className="text-xs text-neutral-500 mb-4">
+                {earnedBadges.length}개 획득 / {ALL_BADGES.length}개 전체
+              </p>
+              <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+                {ALL_BADGES.map((badgeKey) => {
+                  const meta = BADGE_META[badgeKey];
+                  const earned = earnedBadges.find((b) => b.badge === badgeKey);
+                  return (
+                    <div
+                      key={badgeKey}
+                      className={`flex flex-col items-center text-center p-3 rounded-lg border transition-colors ${
+                        earned
+                          ? "bg-[#111111] border-neutral-700"
+                          : "bg-[#111111] border-neutral-800 opacity-40 grayscale"
+                      }`}
+                    >
+                      <span className="text-2xl mb-1.5">{meta.icon}</span>
+                      <span className="text-xs font-medium text-white leading-tight mb-0.5">{meta.label}</span>
+                      <span className="text-[10px] text-neutral-500 leading-tight">{meta.description}</span>
+                      {earned && (
+                        <span className="text-[10px] text-neutral-600 mt-1">
+                          {new Date(earned.earnedAt).toLocaleDateString("ko-KR", { month: "short", day: "numeric" })}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
+        </div>
       )}
     </div>
   );

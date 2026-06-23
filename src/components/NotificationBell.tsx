@@ -4,6 +4,13 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
+const BADGE_LABELS: Record<string, string> = {
+  FIRST_QUIZ: '첫 걸음', QUIZ_10: '끈기', QUIZ_50: '열정', PERFECT_SCORE: '완벽',
+  STREAK_3: '3일 연속', STREAK_7: '7일 연속',
+  CAT_DS: '자료구조 마스터', CAT_ALGO: '알고리즘 마스터', CAT_OS: 'OS 마스터',
+  CAT_NETWORK: '네트워크 마스터', CAT_DB: 'DB 마스터', CAT_ARCH: '컴퓨터구조 마스터',
+};
+
 interface NotificationPayload {
   questionId?: string;
   questionTitle?: string;
@@ -17,11 +24,12 @@ interface NotificationPayload {
   fromNickname?: string;
   roomId?: string;
   friendshipId?: string;
+  badge?: string;
 }
 
 interface Notification {
   id: string;
-  type: 'QUESTION_APPROVED' | 'QUESTION_REJECTED' | 'ROLE_CHANGED' | 'INQUIRY_REPLIED' | 'LEVEL_UP' | 'FRIEND_REQUEST' | 'FRIEND_ACCEPTED' | 'FRIEND_REJECTED' | 'BATTLE_INVITE' | 'BATTLE_REJECTED';
+  type: 'QUESTION_APPROVED' | 'QUESTION_REJECTED' | 'ROLE_CHANGED' | 'INQUIRY_REPLIED' | 'LEVEL_UP' | 'BADGE_EARNED' | 'FRIEND_REQUEST' | 'FRIEND_ACCEPTED' | 'FRIEND_REJECTED' | 'BATTLE_INVITE' | 'BATTLE_REJECTED';
   payload: NotificationPayload;
   actionUrl: string | null;
   isRead: boolean;
@@ -40,6 +48,7 @@ function getNotificationMessage(n: Notification): string {
   if (n.type === 'ROLE_CHANGED') return payload.newRole === 'ADMIN' ? '관리자 권한이 부여되었습니다.' : '일반 사용자로 권한이 변경되었습니다.';
   if (n.type === 'INQUIRY_REPLIED') return `'${payload.inquiryTitle}' 문의에 답변이 등록되었습니다.`;
   if (n.type === 'LEVEL_UP') return `${payload.levelName ?? ''} 달성! Lv.${payload.prevLevel} → Lv.${payload.newLevel}으로 레벨업했습니다.`;
+  if (n.type === 'BADGE_EARNED') return `🏅 "${BADGE_LABELS[payload.badge ?? ''] ?? '새 뱃지'}" 뱃지를 획득했습니다!`;
   if (n.type === 'FRIEND_REQUEST') return `${payload.fromNickname ?? '누군가'}님이 친구 요청을 보냈습니다.`;
   if (n.type === 'FRIEND_ACCEPTED') return `${payload.fromNickname ?? '누군가'}님이 친구 요청을 수락했습니다.`;
   if (n.type === 'FRIEND_REJECTED') return `${payload.fromNickname ?? '누군가'}님이 친구 요청을 거절했습니다.`;

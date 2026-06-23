@@ -37,6 +37,7 @@ model User {
   presence                   UserPresence?
   dailyVisits                DailyVisit[]
   dailyChallengeCompletions  DailyChallengeCompletion[]
+  badges                     UserBadge[]
   hostedRooms                GameRoom[]    @relation("GameRoomHost")
   guestRooms                 GameRoom[]    @relation("GameRoomGuest")
 }
@@ -194,11 +195,39 @@ enum NotificationType {
   ROLE_CHANGED
   INQUIRY_REPLIED
   LEVEL_UP
+  BADGE_EARNED
   FRIEND_REQUEST
   FRIEND_ACCEPTED
   FRIEND_REJECTED
   BATTLE_INVITE
   BATTLE_REJECTED
+}
+
+enum BadgeType {
+  FIRST_QUIZ
+  QUIZ_10
+  QUIZ_50
+  PERFECT_SCORE
+  STREAK_3
+  STREAK_7
+  CAT_DS
+  CAT_ALGO
+  CAT_OS
+  CAT_NETWORK
+  CAT_DB
+  CAT_ARCH
+}
+
+model UserBadge {
+  id       String    @id @default(cuid())
+  userId   String
+  badge    BadgeType
+  earnedAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, badge])
+  @@index([userId])
 }
 
 enum InquiryType {

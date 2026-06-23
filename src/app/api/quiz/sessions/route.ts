@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import { getServerUser } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import type { UserAnswer } from '@/types';
+import type { BadgeType } from '@/lib/badges';
 
 export async function POST(req: NextRequest) {
   const user = await getServerUser();
@@ -96,6 +97,75 @@ export async function POST(req: NextRequest) {
     } catch (e) {
       console.error('[sessions/POST] level-up check failed:', e);
     }
+  }
+
+  // Badge checks — outside transaction; failure must not block response
+  try {
+    // Streak update
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const yesterdayStr = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+    const userProfile = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { streakCount: true, lastQuizDate: true },
+    });
+    let newStreak = 1;
+    if (userProfile?.lastQuizDate) {
+      const lastStr = new Date(userProfile.lastQuizDate).toISOString().slice(0, 10);
+      if (lastStr === todayStr) {
+        newStreak = userProfile.streakCount;
+      } else if (lastStr === yesterdayStr) {
+        newStreak = userProfile.streakCount + 1;
+      }
+    }
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { streakCount: newStreak, lastQuizDate: new Date() },
+    });
+
+    // Candidate badges
+    const totalSessions = await prisma.quizSession.count({ where: { userId: user.id } });
+    const candidates: BadgeType[] = [];
+
+    if (totalSessions === 1) candidates.push('FIRST_QUIZ');
+    if (totalSessions === 10) candidates.push('QUIZ_10');
+    if (totalSessions === 50) candidates.push('QUIZ_50');
+    if (score === questionIds.length && questionIds.length > 0) candidates.push('PERFECT_SCORE');
+    if (newStreak >= 3) candidates.push('STREAK_3');
+    if (newStreak >= 7) candidates.push('STREAK_7');
+
+    // Category mastery (누적 정답 30개)
+    const CATS = ['ds', 'algo', 'os', 'network', 'db', 'arch'] as const;
+    for (const cat of CATS) {
+      const correctCount = await prisma.questionAttempt.count({
+        where: { userId: user.id, isCorrect: true, question: { category: cat } },
+      });
+      if (correctCount >= 30) {
+        candidates.push(`CAT_${cat.toUpperCase()}` as BadgeType);
+      }
+    }
+
+    if (candidates.length > 0) {
+      const existing = await prisma.userBadge.findMany({
+        where: { userId: user.id, badge: { in: candidates } },
+        select: { badge: true },
+      });
+      const existingSet = new Set(existing.map((e) => e.badge));
+      const toCreate = candidates.filter((b) => !existingSet.has(b));
+
+      for (const badge of toCreate) {
+        await prisma.userBadge.create({ data: { userId: user.id, badge } });
+        await prisma.notification.create({
+          data: {
+            userId: user.id,
+            type: 'BADGE_EARNED',
+            payload: { badge },
+            actionUrl: '/mypage',
+          },
+        });
+      }
+    }
+  } catch (e) {
+    console.error('[sessions/POST] badge check failed:', e);
   }
 
   return NextResponse.json({ sessionId: session.id });
