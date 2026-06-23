@@ -670,7 +670,7 @@ export default function MyPage() {
       </div>
 
       {/* 탭 */}
-      <div className="flex gap-1 mb-4 border-b border-neutral-800 pb-0 overflow-x-auto">
+      <div className="flex gap-1 mb-4 border-b border-neutral-800 pb-0 overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
         {(["history", "battle", "my-questions", "liked"] as ActiveTab[]).map((tab) => {
           const labels: Record<ActiveTab, string> = {
             history: "풀이 기록",
