@@ -479,6 +479,12 @@ export default function MyPage() {
   const [battleRecords, setBattleRecords] = useState<BattleRecord[] | null>(null);
   const [battleLoading, setBattleLoading] = useState(false);
   const [battleOpponentId, setBattleOpponentId] = useState<string>('all');
+  type BattleResult = 'all' | 'win' | 'draw' | 'loss';
+  type BattleSort = 'newest' | 'oldest';
+  const [battleResult, setBattleResult] = useState<BattleResult>('all');
+  const [battleSort, setBattleSort] = useState<BattleSort>('newest');
+  const [battlePage, setBattlePage] = useState(0);
+  const BATTLE_PAGE_SIZE = 10;
 
   useEffect(() => {
     Promise.all([
@@ -529,6 +535,9 @@ export default function MyPage() {
       .catch(() => setBattleRecords([]))
       .finally(() => setBattleLoading(false));
   }, [activeTab, battleOpponentId]);
+
+  // 대전 기록 필터/정렬 변경 시 페이지 리셋
+  useEffect(() => { setBattlePage(0); }, [battleResult, battleSort, battleOpponentId]);
 
   const profileStats = computeProfileStats(sessions, categoryAttemptCounts);
 
@@ -1026,22 +1035,43 @@ export default function MyPage() {
           loss: { text: '패', cls: 'text-red-400 border-red-800/60' },
           draw: { text: '무', cls: 'text-neutral-400 border-neutral-700' },
         };
+        const RESULT_FILTER_LABELS: Record<BattleResult, string> = {
+          all: '전체', win: '승', draw: '무', loss: '패',
+        };
+
         const allRecords = battleRecords ?? [];
         const opponents = Array.from(
           new Map(allRecords.map((r) => [r.opponent.id, r.opponent.nickname])).entries()
         );
-        const displayed = battleOpponentId !== 'all'
+
+        // 상대 필터
+        let filtered = battleOpponentId !== 'all'
           ? allRecords.filter((r) => r.opponent.id === battleOpponentId)
           : allRecords;
-        const wins = displayed.filter((r) => r.result === 'win').length;
-        const losses = displayed.filter((r) => r.result === 'loss').length;
-        const draws = displayed.filter((r) => r.result === 'draw').length;
+
+        // 결과 필터
+        if (battleResult !== 'all') filtered = filtered.filter((r) => r.result === battleResult);
+
+        // 정렬
+        const sorted = [...filtered].sort((a, b) => {
+          const ta = new Date(a.playedAt).getTime();
+          const tb = new Date(b.playedAt).getTime();
+          return battleSort === 'newest' ? tb - ta : ta - tb;
+        });
+
+        const totalBattle = filtered.length;
+        const wins = allRecords.filter((r) => (battleOpponentId !== 'all' ? r.opponent.id === battleOpponentId : true) && r.result === 'win').length;
+        const losses = allRecords.filter((r) => (battleOpponentId !== 'all' ? r.opponent.id === battleOpponentId : true) && r.result === 'loss').length;
+        const draws = allRecords.filter((r) => (battleOpponentId !== 'all' ? r.opponent.id === battleOpponentId : true) && r.result === 'draw').length;
+
+        const pageCount = Math.ceil(sorted.length / BATTLE_PAGE_SIZE);
+        const paged = sorted.slice(battlePage * BATTLE_PAGE_SIZE, (battlePage + 1) * BATTLE_PAGE_SIZE);
 
         return (
           <>
             {/* 상대별 필터 */}
             {opponents.length > 0 && (
-              <div className="flex gap-1 flex-wrap mb-4 overflow-x-auto">
+              <div className="flex gap-1 flex-wrap mb-3 overflow-x-auto">
                 <button
                   onClick={() => setBattleOpponentId('all')}
                   className={`px-2.5 py-1 rounded text-xs transition-colors flex-shrink-0 ${
@@ -1068,11 +1098,46 @@ export default function MyPage() {
               </div>
             )}
 
+            {/* 결과 필터 + 정렬 */}
+            <div className="flex flex-wrap items-center gap-2 mb-4">
+              <div className="flex gap-1">
+                {(Object.keys(RESULT_FILTER_LABELS) as BattleResult[]).map((r) => (
+                  <button
+                    key={r}
+                    onClick={() => setBattleResult(r)}
+                    className={`px-2.5 py-1 rounded text-xs transition-colors ${
+                      battleResult === r
+                        ? 'bg-neutral-700 text-white font-medium'
+                        : 'border border-neutral-800 text-neutral-400 hover:border-neutral-600 hover:text-white'
+                    }`}
+                  >
+                    {RESULT_FILTER_LABELS[r]}
+                  </button>
+                ))}
+              </div>
+              <div className="w-px h-4 bg-neutral-800 self-center" />
+              <div className="flex gap-1">
+                {(['newest', 'oldest'] as BattleSort[]).map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => setBattleSort(s)}
+                    className={`px-2.5 py-1 rounded text-xs transition-colors ${
+                      battleSort === s
+                        ? 'bg-white text-black font-medium'
+                        : 'border border-neutral-800 text-neutral-400 hover:border-neutral-600 hover:text-white'
+                    }`}
+                  >
+                    {s === 'newest' ? '최신순' : '오래된순'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {battleLoading ? (
               <div className="py-12 text-center">
                 <p className="text-neutral-500 text-sm">불러오는 중...</p>
               </div>
-            ) : displayed.length === 0 ? (
+            ) : allRecords.length === 0 ? (
               <div className="py-12 text-center">
                 <p className="text-neutral-500 text-sm">대전 기록이 없습니다.</p>
               </div>
@@ -1094,35 +1159,60 @@ export default function MyPage() {
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  {displayed.map((r) => {
-                    const res = RESULT_LABELS[r.result];
-                    return (
-                      <div
-                        key={r.id}
-                        className="bg-[#111111] border border-neutral-800 rounded-lg px-4 py-3 flex items-center justify-between gap-3"
-                      >
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2 mb-1 flex-wrap">
-                            <span className="text-xs text-neutral-500 border border-neutral-800 rounded px-1.5 py-0.5 flex-shrink-0">
-                              {BATTLE_CAT_LABELS[r.category] ?? r.category}
-                            </span>
-                            <span className="text-sm font-medium text-neutral-200 truncate">
-                              vs {r.opponent.nickname}
+                {sorted.length === 0 ? (
+                  <div className="py-8 text-center">
+                    <p className="text-neutral-500 text-sm">해당 조건의 대전 기록이 없습니다.</p>
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-xs text-neutral-500 mb-3">총 {totalBattle}경기</p>
+                    <div className="space-y-2">
+                      {paged.map((r) => {
+                        const res = RESULT_LABELS[r.result];
+                        return (
+                          <div
+                            key={r.id}
+                            className="bg-[#111111] border border-neutral-800 rounded-lg px-4 py-3 flex items-center justify-between gap-3"
+                          >
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                <span className="text-xs text-neutral-500 border border-neutral-800 rounded px-1.5 py-0.5 flex-shrink-0">
+                                  {BATTLE_CAT_LABELS[r.category] ?? r.category}
+                                </span>
+                                <span className="text-sm font-medium text-neutral-200 truncate">
+                                  vs {r.opponent.nickname}
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-neutral-600">
+                                {new Date(r.playedAt).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' })}
+                                &nbsp;·&nbsp;{r.myScore} : {r.oppScore}
+                              </p>
+                            </div>
+                            <span className={`text-xs font-bold border rounded px-2 py-0.5 flex-shrink-0 ${res.cls}`}>
+                              {res.text}
                             </span>
                           </div>
-                          <p className="text-[11px] text-neutral-600">
-                            {new Date(r.playedAt).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' })}
-                            &nbsp;·&nbsp;{r.myScore} : {r.oppScore}
-                          </p>
-                        </div>
-                        <span className={`text-xs font-bold border rounded px-2 py-0.5 flex-shrink-0 ${res.cls}`}>
-                          {res.text}
-                        </span>
+                        );
+                      })}
+                    </div>
+
+                    {pageCount > 1 && (
+                      <div className="flex items-center justify-center gap-3 mt-4">
+                        <button
+                          onClick={() => setBattlePage((p) => Math.max(0, p - 1))}
+                          disabled={battlePage === 0}
+                          className="text-xs text-neutral-400 border border-neutral-800 rounded px-2.5 py-1 hover:border-neutral-600 hover:text-white disabled:opacity-30 transition-colors"
+                        >←</button>
+                        <span className="text-xs text-neutral-500">{battlePage + 1} / {pageCount}</span>
+                        <button
+                          onClick={() => setBattlePage((p) => Math.min(pageCount - 1, p + 1))}
+                          disabled={battlePage >= pageCount - 1}
+                          className="text-xs text-neutral-400 border border-neutral-800 rounded px-2.5 py-1 hover:border-neutral-600 hover:text-white disabled:opacity-30 transition-colors"
+                        >→</button>
                       </div>
-                    );
-                  })}
-                </div>
+                    )}
+                  </>
+                )}
               </>
             )}
           </>
