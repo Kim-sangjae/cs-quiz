@@ -220,6 +220,9 @@ enum BadgeType {
   APPROVED_1
   APPROVED_5
   APPROVED_10
+  COMEBACK
+  COMPLETIONIST
+  LIKED_QUESTION
 }
 
 model UserBadge {

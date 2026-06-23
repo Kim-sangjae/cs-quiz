@@ -150,6 +150,24 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // 오답 극복: 이번 세션에서 맞춘 문제 중 이전에 틀린 적 있는 문제 존재
+    const correctIds = answersWithCorrectness.filter((a) => a.isCorrect).map((a) => a.questionId);
+    if (correctIds.length > 0) {
+      const priorWrong = await prisma.questionAttempt.count({
+        where: { userId: user.id, questionId: { in: correctIds }, isCorrect: false, sessionId: { not: session.id } },
+      });
+      if (priorWrong > 0) candidates.push('COMEBACK');
+    }
+
+    // 완주: 6개 카테고리 모두 1회 이상 플레이
+    const REQUIRED_CATS = ['ds', 'algo', 'os', 'network', 'db', 'arch'];
+    const completedCats = await prisma.quizSession.findMany({
+      where: { userId: user.id, category: { in: REQUIRED_CATS } },
+      select: { category: true },
+      distinct: ['category'],
+    });
+    if (completedCats.length === REQUIRED_CATS.length) candidates.push('COMPLETIONIST');
+
     await awardBadges(user.id, candidates);
   } catch (e) {
     console.error('[sessions/POST] badge check failed:', e);

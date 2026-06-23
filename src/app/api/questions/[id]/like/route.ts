@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerUser } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { awardBadges } from '@/lib/award-badges';
 
 export async function GET(
   _req: NextRequest,
@@ -43,6 +44,12 @@ export async function POST(
   }
 
   const likeCount = await prisma.like.count({ where: { questionId: id } });
+
+  // 북마크 10개 달성 시 문제 작성자 뱃지 체크
+  if (!existing && likeCount >= 10) {
+    const q = await prisma.question.findUnique({ where: { id }, select: { authorId: true } });
+    if (q?.authorId) awardBadges(q.authorId, ['LIKED_QUESTION']).catch(() => {});
+  }
 
   return NextResponse.json({ liked: !existing, likeCount });
 }
