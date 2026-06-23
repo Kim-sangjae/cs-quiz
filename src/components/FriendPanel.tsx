@@ -433,16 +433,29 @@ export default function FriendPanel() {
               </div>
             </div>
 
-            {/* 활성 대전 링크 */}
+            {/* 활성 대전 배너 */}
             {activeRoom && (
               <button
                 onClick={() => { router.push(`/battle/${activeRoom.id}`); setOpen(false); }}
-                className="w-full flex items-center gap-2 px-3.5 py-2 border-b border-neutral-800 hover:bg-neutral-800/40 transition-colors text-left"
+                className={`w-full flex items-center gap-3 px-3.5 py-3 border-b transition-colors text-left ${
+                  activeRoom.status === 'PLAYING'
+                    ? 'border-red-900/40 bg-red-500/10 hover:bg-red-500/20'
+                    : 'border-amber-900/40 bg-amber-500/10 hover:bg-amber-500/20'
+                }`}
               >
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse flex-shrink-0" />
-                <span className="text-xs text-emerald-400 font-medium">
-                  {activeRoom.status === 'PLAYING' ? '대전 진행 중 →' : '대전 대기 중 →'}
+                <span className={`relative flex-shrink-0 w-2.5 h-2.5`}>
+                  <span className={`absolute inset-0 rounded-full animate-ping opacity-75 ${activeRoom.status === 'PLAYING' ? 'bg-red-500' : 'bg-amber-500'}`} />
+                  <span className={`relative block w-2.5 h-2.5 rounded-full ${activeRoom.status === 'PLAYING' ? 'bg-red-400' : 'bg-amber-400'}`} />
                 </span>
+                <div className="min-w-0 flex-1">
+                  <p className={`text-xs font-semibold ${activeRoom.status === 'PLAYING' ? 'text-red-400' : 'text-amber-400'}`}>
+                    {activeRoom.status === 'PLAYING' ? '⚔ 대결 진행 중' : '⏳ 대결 대기 중'}
+                  </p>
+                  <p className="text-[10px] text-neutral-500 mt-0.5">탭하여 대결 화면으로 이동</p>
+                </div>
+                <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={activeRoom.status === 'PLAYING' ? 'text-red-500' : 'text-amber-500'}>
+                  <path d="M9 18l6-6-6-6" />
+                </svg>
               </button>
             )}
 
@@ -521,21 +534,55 @@ export default function FriendPanel() {
 
         {/* 플로팅 버튼 */}
         <button
-          onClick={() => { setOpen((v) => !v); if (!open) setAddingFriend(false); }}
-          className="relative w-12 h-12 rounded-full bg-[#1a1a1a] border border-neutral-700 flex items-center justify-center text-neutral-400 hover:text-white hover:border-neutral-500 transition-colors shadow-lg"
-          aria-label="친구 목록"
+          onClick={() => {
+            if (activeRoom && !open) {
+              router.push(`/battle/${activeRoom.id}`);
+              return;
+            }
+            setOpen((v) => !v);
+            if (!open) setAddingFriend(false);
+          }}
+          className={`relative w-12 h-12 rounded-full flex items-center justify-center transition-colors shadow-lg ${
+            activeRoom?.status === 'PLAYING'
+              ? 'bg-red-500/20 border-2 border-red-500 text-red-400 hover:bg-red-500/30'
+              : activeRoom?.status === 'WAITING'
+              ? 'bg-amber-500/20 border-2 border-amber-500 text-amber-400 hover:bg-amber-500/30'
+              : 'bg-[#1a1a1a] border border-neutral-700 text-neutral-400 hover:text-white hover:border-neutral-500'
+          }`}
+          aria-label={activeRoom ? '대결 진행 중 - 탭하여 이동' : '친구 목록'}
         >
-          <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
-            <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
-            <circle cx="9" cy="7" r="4" />
-            <path d="M23 21v-2a4 4 0 00-3-3.87" />
-            <path d="M16 3.13a4 4 0 010 7.75" />
-          </svg>
-          {onlineCount > 0 && (
+          {/* PLAYING 시 펄스 링 */}
+          {activeRoom?.status === 'PLAYING' && (
+            <span className="absolute inset-0 rounded-full border-2 border-red-500 animate-ping opacity-30" />
+          )}
+          {activeRoom ? (
+            <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M14.5 17.5L3 6V3h3l11.5 11.5" />
+              <path d="M13 19l2 2" />
+              <path d="M19 13l2 2" />
+              <path d="M14.5 6.5l3-3 3 3-3 3" />
+              <path d="M6.5 14.5l-3 3 3 3 3-3" />
+            </svg>
+          ) : (
+            <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+              <path d="M23 21v-2a4 4 0 00-3-3.87" />
+              <path d="M16 3.13a4 4 0 010 7.75" />
+            </svg>
+          )}
+          {/* 대결 뱃지 */}
+          {activeRoom ? (
+            <span className={`absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold border-2 border-[#0a0a0a] ${
+              activeRoom.status === 'PLAYING' ? 'bg-red-500 text-white' : 'bg-amber-500 text-black'
+            }`}>
+              {activeRoom.status === 'PLAYING' ? '⚔' : '⏳'}
+            </span>
+          ) : onlineCount > 0 ? (
             <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-emerald-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1 leading-none">
               {onlineCount}
             </span>
-          )}
+          ) : null}
         </button>
       </div>
     </>
