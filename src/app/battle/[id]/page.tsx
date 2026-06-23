@@ -45,6 +45,24 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
   const [wasRejected, setWasRejected] = useState(false);
   const hasAutoSubmittedRef = useRef(false);
 
+  const [bookmarks, setBookmarks] = useState<Record<string, boolean>>({});
+
+  async function toggleBookmark(questionId: string) {
+    const prev = bookmarks[questionId] ?? false;
+    setBookmarks((b) => ({ ...b, [questionId]: !prev }));
+    try {
+      const res = await fetch(`/api/questions/${questionId}/like`, { method: 'POST' });
+      if (res.ok) {
+        const data = await res.json() as { liked: boolean };
+        setBookmarks((b) => ({ ...b, [questionId]: data.liked }));
+      } else {
+        setBookmarks((b) => ({ ...b, [questionId]: prev }));
+      }
+    } catch {
+      setBookmarks((b) => ({ ...b, [questionId]: prev }));
+    }
+  }
+
   // 15초 카운트다운
   const [timeLeft, setTimeLeft] = useState(TIMEOUT_SECS);
   const lastCurrentQ = useRef<number | null>(null);
@@ -308,6 +326,24 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
               })}
             </div>
           </div>
+
+          {myAnswered && room.question && (
+            <div className="flex justify-end mt-2">
+              <button
+                onClick={() => toggleBookmark(room.question!.id)}
+                className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border transition-colors ${
+                  bookmarks[room.question.id]
+                    ? 'border-yellow-500/50 bg-yellow-500/10 text-yellow-400'
+                    : 'border-neutral-800 text-neutral-500 hover:border-neutral-600 hover:text-neutral-300'
+                }`}
+              >
+                <svg width={13} height={13} viewBox="0 0 24 24" fill={bookmarks[room.question.id] ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0z" />
+                </svg>
+                {bookmarks[room.question.id] ? '북마크됨' : '북마크'}
+              </button>
+            </div>
+          )}
 
           <div className="mt-3 flex items-center justify-between">
             <div className="text-center flex-1">

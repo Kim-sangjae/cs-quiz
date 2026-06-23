@@ -687,7 +687,7 @@ export default function MyPage() {
             history: "풀이 기록",
             battle: "대전 기록",
             "my-questions": "내가 등록한 문제",
-            liked: "내가 좋아요한 문제",
+            liked: "북마크한 문제",
           };
           return (
             <button
@@ -1230,7 +1230,7 @@ export default function MyPage() {
         );
       })()}
 
-      {/* 탭 3: 내가 좋아요한 문제 */}
+      {/* 탭 3: 북마크한 문제 */}
       {activeTab === "liked" && (
         <>
           {/* 검색 */}
@@ -1271,7 +1271,7 @@ export default function MyPage() {
               return (
                 <div className="text-center py-12">
                   <p className="text-neutral-500 text-sm mb-4">
-                    {likedSearch || likedCat !== "all" ? "검색 결과가 없습니다." : "좋아요한 문제가 없습니다."}
+                    {likedSearch || likedCat !== "all" ? "검색 결과가 없습니다." : "북마크한 문제가 없습니다."}
                   </p>
                   {!likedSearch && likedCat === "all" && (
                     <Link href="/board" className="rounded-md bg-white text-black text-sm font-medium px-6 py-2.5 hover:bg-neutral-200 transition-colors">

@@ -493,6 +493,8 @@ function BoardTab({ requestConfirm }: { requestConfirm: (msg: string, fn: () => 
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [editState, setEditState] = useState<EditState | null>(null);
   const [editSaving, setEditSaving] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkPending, setBulkPending] = useState(false);
 
   const { data, isLoading } = useQuery<BoardResponse>({
     queryKey: ['admin', 'board', statusFilter, catFilter, sort, searchQ, page],
@@ -515,9 +517,33 @@ function BoardTab({ requestConfirm }: { requestConfirm: (msg: string, fn: () => 
         body: JSON.stringify({ action }),
       });
       queryClient.invalidateQueries({ queryKey: ['admin', 'board'] });
+      setSelectedIds((prev) => { const n = new Set(prev); n.delete(id); return n; });
     } finally {
       setActionLoading(null);
     }
+  }
+
+  function toggleSelectBoard(id: string) {
+    setSelectedIds((prev) => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  }
+  function toggleAllBoard() {
+    const pageIds = questions.map((q) => q.id);
+    const allSel = pageIds.every((id) => selectedIds.has(id));
+    setSelectedIds(allSel ? new Set() : new Set(pageIds));
+  }
+  async function handleBulkBoard(action: 'blind' | 'delete') {
+    if (selectedIds.size === 0 || bulkPending) return;
+    const label = action === 'blind' ? '블라인드' : '삭제';
+    requestConfirm(`선택된 ${selectedIds.size}개 문제를 ${label} 처리하시겠습니까?${action === 'delete' ? ' 이 작업은 되돌릴 수 없습니다.' : ''}`, async () => {
+      setBulkPending(true);
+      try {
+        await fetch('/api/admin/questions/bulk', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids: [...selectedIds], action }) });
+        queryClient.invalidateQueries({ queryKey: ['admin', 'board'] });
+        queryClient.invalidateQueries({ queryKey: ['admin', 'badge'] });
+        setSelectedIds(new Set());
+        toast.success(`일괄 ${label} 완료`);
+      } finally { setBulkPending(false); }
+    });
   }
 
   function openEdit(q: BoardQuestion) {
@@ -636,84 +662,101 @@ function BoardTab({ requestConfirm }: { requestConfirm: (msg: string, fn: () => 
           <p className="text-neutral-500 text-sm text-center py-8">문제가 없습니다.</p>
         ) : (
           <>
-            <p className="text-xs text-neutral-500 mb-3">총 {totalCount}개</p>
+            <div className="flex items-center gap-2 mb-3">
+              <p className="text-xs text-neutral-500">총 {totalCount}개</p>
+            </div>
+
+            {selectedIds.size > 0 && (
+              <div className="flex items-center gap-3 bg-neutral-900 border border-neutral-700 rounded-lg px-4 py-2.5 mb-3">
+                <span className="text-xs text-neutral-300">{selectedIds.size}개 선택됨</span>
+                <button onClick={() => handleBulkBoard('blind')} disabled={bulkPending}
+                  className="rounded-md bg-orange-500/10 border border-orange-500/30 text-orange-400 text-xs px-3 py-1.5 hover:bg-orange-500/20 transition-colors disabled:opacity-40">
+                  일괄 블라인드
+                </button>
+                <button onClick={() => handleBulkBoard('delete')} disabled={bulkPending}
+                  className="rounded-md bg-red-500/10 border border-red-500/30 text-red-400 text-xs px-3 py-1.5 hover:bg-red-500/20 transition-colors disabled:opacity-40">
+                  일괄 삭제
+                </button>
+                <button onClick={() => setSelectedIds(new Set())} className="ml-auto text-xs text-neutral-600 hover:text-neutral-400 transition-colors">선택 해제</button>
+              </div>
+            )}
+
+            <div className="flex items-center gap-2 px-1 mb-2">
+              <input type="checkbox"
+                checked={questions.length > 0 && questions.every((q) => selectedIds.has(q.id))}
+                onChange={toggleAllBoard}
+                className="w-3.5 h-3.5 rounded accent-white cursor-pointer" />
+              <span className="text-xs text-neutral-600">현재 페이지 전체 선택</span>
+            </div>
+
             <div className="space-y-3">
               {questions.map((q) => (
                 <div key={q.id} className="bg-[#111111] border border-neutral-800 rounded-lg p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="text-xs text-neutral-500 border border-neutral-800 rounded px-2 py-0.5">
-                      {CATEGORY_LABEL[q.category] ?? q.category}
-                    </span>
-                    <span className={`text-xs border rounded px-2 py-0.5 ${STATUS_CLASS[q.status] ?? 'text-neutral-400 border-neutral-700'}`}>
-                      {STATUS_LABEL[q.status] ?? q.status}
-                    </span>
-                    <span className="text-xs text-neutral-600 ml-auto">
-                      {q.author?.nickname ?? q.author?.email ?? '익명'}
-                      {' · '}
-                      {new Date(q.createdAt).toLocaleDateString('ko-KR')}
-                    </span>
-                  </div>
-                  <p className="text-sm text-neutral-200 mb-3 leading-relaxed">
-                    {q.question.length > 100 ? q.question.slice(0, 100) + '…' : q.question}
-                  </p>
-                  <div className="flex gap-2 flex-wrap">
-                    <button
-                      onClick={() => openEdit(q)}
-                      className="rounded-md bg-[#1a1a1a] border border-neutral-700 text-neutral-300 text-xs px-3 py-1.5 hover:text-white transition-colors"
-                    >
-                      수정
-                    </button>
-                    {q.status !== 'BLINDED' ? (
-                      <button
-                        onClick={() => requestConfirm('이 문제를 블라인드 처리하시겠습니까?', () => handleAction(q.id, 'blind'))}
-                        disabled={actionLoading === q.id + ':blind' || q.status === 'OFFICIAL'}
-                        className="rounded-md bg-[#1a1a1a] border border-neutral-700 text-neutral-400 text-xs px-3 py-1.5 hover:text-white transition-colors disabled:opacity-30"
-                      >
-                        블라인드
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => requestConfirm('이 문제를 공개 처리하시겠습니까?', () => handleAction(q.id, 'unblind'))}
-                        disabled={actionLoading === q.id + ':unblind'}
-                        className="rounded-md bg-green-500/10 border border-green-500/30 text-green-400 text-xs px-3 py-1.5 hover:bg-green-500/20 transition-colors disabled:opacity-40"
-                      >
-                        공개
-                      </button>
-                    )}
-                    <button
-                      onClick={() => requestConfirm('이 문제를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.', () => handleAction(q.id, 'delete'))}
-                      disabled={actionLoading === q.id + ':delete'}
-                      className="rounded-md bg-red-500/10 border border-red-500/30 text-red-400 text-xs px-3 py-1.5 hover:bg-red-500/20 transition-colors disabled:opacity-40"
-                    >
-                      삭제
-                    </button>
-                    <a
-                      href={`/board/${q.id}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="rounded-md border border-neutral-800 text-neutral-500 text-xs px-3 py-1.5 hover:text-white transition-colors"
-                    >
-                      보기
-                    </a>
+                  <div className="flex items-start gap-3 mb-2">
+                    <input type="checkbox" checked={selectedIds.has(q.id)} onChange={() => toggleSelectBoard(q.id)}
+                      className="w-3.5 h-3.5 rounded accent-white cursor-pointer mt-0.5 flex-shrink-0" />
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-xs text-neutral-500 border border-neutral-800 rounded px-2 py-0.5">
+                          {CATEGORY_LABEL[q.category] ?? q.category}
+                        </span>
+                        <span className={`text-xs border rounded px-2 py-0.5 ${STATUS_CLASS[q.status] ?? 'text-neutral-400 border-neutral-700'}`}>
+                          {STATUS_LABEL[q.status] ?? q.status}
+                        </span>
+                        <span className="text-xs text-neutral-600 ml-auto">
+                          {q.author?.nickname ?? q.author?.email ?? '익명'}
+                          {' · '}
+                          {new Date(q.createdAt).toLocaleDateString('ko-KR')}
+                        </span>
+                      </div>
+                      <p className="text-sm text-neutral-200 mb-3 leading-relaxed">
+                        {q.question.length > 100 ? q.question.slice(0, 100) + '…' : q.question}
+                      </p>
+                      <div className="flex gap-2 flex-wrap">
+                        <button onClick={() => openEdit(q)}
+                          className="rounded-md bg-[#1a1a1a] border border-neutral-700 text-neutral-300 text-xs px-3 py-1.5 hover:text-white transition-colors">
+                          수정
+                        </button>
+                        {q.status !== 'BLINDED' ? (
+                          <button
+                            onClick={() => requestConfirm('이 문제를 블라인드 처리하시겠습니까?', () => handleAction(q.id, 'blind'))}
+                            disabled={actionLoading === q.id + ':blind' || q.status === 'OFFICIAL'}
+                            className="rounded-md bg-[#1a1a1a] border border-neutral-700 text-neutral-400 text-xs px-3 py-1.5 hover:text-white transition-colors disabled:opacity-30">
+                            블라인드
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => requestConfirm('이 문제를 공개 처리하시겠습니까?', () => handleAction(q.id, 'unblind'))}
+                            disabled={actionLoading === q.id + ':unblind'}
+                            className="rounded-md bg-green-500/10 border border-green-500/30 text-green-400 text-xs px-3 py-1.5 hover:bg-green-500/20 transition-colors disabled:opacity-40">
+                            공개
+                          </button>
+                        )}
+                        <button
+                          onClick={() => requestConfirm('이 문제를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.', () => handleAction(q.id, 'delete'))}
+                          disabled={actionLoading === q.id + ':delete'}
+                          className="rounded-md bg-red-500/10 border border-red-500/30 text-red-400 text-xs px-3 py-1.5 hover:bg-red-500/20 transition-colors disabled:opacity-40">
+                          삭제
+                        </button>
+                        <a href={`/board/${q.id}`} target="_blank" rel="noreferrer"
+                          className="rounded-md border border-neutral-800 text-neutral-500 text-xs px-3 py-1.5 hover:text-white transition-colors">
+                          보기
+                        </a>
+                      </div>
+                    </div>
                   </div>
                 </div>
               ))}
             </div>
             {pageCount > 1 && (
               <div className="flex gap-2 mt-4 justify-center items-center">
-                <button
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={page === 1}
-                  className="rounded-md border border-neutral-800 text-neutral-400 text-xs px-3 py-1.5 hover:text-white disabled:opacity-30 transition-colors"
-                >
+                <button onClick={() => { setPage((p) => Math.max(1, p - 1)); setSelectedIds(new Set()); }} disabled={page === 1}
+                  className="rounded-md border border-neutral-800 text-neutral-400 text-xs px-3 py-1.5 hover:text-white disabled:opacity-30 transition-colors">
                   이전
                 </button>
                 <span className="text-xs text-neutral-500">{page} / {pageCount}</span>
-                <button
-                  onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
-                  disabled={page >= pageCount}
-                  className="rounded-md border border-neutral-800 text-neutral-400 text-xs px-3 py-1.5 hover:text-white disabled:opacity-30 transition-colors"
-                >
+                <button onClick={() => { setPage((p) => Math.min(pageCount, p + 1)); setSelectedIds(new Set()); }} disabled={page >= pageCount}
+                  className="rounded-md border border-neutral-800 text-neutral-400 text-xs px-3 py-1.5 hover:text-white disabled:opacity-30 transition-colors">
                   다음
                 </button>
               </div>
@@ -818,11 +861,16 @@ function BoardTab({ requestConfirm }: { requestConfirm: (msg: string, fn: () => 
   );
 }
 
+const REPORTS_PAGE_SIZE = 10;
+
 function ReportsTab({ prevSeenAt }: { prevSeenAt: string | null }) {
   const queryClient = useQueryClient();
   const [reasonFilter, setReasonFilter] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<'pending' | 'dismissed' | 'all'>('pending');
   const [sortOrder, setSortOrder] = useState<'count' | 'asc'>('count');
+  const [page, setPage] = useState(1);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkPending, setBulkPending] = useState(false);
 
   const { data: reportGroups = [] } = useQuery<ReportGroup[]>({
     queryKey: ['admin', 'reports'],
@@ -839,6 +887,7 @@ function ReportsTab({ prevSeenAt }: { prevSeenAt: string | null }) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin', 'reports'] });
       queryClient.invalidateQueries({ queryKey: ['admin', 'badge'] });
+      setSelectedIds(new Set());
     },
   });
 
@@ -850,123 +899,163 @@ function ReportsTab({ prevSeenAt }: { prevSeenAt: string | null }) {
     })
     .sort((a, b) => sortOrder === 'count' ? b.reportCount - a.reportCount : a.reportCount - b.reportCount);
 
+  const pageCount = Math.max(1, Math.ceil(filtered.length / REPORTS_PAGE_SIZE));
+  const paged = filtered.slice((page - 1) * REPORTS_PAGE_SIZE, page * REPORTS_PAGE_SIZE);
   const pendingCount = reportGroups.filter((g) => !g.dismissed).length;
   const dismissedCount = reportGroups.filter((g) => g.dismissed).length;
 
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  }
+  function toggleAll() {
+    const pageIds = paged.filter((g) => !g.dismissed).map((g) => g.question.id);
+    const allSel = pageIds.every((id) => selectedIds.has(id));
+    setSelectedIds(allSel ? new Set() : new Set(pageIds));
+  }
+  async function handleBulk(action: 'blind' | 'dismiss') {
+    if (selectedIds.size === 0 || bulkPending) return;
+    setBulkPending(true);
+    try {
+      await fetch('/api/admin/reports/bulk', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ questionIds: [...selectedIds], action }) });
+      queryClient.invalidateQueries({ queryKey: ['admin', 'reports'] });
+      queryClient.invalidateQueries({ queryKey: ['admin', 'badge'] });
+      setSelectedIds(new Set());
+    } finally { setBulkPending(false); }
+  }
+
+  const pageSelectableIds = paged.filter((g) => !g.dismissed).map((g) => g.question.id);
+  const allPageSelected = pageSelectableIds.length > 0 && pageSelectableIds.every((id) => selectedIds.has(id));
+
   return (
     <div className="space-y-4">
-      {/* 상태 필터 토글 */}
       <div className="flex gap-1">
         {([
           { key: 'pending', label: `대기 중 ${pendingCount}` },
           { key: 'dismissed', label: `무시됨 ${dismissedCount}` },
           { key: 'all', label: '전체' },
         ] as const).map(({ key, label }) => (
-          <button
-            key={key}
-            onClick={() => setStatusFilter(key)}
-            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-              statusFilter === key
-                ? 'bg-white text-black'
-                : 'text-neutral-400 hover:text-white border border-neutral-800 hover:border-neutral-600'
-            }`}
-          >
+          <button key={key} onClick={() => { setStatusFilter(key); setPage(1); setSelectedIds(new Set()); }}
+            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${statusFilter === key ? 'bg-white text-black' : 'text-neutral-400 hover:text-white border border-neutral-800 hover:border-neutral-600'}`}>
             {label}
           </button>
         ))}
       </div>
 
       <div className="flex items-center gap-3 flex-wrap">
-        <select
-          value={reasonFilter}
-          onChange={(e) => setReasonFilter(e.target.value)}
-          className="bg-[#1a1a1a] border border-neutral-700 rounded-md px-3 py-1.5 text-sm text-white focus:outline-none focus:border-neutral-500"
-        >
+        <select value={reasonFilter} onChange={(e) => { setReasonFilter(e.target.value); setPage(1); setSelectedIds(new Set()); }}
+          className="bg-[#1a1a1a] border border-neutral-700 rounded-md px-3 py-1.5 text-sm text-white focus:outline-none focus:border-neutral-500">
           <option value="">전체 사유</option>
           {Object.entries(REASON_LABEL).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
         </select>
-        <select
-          value={sortOrder}
-          onChange={(e) => setSortOrder(e.target.value as 'count' | 'asc')}
-          className="bg-[#1a1a1a] border border-neutral-700 rounded-md px-3 py-1.5 text-sm text-white focus:outline-none focus:border-neutral-500"
-        >
+        <select value={sortOrder} onChange={(e) => { setSortOrder(e.target.value as 'count' | 'asc'); setPage(1); setSelectedIds(new Set()); }}
+          className="bg-[#1a1a1a] border border-neutral-700 rounded-md px-3 py-1.5 text-sm text-white focus:outline-none focus:border-neutral-500">
           <option value="count">신고 많은 순</option>
           <option value="asc">신고 적은 순</option>
         </select>
         <span className="text-xs text-neutral-500">{filtered.length}건</span>
       </div>
 
+      {selectedIds.size > 0 && (
+        <div className="flex items-center gap-3 bg-neutral-900 border border-neutral-700 rounded-lg px-4 py-2.5">
+          <span className="text-xs text-neutral-300">{selectedIds.size}개 선택됨</span>
+          <button onClick={() => handleBulk('blind')} disabled={bulkPending}
+            className="rounded-md bg-red-500/10 border border-red-500/30 text-red-400 text-xs px-3 py-1.5 hover:bg-red-500/20 transition-colors disabled:opacity-40">
+            일괄 블라인드
+          </button>
+          <button onClick={() => handleBulk('dismiss')} disabled={bulkPending}
+            className="rounded-md bg-[#1a1a1a] border border-neutral-700 text-neutral-400 text-xs px-3 py-1.5 hover:text-white transition-colors disabled:opacity-40">
+            일괄 무시
+          </button>
+          <button onClick={() => setSelectedIds(new Set())} className="ml-auto text-xs text-neutral-600 hover:text-neutral-400 transition-colors">선택 해제</button>
+        </div>
+      )}
+
       {filtered.length === 0 ? (
         <p className="text-neutral-500 text-sm text-center py-8">
           {statusFilter === 'dismissed' ? '무시 처리된 신고가 없습니다.' : '처리할 신고가 없습니다.'}
         </p>
-      ) : filtered.map((group) => (
-        <div
-          key={group.question.id}
-          className={`border rounded-lg p-5 ${group.dismissed ? 'bg-neutral-900/50 border-neutral-800/50 opacity-70' : 'bg-[#111111] border-neutral-800'}`}
-        >
-          <div className="flex items-start justify-between gap-4 mb-3">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs text-neutral-500 border border-neutral-800 rounded px-2 py-0.5">
-                {CATEGORY_LABEL[group.question.category] ?? group.question.category}
-              </span>
-              <span className="text-xs text-neutral-500">신고 {group.reportCount}건</span>
-              {group.dismissed && (
-                <span className="text-xs text-neutral-500 border border-neutral-700 rounded px-1.5 py-0.5">무시됨</span>
-              )}
-              {group.question.status === 'BLINDED' && (
-                <span className="text-xs text-red-400 border border-red-500/30 rounded px-1.5 py-0.5">블라인드됨</span>
-              )}
-              {!group.dismissed && prevSeenAt && new Date(group.latestReportAt) > new Date(prevSeenAt) && (
-                <span className="text-[10px] font-bold text-amber-400 border border-amber-500/40 rounded px-1.5 py-0.5">NEW</span>
+      ) : (
+        <>
+          {statusFilter !== 'dismissed' && pageSelectableIds.length > 0 && (
+            <div className="flex items-center gap-2 px-1">
+              <input type="checkbox" checked={allPageSelected} onChange={toggleAll} className="w-3.5 h-3.5 rounded accent-white cursor-pointer" />
+              <span className="text-xs text-neutral-600">현재 페이지 전체 선택</span>
+            </div>
+          )}
+          {paged.map((group) => (
+            <div key={group.question.id}
+              className={`border rounded-lg p-5 ${group.dismissed ? 'bg-neutral-900/50 border-neutral-800/50 opacity-70' : 'bg-[#111111] border-neutral-800'}`}>
+              <div className="flex items-start gap-3 mb-3">
+                {!group.dismissed && (
+                  <input type="checkbox" checked={selectedIds.has(group.question.id)} onChange={() => toggleSelect(group.question.id)}
+                    className="w-3.5 h-3.5 rounded accent-white cursor-pointer mt-1 flex-shrink-0" />
+                )}
+                <div className="flex items-start justify-between gap-4 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs text-neutral-500 border border-neutral-800 rounded px-2 py-0.5">
+                      {CATEGORY_LABEL[group.question.category] ?? group.question.category}
+                    </span>
+                    <span className="text-xs text-neutral-500">신고 {group.reportCount}건</span>
+                    {group.dismissed && <span className="text-xs text-neutral-500 border border-neutral-700 rounded px-1.5 py-0.5">무시됨</span>}
+                    {group.question.status === 'BLINDED' && <span className="text-xs text-red-400 border border-red-500/30 rounded px-1.5 py-0.5">블라인드됨</span>}
+                    {!group.dismissed && prevSeenAt && new Date(group.latestReportAt) > new Date(prevSeenAt) && (
+                      <span className="text-[10px] font-bold text-amber-400 border border-amber-500/40 rounded px-1.5 py-0.5">NEW</span>
+                    )}
+                  </div>
+                  <a href={`/board/${group.question.id}`} target="_blank" rel="noreferrer"
+                    className="text-xs text-neutral-500 hover:text-white transition-colors underline flex-shrink-0">
+                    문제 보기
+                  </a>
+                </div>
+              </div>
+              <p className="text-sm text-neutral-200 mb-3 leading-relaxed">
+                {group.question.question.length > 80 ? group.question.question.slice(0, 80) + '…' : group.question.question}
+              </p>
+              <div className="mb-4 space-y-1">
+                {group.reports.map((r) => (
+                  <div key={r.id} className="text-xs text-neutral-500 flex gap-2">
+                    <span className="text-neutral-600">{r.reporter.nickname ?? '(탈퇴)'}</span>
+                    <span>{REASON_LABEL[r.reason] ?? r.reason}</span>
+                    {r.description && <span className="text-neutral-600">— {r.description}</span>}
+                  </div>
+                ))}
+              </div>
+              {!group.dismissed && (
+                <div className="flex gap-2">
+                  <button onClick={() => mutation.mutate({ questionId: group.question.id, action: 'blind' })}
+                    disabled={mutation.isPending || group.question.status === 'BLINDED'}
+                    className="rounded-md bg-red-500/10 border border-red-500/30 text-red-400 text-xs px-3 py-1.5 hover:bg-red-500/20 transition-colors disabled:opacity-40">
+                    블라인드
+                  </button>
+                  <button onClick={() => mutation.mutate({ questionId: group.question.id, action: 'dismiss' })}
+                    disabled={mutation.isPending}
+                    className="rounded-md bg-[#1a1a1a] border border-neutral-700 text-neutral-400 text-xs px-3 py-1.5 hover:text-white transition-colors disabled:opacity-40">
+                    무시
+                  </button>
+                </div>
               )}
             </div>
-            <a
-              href={`/board/${group.question.id}`}
-              target="_blank"
-              rel="noreferrer"
-              className="text-xs text-neutral-500 hover:text-white transition-colors underline flex-shrink-0"
-            >
-              문제 보기
-            </a>
-          </div>
-          <p className="text-sm text-neutral-200 mb-3 leading-relaxed">
-            {group.question.question.length > 80
-              ? group.question.question.slice(0, 80) + '…'
-              : group.question.question}
-          </p>
-          <div className="mb-4 space-y-1">
-            {group.reports.map((r) => (
-              <div key={r.id} className="text-xs text-neutral-500 flex gap-2">
-                <span className="text-neutral-600">{r.reporter.nickname ?? '(탈퇴)'}</span>
-                <span>{REASON_LABEL[r.reason] ?? r.reason}</span>
-                {r.description && <span className="text-neutral-600">— {r.description}</span>}
-              </div>
-            ))}
-          </div>
-          {!group.dismissed && (
-            <div className="flex gap-2">
-              <button
-                onClick={() => mutation.mutate({ questionId: group.question.id, action: 'blind' })}
-                disabled={mutation.isPending || group.question.status === 'BLINDED'}
-                className="rounded-md bg-red-500/10 border border-red-500/30 text-red-400 text-xs px-3 py-1.5 hover:bg-red-500/20 transition-colors disabled:opacity-40"
-              >
-                블라인드
+          ))}
+          {pageCount > 1 && (
+            <div className="flex gap-2 mt-4 justify-center items-center">
+              <button onClick={() => { setPage((p) => Math.max(1, p - 1)); setSelectedIds(new Set()); }} disabled={page === 1}
+                className="rounded-md border border-neutral-800 text-neutral-400 text-xs px-3 py-1.5 hover:text-white disabled:opacity-30 transition-colors">
+                이전
               </button>
-              <button
-                onClick={() => mutation.mutate({ questionId: group.question.id, action: 'dismiss' })}
-                disabled={mutation.isPending}
-                className="rounded-md bg-[#1a1a1a] border border-neutral-700 text-neutral-400 text-xs px-3 py-1.5 hover:text-white transition-colors disabled:opacity-40"
-              >
-                무시
+              <span className="text-xs text-neutral-500">{page} / {pageCount}</span>
+              <button onClick={() => { setPage((p) => Math.min(pageCount, p + 1)); setSelectedIds(new Set()); }} disabled={page >= pageCount}
+                className="rounded-md border border-neutral-800 text-neutral-400 text-xs px-3 py-1.5 hover:text-white disabled:opacity-30 transition-colors">
+                다음
               </button>
             </div>
           )}
-        </div>
-      ))}
+        </>
+      )}
     </div>
   );
 }
+
+const USERS_PAGE_SIZE = 20;
 
 function UsersTab({ currentUserId, requestConfirm }: { currentUserId: string; requestConfirm: (msg: string, fn: () => void) => void }) {
   const queryClient = useQueryClient();
@@ -974,6 +1063,9 @@ function UsersTab({ currentUserId, requestConfirm }: { currentUserId: string; re
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState<'all' | 'ADMIN' | 'USER'>('all');
   const [statusFilter, setUserStatusFilter] = useState<'all' | 'active' | 'deactivated'>('all');
+  const [page, setPage] = useState(1);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkPending, setBulkPending] = useState(false);
 
   const { data: users = [] } = useQuery<AdminUser[]>({
     queryKey: ['admin', 'users'],
@@ -988,6 +1080,9 @@ function UsersTab({ currentUserId, requestConfirm }: { currentUserId: string; re
     if (statusFilter === 'deactivated' && u.deletedAt === null) return false;
     return true;
   });
+
+  const pageCount = Math.max(1, Math.ceil(filteredUsers.length / USERS_PAGE_SIZE));
+  const pagedUsers = filteredUsers.slice((page - 1) * USERS_PAGE_SIZE, page * USERS_PAGE_SIZE);
 
   async function doAction(userId: string, action: 'set-admin' | 'set-user' | 'deactivate' | 'reactivate') {
     setActionLoading(userId + ':' + action);
@@ -1006,6 +1101,7 @@ function UsersTab({ currentUserId, requestConfirm }: { currentUserId: string; re
           toast.success('계정이 복구되었습니다.');
         }
         queryClient.invalidateQueries({ queryKey: ['admin', 'users'] });
+        setSelectedIds(new Set());
       } else {
         const data = await res.json() as { error?: string };
         toast.error(data.error ?? '처리에 실패했습니다.');
@@ -1015,131 +1111,157 @@ function UsersTab({ currentUserId, requestConfirm }: { currentUserId: string; re
     }
   }
 
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  }
+  function toggleAll() {
+    const pageIds = pagedUsers.filter((u) => u.id !== currentUserId).map((u) => u.id);
+    const allSel = pageIds.every((id) => selectedIds.has(id));
+    setSelectedIds(allSel ? new Set() : new Set(pageIds));
+  }
+  async function handleBulk(action: 'deactivate' | 'reactivate') {
+    if (selectedIds.size === 0 || bulkPending) return;
+    const label = action === 'deactivate' ? '탈퇴 처리' : '복구';
+    requestConfirm(`선택된 ${selectedIds.size}명을 ${label}하시겠습니까?`, async () => {
+      setBulkPending(true);
+      try {
+        await fetch('/api/admin/users/bulk', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids: [...selectedIds], action }) });
+        queryClient.invalidateQueries({ queryKey: ['admin', 'users'] });
+        setSelectedIds(new Set());
+        toast.success(`${label} 완료`);
+      } finally { setBulkPending(false); }
+    });
+  }
+
+  const pageSelectableIds = pagedUsers.filter((u) => u.id !== currentUserId).map((u) => u.id);
+  const allPageSelected = pageSelectableIds.length > 0 && pageSelectableIds.every((id) => selectedIds.has(id));
+
   return (
     <div>
       <div className="flex flex-wrap gap-2 mb-4">
-        <input
-          type="text"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
+        <input type="text" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); setSelectedIds(new Set()); }}
           placeholder="닉네임 또는 이메일 검색..."
           className="flex-1 min-w-40 bg-[#1a1a1a] border border-neutral-700 rounded-md px-3 py-1.5 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-neutral-500"
         />
         <div className="flex gap-1.5">
           {(['all', 'ADMIN', 'USER'] as const).map((r) => (
-            <button
-              key={r}
-              onClick={() => setRoleFilter(r)}
-              className={`rounded px-3 py-1.5 text-xs transition-colors ${
-                roleFilter === r
-                  ? 'border border-neutral-500 text-white'
-                  : 'border border-neutral-800 text-neutral-500 hover:text-neutral-300'
-              }`}
-            >
+            <button key={r} onClick={() => { setRoleFilter(r); setPage(1); setSelectedIds(new Set()); }}
+              className={`rounded px-3 py-1.5 text-xs transition-colors ${roleFilter === r ? 'border border-neutral-500 text-white' : 'border border-neutral-800 text-neutral-500 hover:text-neutral-300'}`}>
               {r === 'all' ? '전체 역할' : r}
             </button>
           ))}
         </div>
         <div className="flex gap-1.5">
           {([['all', '전체'], ['active', '활성'], ['deactivated', '탈퇴']] as const).map(([v, l]) => (
-            <button
-              key={v}
-              onClick={() => setUserStatusFilter(v)}
-              className={`rounded px-3 py-1.5 text-xs transition-colors ${
-                statusFilter === v
-                  ? 'border border-neutral-500 text-white'
-                  : 'border border-neutral-800 text-neutral-500 hover:text-neutral-300'
-              }`}
-            >
+            <button key={v} onClick={() => { setUserStatusFilter(v); setPage(1); setSelectedIds(new Set()); }}
+              className={`rounded px-3 py-1.5 text-xs transition-colors ${statusFilter === v ? 'border border-neutral-500 text-white' : 'border border-neutral-800 text-neutral-500 hover:text-neutral-300'}`}>
               {l}
             </button>
           ))}
         </div>
       </div>
-      {filteredUsers.length === 0 && (
+
+      {selectedIds.size > 0 && (
+        <div className="flex items-center gap-3 bg-neutral-900 border border-neutral-700 rounded-lg px-4 py-2.5 mb-3">
+          <span className="text-xs text-neutral-300">{selectedIds.size}명 선택됨</span>
+          <button onClick={() => handleBulk('deactivate')} disabled={bulkPending}
+            className="rounded-md bg-red-500/10 border border-red-500/30 text-red-400 text-xs px-3 py-1.5 hover:bg-red-500/20 transition-colors disabled:opacity-40">
+            일괄 탈퇴처리
+          </button>
+          <button onClick={() => handleBulk('reactivate')} disabled={bulkPending}
+            className="rounded-md bg-green-500/10 border border-green-500/30 text-green-400 text-xs px-3 py-1.5 hover:bg-green-500/20 transition-colors disabled:opacity-40">
+            일괄 복구
+          </button>
+          <button onClick={() => setSelectedIds(new Set())} className="ml-auto text-xs text-neutral-600 hover:text-neutral-400 transition-colors">선택 해제</button>
+        </div>
+      )}
+
+      {filteredUsers.length === 0 ? (
         <p className="text-neutral-500 text-sm text-center py-8">
           {users.length === 0 ? '유저가 없습니다.' : '검색 결과가 없습니다.'}
         </p>
-      )}
-    <div className="space-y-3">
-      {filteredUsers.map((u) => {
-        const isDeactivated = u.deletedAt !== null;
-        const isSelf = u.id === currentUserId;
-        return (
-          <div
-            key={u.id}
-            className={`bg-[#111111] border rounded-lg p-4 ${isDeactivated ? 'border-neutral-800/50 opacity-60' : 'border-neutral-800'}`}
-          >
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <span className={`text-sm font-medium ${isDeactivated ? 'text-neutral-500' : 'text-white'}`}>
-                    {u.nickname ?? '(닉네임 미설정)'}
-                  </span>
-                  {u.role === 'ADMIN' && (
-                    <span className="text-xs text-amber-400 border border-amber-400/30 rounded px-1.5 py-0.5">
-                      ADMIN
-                    </span>
-                  )}
-                  {isDeactivated && (
-                    <span className="text-xs text-neutral-500 border border-neutral-700 rounded px-1.5 py-0.5">
-                      탈퇴
-                    </span>
-                  )}
-                  {isSelf && (
-                    <span className="text-xs text-neutral-600 border border-neutral-800 rounded px-1.5 py-0.5">
-                      나
-                    </span>
-                  )}
-                </div>
-                <p className="text-xs text-neutral-500">
-                  {u.email} · 퀴즈 {u._count.quizSessions}회 · 가입{' '}
-                  {new Date(u.createdAt).toLocaleDateString('ko-KR')}
-                </p>
-              </div>
-              <div className="flex gap-2 flex-shrink-0 flex-wrap justify-end">
-                {!isDeactivated && (
-                  <button
-                    onClick={() => {
-                      const isAdmin = u.role === 'ADMIN';
-                      requestConfirm(
-                        isAdmin ? `'${u.nickname ?? u.email}'을 일반 사용자로 변경하시겠습니까?` : `'${u.nickname ?? u.email}'을 관리자로 변경하시겠습니까?`,
-                        () => doAction(u.id, isAdmin ? 'set-user' : 'set-admin'),
-                      );
-                    }}
-                    disabled={!!actionLoading || isSelf}
-                    className={`rounded-md text-xs px-3 py-1.5 transition-colors disabled:opacity-40 ${
-                      u.role === 'ADMIN'
-                        ? 'bg-[#1a1a1a] border border-neutral-700 text-neutral-400 hover:text-white'
-                        : 'bg-amber-500/10 border border-amber-500/30 text-amber-400 hover:bg-amber-500/20'
-                    }`}
-                  >
-                    {u.role === 'ADMIN' ? '일반으로' : '관리자로'}
-                  </button>
-                )}
-                {isDeactivated ? (
-                  <button
-                    onClick={() => requestConfirm(`'${u.nickname ?? u.email}' 계정을 복구하시겠습니까?`, () => doAction(u.id, 'reactivate'))}
-                    disabled={!!actionLoading}
-                    className="rounded-md bg-green-500/10 border border-green-500/30 text-green-400 text-xs px-3 py-1.5 hover:bg-green-500/20 transition-colors disabled:opacity-40"
-                  >
-                    복구
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => requestConfirm(`'${u.nickname ?? u.email}'을 탈퇴 처리하시겠습니까?`, () => doAction(u.id, 'deactivate'))}
-                    disabled={!!actionLoading || isSelf}
-                    className="rounded-md bg-red-500/10 border border-red-500/30 text-red-400 text-xs px-3 py-1.5 hover:bg-red-500/20 transition-colors disabled:opacity-40"
-                  >
-                    탈퇴처리
-                  </button>
-                )}
-              </div>
-            </div>
+      ) : (
+        <>
+          <div className="flex items-center gap-2 px-1 mb-2">
+            <input type="checkbox" checked={allPageSelected} onChange={toggleAll} className="w-3.5 h-3.5 rounded accent-white cursor-pointer" />
+            <span className="text-xs text-neutral-600">현재 페이지 전체 선택</span>
+            <span className="ml-auto text-xs text-neutral-600">{filteredUsers.length}명</span>
           </div>
-        );
-      })}
-    </div>
+          <div className="space-y-3">
+            {pagedUsers.map((u) => {
+              const isDeactivated = u.deletedAt !== null;
+              const isSelf = u.id === currentUserId;
+              return (
+                <div key={u.id}
+                  className={`bg-[#111111] border rounded-lg p-4 ${isDeactivated ? 'border-neutral-800/50 opacity-60' : 'border-neutral-800'}`}>
+                  <div className="flex items-center gap-3">
+                    <input type="checkbox" checked={selectedIds.has(u.id)} onChange={() => toggleSelect(u.id)} disabled={isSelf}
+                      className="w-3.5 h-3.5 rounded accent-white cursor-pointer flex-shrink-0 disabled:opacity-30" />
+                    <div className="flex items-center justify-between gap-4 flex-1">
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className={`text-sm font-medium ${isDeactivated ? 'text-neutral-500' : 'text-white'}`}>
+                            {u.nickname ?? '(닉네임 미설정)'}
+                          </span>
+                          {u.role === 'ADMIN' && <span className="text-xs text-amber-400 border border-amber-400/30 rounded px-1.5 py-0.5">ADMIN</span>}
+                          {isDeactivated && <span className="text-xs text-neutral-500 border border-neutral-700 rounded px-1.5 py-0.5">탈퇴</span>}
+                          {isSelf && <span className="text-xs text-neutral-600 border border-neutral-800 rounded px-1.5 py-0.5">나</span>}
+                        </div>
+                        <p className="text-xs text-neutral-500">
+                          {u.email} · 퀴즈 {u._count.quizSessions}회 · 가입{' '}
+                          {new Date(u.createdAt).toLocaleDateString('ko-KR')}
+                        </p>
+                      </div>
+                      <div className="flex gap-2 flex-shrink-0 flex-wrap justify-end">
+                        {!isDeactivated && (
+                          <button
+                            onClick={() => {
+                              const isAdmin = u.role === 'ADMIN';
+                              requestConfirm(
+                                isAdmin ? `'${u.nickname ?? u.email}'을 일반 사용자로 변경하시겠습니까?` : `'${u.nickname ?? u.email}'을 관리자로 변경하시겠습니까?`,
+                                () => doAction(u.id, isAdmin ? 'set-user' : 'set-admin'),
+                              );
+                            }}
+                            disabled={!!actionLoading || isSelf}
+                            className={`rounded-md text-xs px-3 py-1.5 transition-colors disabled:opacity-40 ${u.role === 'ADMIN' ? 'bg-[#1a1a1a] border border-neutral-700 text-neutral-400 hover:text-white' : 'bg-amber-500/10 border border-amber-500/30 text-amber-400 hover:bg-amber-500/20'}`}>
+                            {u.role === 'ADMIN' ? '일반으로' : '관리자로'}
+                          </button>
+                        )}
+                        {isDeactivated ? (
+                          <button onClick={() => requestConfirm(`'${u.nickname ?? u.email}' 계정을 복구하시겠습니까?`, () => doAction(u.id, 'reactivate'))}
+                            disabled={!!actionLoading}
+                            className="rounded-md bg-green-500/10 border border-green-500/30 text-green-400 text-xs px-3 py-1.5 hover:bg-green-500/20 transition-colors disabled:opacity-40">
+                            복구
+                          </button>
+                        ) : (
+                          <button onClick={() => requestConfirm(`'${u.nickname ?? u.email}'을 탈퇴 처리하시겠습니까?`, () => doAction(u.id, 'deactivate'))}
+                            disabled={!!actionLoading || isSelf}
+                            className="rounded-md bg-red-500/10 border border-red-500/30 text-red-400 text-xs px-3 py-1.5 hover:bg-red-500/20 transition-colors disabled:opacity-40">
+                            탈퇴처리
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          {pageCount > 1 && (
+            <div className="flex gap-2 mt-4 justify-center items-center">
+              <button onClick={() => { setPage((p) => Math.max(1, p - 1)); setSelectedIds(new Set()); }} disabled={page === 1}
+                className="rounded-md border border-neutral-800 text-neutral-400 text-xs px-3 py-1.5 hover:text-white disabled:opacity-30 transition-colors">
+                이전
+              </button>
+              <span className="text-xs text-neutral-500">{page} / {pageCount}</span>
+              <button onClick={() => { setPage((p) => Math.min(pageCount, p + 1)); setSelectedIds(new Set()); }} disabled={page >= pageCount}
+                className="rounded-md border border-neutral-800 text-neutral-400 text-xs px-3 py-1.5 hover:text-white disabled:opacity-30 transition-colors">
+                다음
+              </button>
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }
@@ -1160,6 +1282,8 @@ interface AdminInquiry {
   user: { id: string; nickname: string | null; email: string };
 }
 
+const INQUIRIES_PAGE_SIZE = 10;
+
 function InquiriesTab({ prevSeenAt }: { prevSeenAt: string | null }) {
   const queryClient = useQueryClient();
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -1169,6 +1293,9 @@ function InquiriesTab({ prevSeenAt }: { prevSeenAt: string | null }) {
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [typeFilter, setTypeFilter] = useState<string>('');
   const [sortOrder, setSortInquiryOrder] = useState<'newest' | 'oldest'>('newest');
+  const [page, setPage] = useState(1);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkPending, setBulkPending] = useState(false);
 
   const { data: inquiries = [], isLoading } = useQuery<AdminInquiry[]>({
     queryKey: ['admin', 'inquiries'],
@@ -1181,6 +1308,9 @@ function InquiriesTab({ prevSeenAt }: { prevSeenAt: string | null }) {
       const diff = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
       return sortOrder === 'newest' ? -diff : diff;
     });
+
+  const pageCount = Math.max(1, Math.ceil(filtered.length / INQUIRIES_PAGE_SIZE));
+  const paged = filtered.slice((page - 1) * INQUIRIES_PAGE_SIZE, page * INQUIRIES_PAGE_SIZE);
 
   async function handleSave(inq: AdminInquiry) {
     setSaving(inq.id);
@@ -1206,125 +1336,162 @@ function InquiriesTab({ prevSeenAt }: { prevSeenAt: string | null }) {
     }
   }
 
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  }
+  function toggleAll() {
+    const pageIds = paged.map((i) => i.id);
+    const allSel = pageIds.every((id) => selectedIds.has(id));
+    setSelectedIds(allSel ? new Set() : new Set(pageIds));
+  }
+  async function handleBulkStatus(status: 'IN_PROGRESS' | 'RESOLVED') {
+    if (selectedIds.size === 0 || bulkPending) return;
+    setBulkPending(true);
+    try {
+      await fetch('/api/admin/inquiries/bulk', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids: [...selectedIds], status }) });
+      queryClient.invalidateQueries({ queryKey: ['admin', 'inquiries'] });
+      queryClient.invalidateQueries({ queryKey: ['admin', 'badge'] });
+      setSelectedIds(new Set());
+      toast.success('일괄 상태 변경 완료');
+    } finally { setBulkPending(false); }
+  }
+
+  const allPageSelected = paged.length > 0 && paged.every((i) => selectedIds.has(i.id));
+
   if (isLoading) return <p className="text-neutral-500 text-sm text-center py-8">로딩 중...</p>;
 
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-3 flex-wrap">
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          className="bg-[#1a1a1a] border border-neutral-700 rounded-md px-3 py-1.5 text-sm text-white focus:outline-none focus:border-neutral-500"
-        >
+        <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); setSelectedIds(new Set()); }}
+          className="bg-[#1a1a1a] border border-neutral-700 rounded-md px-3 py-1.5 text-sm text-white focus:outline-none focus:border-neutral-500">
           <option value="">전체 상태</option>
           <option value="PENDING">대기 중</option>
           <option value="IN_PROGRESS">처리 중</option>
           <option value="RESOLVED">해결 완료</option>
         </select>
-        <select
-          value={typeFilter}
-          onChange={(e) => setTypeFilter(e.target.value)}
-          className="bg-[#1a1a1a] border border-neutral-700 rounded-md px-3 py-1.5 text-sm text-white focus:outline-none focus:border-neutral-500"
-        >
+        <select value={typeFilter} onChange={(e) => { setTypeFilter(e.target.value); setPage(1); setSelectedIds(new Set()); }}
+          className="bg-[#1a1a1a] border border-neutral-700 rounded-md px-3 py-1.5 text-sm text-white focus:outline-none focus:border-neutral-500">
           <option value="">전체 유형</option>
           {Object.entries(INQUIRY_TYPE_LABEL).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
         </select>
-        <select
-          value={sortOrder}
-          onChange={(e) => setSortInquiryOrder(e.target.value as 'newest' | 'oldest')}
-          className="bg-[#1a1a1a] border border-neutral-700 rounded-md px-3 py-1.5 text-sm text-white focus:outline-none focus:border-neutral-500"
-        >
+        <select value={sortOrder} onChange={(e) => { setSortInquiryOrder(e.target.value as 'newest' | 'oldest'); setPage(1); setSelectedIds(new Set()); }}
+          className="bg-[#1a1a1a] border border-neutral-700 rounded-md px-3 py-1.5 text-sm text-white focus:outline-none focus:border-neutral-500">
           <option value="newest">최신순</option>
           <option value="oldest">오래된순</option>
         </select>
         <span className="text-xs text-neutral-500">{filtered.length}건</span>
       </div>
+
+      {selectedIds.size > 0 && (
+        <div className="flex items-center gap-3 bg-neutral-900 border border-neutral-700 rounded-lg px-4 py-2.5">
+          <span className="text-xs text-neutral-300">{selectedIds.size}개 선택됨</span>
+          <button onClick={() => handleBulkStatus('IN_PROGRESS')} disabled={bulkPending}
+            className="rounded-md bg-blue-500/10 border border-blue-500/30 text-blue-400 text-xs px-3 py-1.5 hover:bg-blue-500/20 transition-colors disabled:opacity-40">
+            일괄 처리 중
+          </button>
+          <button onClick={() => handleBulkStatus('RESOLVED')} disabled={bulkPending}
+            className="rounded-md bg-green-500/10 border border-green-500/30 text-green-400 text-xs px-3 py-1.5 hover:bg-green-500/20 transition-colors disabled:opacity-40">
+            일괄 해결 완료
+          </button>
+          <button onClick={() => setSelectedIds(new Set())} className="ml-auto text-xs text-neutral-600 hover:text-neutral-400 transition-colors">선택 해제</button>
+        </div>
+      )}
+
       {filtered.length === 0 ? (
         <p className="text-neutral-500 text-sm text-center py-8">접수된 문의가 없습니다.</p>
-      ) : null}
-      {filtered.map((inq) => {
-        const expanded = expandedId === inq.id;
-        const sc = INQUIRY_STATUS_CONFIG[inq.status] ?? { label: inq.status, cls: 'text-neutral-400 border-neutral-700' };
-        const currentReply = replyDraft[inq.id] ?? inq.adminReply ?? '';
-        const currentStatus = statusDraft[inq.id] ?? inq.status;
+      ) : (
+        <>
+          <div className="flex items-center gap-2 px-1">
+            <input type="checkbox" checked={allPageSelected} onChange={toggleAll} className="w-3.5 h-3.5 rounded accent-white cursor-pointer" />
+            <span className="text-xs text-neutral-600">현재 페이지 전체 선택</span>
+          </div>
+          {paged.map((inq) => {
+            const expanded = expandedId === inq.id;
+            const sc = INQUIRY_STATUS_CONFIG[inq.status] ?? { label: inq.status, cls: 'text-neutral-400 border-neutral-700' };
+            const currentReply = replyDraft[inq.id] ?? inq.adminReply ?? '';
+            const currentStatus = statusDraft[inq.id] ?? inq.status;
 
-        return (
-          <div key={inq.id} className="bg-[#111111] border border-neutral-800 rounded-xl overflow-hidden">
-            <button
-              onClick={() => setExpandedId(expanded ? null : inq.id)}
-              className="w-full text-left px-5 py-4 hover:bg-[#1a1a1a] transition-colors"
-            >
-              <div className="flex items-center gap-2 mb-2">
-                <span className="text-xs text-neutral-500 border border-neutral-800 rounded-full px-2 py-0.5">
-                  {INQUIRY_TYPE_LABEL[inq.type] ?? inq.type}
-                </span>
-                <span className={`text-xs border rounded-full px-2 py-0.5 ${sc.cls}`}>{sc.label}</span>
-                {inq.adminReply && (
-                  <span className="text-xs text-emerald-400 border border-emerald-500/30 rounded-full px-2 py-0.5">답변 완료</span>
-                )}
-              </div>
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <p className="text-sm font-medium text-white">{inq.title}</p>
-                    {prevSeenAt && new Date(inq.createdAt) > new Date(prevSeenAt) && inq.status === 'PENDING' && (
-                      <span className="text-[10px] font-bold text-amber-400 border border-amber-500/40 rounded px-1.5 py-0.5">NEW</span>
-                    )}
-                  </div>
-                  <p className="text-xs text-neutral-500 mt-0.5">
-                    {inq.user.nickname ?? inq.user.email} · {new Date(inq.createdAt).toLocaleDateString('ko-KR')}
-                  </p>
-                </div>
-                <svg
-                  width={14} height={14} viewBox="0 0 24 24" fill="none"
-                  stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"
-                  className={`flex-shrink-0 text-neutral-600 transition-transform ${expanded ? 'rotate-180' : ''}`}
-                >
-                  <path d="M19 9l-7 7-7-7" />
-                </svg>
-              </div>
-            </button>
-
-            {expanded && (
-              <div className="border-t border-neutral-800 px-5 py-5 space-y-5">
-                <div>
-                  <p className="text-xs text-neutral-500 mb-1.5">문의 내용</p>
-                  <p className="text-sm text-neutral-300 leading-relaxed whitespace-pre-wrap">{inq.content}</p>
-                </div>
-
-                <div className="border-t border-neutral-800 pt-4 space-y-3">
-                  <div className="flex items-center gap-3">
-                    <p className="text-xs text-neutral-400 font-medium">답변 및 상태</p>
-                    <select
-                      value={currentStatus}
-                      onChange={(e) => setStatusDraft((d) => ({ ...d, [inq.id]: e.target.value }))}
-                      className="bg-[#1a1a1a] border border-neutral-700 rounded-md px-2 py-1 text-xs text-neutral-300 focus:outline-none focus:border-neutral-500"
-                    >
-                      <option value="PENDING">대기 중</option>
-                      <option value="IN_PROGRESS">처리 중</option>
-                      <option value="RESOLVED">해결 완료</option>
-                    </select>
-                  </div>
-                  <textarea
-                    value={currentReply}
-                    onChange={(e) => setReplyDraft((d) => ({ ...d, [inq.id]: e.target.value }))}
-                    rows={4}
-                    placeholder="답변을 입력하세요..."
-                    className="w-full bg-[#1a1a1a] border border-neutral-700 rounded-lg px-3 py-2.5 text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-neutral-500 resize-none"
-                  />
-                  <button
-                    onClick={() => handleSave(inq)}
-                    disabled={saving === inq.id}
-                    className="rounded-md bg-white text-black text-xs font-semibold px-4 py-2 hover:bg-neutral-200 disabled:opacity-40 transition-colors"
-                  >
-                    {saving === inq.id ? '저장 중...' : '저장'}
+            return (
+              <div key={inq.id} className="bg-[#111111] border border-neutral-800 rounded-xl overflow-hidden">
+                <div className="flex items-start gap-3 px-4 pt-3">
+                  <input type="checkbox" checked={selectedIds.has(inq.id)} onChange={() => toggleSelect(inq.id)}
+                    className="w-3.5 h-3.5 rounded accent-white cursor-pointer mt-1.5 flex-shrink-0" />
+                  <button onClick={() => setExpandedId(expanded ? null : inq.id)}
+                    className="flex-1 text-left pb-3 hover:text-white transition-colors">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-xs text-neutral-500 border border-neutral-800 rounded-full px-2 py-0.5">
+                        {INQUIRY_TYPE_LABEL[inq.type] ?? inq.type}
+                      </span>
+                      <span className={`text-xs border rounded-full px-2 py-0.5 ${sc.cls}`}>{sc.label}</span>
+                      {inq.adminReply && (
+                        <span className="text-xs text-emerald-400 border border-emerald-500/30 rounded-full px-2 py-0.5">답변 완료</span>
+                      )}
+                    </div>
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-medium text-white">{inq.title}</p>
+                          {prevSeenAt && new Date(inq.createdAt) > new Date(prevSeenAt) && inq.status === 'PENDING' && (
+                            <span className="text-[10px] font-bold text-amber-400 border border-amber-500/40 rounded px-1.5 py-0.5">NEW</span>
+                          )}
+                        </div>
+                        <p className="text-xs text-neutral-500 mt-0.5">
+                          {inq.user.nickname ?? inq.user.email} · {new Date(inq.createdAt).toLocaleDateString('ko-KR')}
+                        </p>
+                      </div>
+                      <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"
+                        className={`flex-shrink-0 text-neutral-600 transition-transform ${expanded ? 'rotate-180' : ''}`}>
+                        <path d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </div>
                   </button>
                 </div>
+
+                {expanded && (
+                  <div className="border-t border-neutral-800 px-5 py-5 space-y-5">
+                    <div>
+                      <p className="text-xs text-neutral-500 mb-1.5">문의 내용</p>
+                      <p className="text-sm text-neutral-300 leading-relaxed whitespace-pre-wrap">{inq.content}</p>
+                    </div>
+                    <div className="border-t border-neutral-800 pt-4 space-y-3">
+                      <div className="flex items-center gap-3">
+                        <p className="text-xs text-neutral-400 font-medium">답변 및 상태</p>
+                        <select value={currentStatus} onChange={(e) => setStatusDraft((d) => ({ ...d, [inq.id]: e.target.value }))}
+                          className="bg-[#1a1a1a] border border-neutral-700 rounded-md px-2 py-1 text-xs text-neutral-300 focus:outline-none focus:border-neutral-500">
+                          <option value="PENDING">대기 중</option>
+                          <option value="IN_PROGRESS">처리 중</option>
+                          <option value="RESOLVED">해결 완료</option>
+                        </select>
+                      </div>
+                      <textarea value={currentReply} onChange={(e) => setReplyDraft((d) => ({ ...d, [inq.id]: e.target.value }))}
+                        rows={4} placeholder="답변을 입력하세요..."
+                        className="w-full bg-[#1a1a1a] border border-neutral-700 rounded-lg px-3 py-2.5 text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-neutral-500 resize-none" />
+                      <button onClick={() => handleSave(inq)} disabled={saving === inq.id}
+                        className="rounded-md bg-white text-black text-xs font-semibold px-4 py-2 hover:bg-neutral-200 disabled:opacity-40 transition-colors">
+                        {saving === inq.id ? '저장 중...' : '저장'}
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-        );
-      })}
+            );
+          })}
+          {pageCount > 1 && (
+            <div className="flex gap-2 mt-4 justify-center items-center">
+              <button onClick={() => { setPage((p) => Math.max(1, p - 1)); setExpandedId(null); setSelectedIds(new Set()); }} disabled={page === 1}
+                className="rounded-md border border-neutral-800 text-neutral-400 text-xs px-3 py-1.5 hover:text-white disabled:opacity-30 transition-colors">
+                이전
+              </button>
+              <span className="text-xs text-neutral-500">{page} / {pageCount}</span>
+              <button onClick={() => { setPage((p) => Math.min(pageCount, p + 1)); setExpandedId(null); setSelectedIds(new Set()); }} disabled={page >= pageCount}
+                className="rounded-md border border-neutral-800 text-neutral-400 text-xs px-3 py-1.5 hover:text-white disabled:opacity-30 transition-colors">
+                다음
+              </button>
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }

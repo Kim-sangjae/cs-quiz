@@ -24,11 +24,13 @@ export const metadata: Metadata = {
     siteName: 'CS Quiz',
     locale: 'ko_KR',
     type: 'website',
+    images: [{ url: '/og-image-dark.png', width: 1200, height: 630, alt: 'CS Quiz' }],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'CS Quiz',
     description: 'CS 기초 지식을 30문제로 점검하세요',
+    images: ['/og-image-dark.png'],
   },
   appleWebApp: {
     capable: true,

@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import type { Question } from '@/types';
 import ReportModal from '@/components/board/ReportModal';
 
@@ -8,6 +9,7 @@ interface ResultCardProps {
   question: Question;
   userSelected: 0 | 1 | 2 | 3;
   questionId?: string;
+  initialBookmarked?: boolean;
 }
 
 const LABELS = ['A', 'B', 'C', 'D'] as const;
@@ -17,7 +19,25 @@ export default function ResultCard({
   question,
   userSelected,
   questionId,
+  initialBookmarked = false,
 }: ResultCardProps) {
+  const [bookmarked, setBookmarked] = useState(initialBookmarked);
+  const [bookmarkPending, setBookmarkPending] = useState(false);
+
+  async function toggleBookmark() {
+    if (!questionId || bookmarkPending) return;
+    setBookmarkPending(true);
+    try {
+      const res = await fetch(`/api/questions/${questionId}/like`, { method: 'POST' });
+      if (res.ok) {
+        const data = await res.json() as { liked: boolean };
+        setBookmarked(data.liked);
+      }
+    } finally {
+      setBookmarkPending(false);
+    }
+  }
+
   return (
     <div className="bg-[#111111] border border-neutral-800 rounded-lg p-6">
       <div className="flex items-center gap-3 mb-4">
@@ -27,6 +47,23 @@ export default function ResultCard({
         <span className="text-sm text-neutral-500">Q.{questionNumber}</span>
         {question.authorNickname && (
           <span className="text-[10px] text-neutral-700">등록: {question.authorNickname}</span>
+        )}
+        {questionId && (
+          <button
+            onClick={toggleBookmark}
+            disabled={bookmarkPending}
+            title={bookmarked ? '북마크 해제' : '북마크'}
+            className={`ml-auto flex items-center gap-1 text-xs px-2.5 py-1 rounded-md border transition-colors disabled:opacity-50 ${
+              bookmarked
+                ? 'border-yellow-500/50 bg-yellow-500/10 text-yellow-400'
+                : 'border-neutral-800 text-neutral-500 hover:border-neutral-600 hover:text-neutral-300'
+            }`}
+          >
+            <svg width={13} height={13} viewBox="0 0 24 24" fill={bookmarked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0z" />
+            </svg>
+            {bookmarked ? '북마크됨' : '북마크'}
+          </button>
         )}
       </div>
 

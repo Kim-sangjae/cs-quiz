@@ -27,6 +27,7 @@ export default function QuizPlayClient({ questions, category, isReview }: Props)
   const quizUrlRef = useRef('');
 
   const [autoAdvance, setAutoAdvance] = useState(true);
+  const [bookmarks, setBookmarks] = useState<Record<string, boolean>>({});
   const isDirty = answers.length > 0 && !isSubmitting;
 
   // 키보드 단축키
@@ -185,6 +186,22 @@ export default function QuizPlayClient({ questions, category, isReview }: Props)
     }
   }
 
+  async function toggleBookmark(questionId: string): Promise<void> {
+    const prev = bookmarks[questionId] ?? false;
+    setBookmarks((b) => ({ ...b, [questionId]: !prev }));
+    try {
+      const res = await fetch(`/api/questions/${questionId}/like`, { method: 'POST' });
+      if (res.ok) {
+        const data = await res.json() as { liked: boolean };
+        setBookmarks((b) => ({ ...b, [questionId]: data.liked }));
+      } else {
+        setBookmarks((b) => ({ ...b, [questionId]: prev }));
+      }
+    } catch {
+      setBookmarks((b) => ({ ...b, [questionId]: prev }));
+    }
+  }
+
   async function handleSubmit(): Promise<void> {
     setIsSubmitting(true);
     try {
@@ -335,6 +352,23 @@ export default function QuizPlayClient({ questions, category, isReview }: Props)
         questionId={current.id}
         authorNickname={current.authorNickname}
       />
+
+      {/* 북마크 버튼 */}
+      <div className="flex justify-end mt-2 mb-1">
+        <button
+          onClick={() => toggleBookmark(current.id)}
+          className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border transition-colors ${
+            bookmarks[current.id]
+              ? 'border-yellow-500/50 bg-yellow-500/10 text-yellow-400'
+              : 'border-neutral-800 text-neutral-500 hover:border-neutral-600 hover:text-neutral-300'
+          }`}
+        >
+          <svg width={13} height={13} viewBox="0 0 24 24" fill={bookmarks[current.id] ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={1.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0z" />
+          </svg>
+          {bookmarks[current.id] ? '북마크됨' : '북마크'}
+        </button>
+      </div>
 
       {/* 하단 고정 영역 */}
       <div className="sticky bottom-0 bg-[#0a0a0a]/95 backdrop-blur border-t border-neutral-800/60 py-3 mt-4">

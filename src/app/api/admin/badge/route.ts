@@ -18,10 +18,10 @@ export async function GET() {
   const [questions, reports, inquiries, newQuestions, newReports, newInquiries] = await Promise.all([
     prisma.question.count({ where: { status: 'PENDING' } }),
     prisma.report.groupBy({ by: ['questionId'], where: { status: 'PENDING' } }).then((r) => r.length),
-    prisma.inquiry.count({ where: { status: 'PENDING' } }),
+    prisma.inquiry.count({ where: { status: 'PENDING', adminReply: null } }),
     prisma.question.count({ where: { status: 'PENDING', createdAt: { gt: since } } }),
     prisma.report.groupBy({ by: ['questionId'], where: { status: 'PENDING', createdAt: { gt: since } } }).then((r) => r.length),
-    prisma.inquiry.count({ where: { status: 'PENDING', createdAt: { gt: since } } }),
+    prisma.inquiry.count({ where: { status: 'PENDING', adminReply: null, createdAt: { gt: since } } }),
   ]);
 
   return NextResponse.json({

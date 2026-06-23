@@ -23,10 +23,32 @@ function AdminBadge() {
   );
 }
 
+interface BeforeInstallPromptEvent extends Event {
+  prompt(): Promise<void>;
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
+}
+
 export default function Header() {
   const { data: session, status } = useSession();
   const user = session?.user;
   const [menuOpen, setMenuOpen] = useState(false);
+  const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      e.preventDefault();
+      setInstallPrompt(e as BeforeInstallPromptEvent);
+    };
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  async function handleInstall() {
+    if (!installPrompt) return;
+    await installPrompt.prompt();
+    const { outcome } = await installPrompt.userChoice;
+    if (outcome === 'accepted') setInstallPrompt(null);
+  }
 
   useEffect(() => {
     if (status !== 'authenticated') return;
@@ -59,6 +81,18 @@ export default function Header() {
           </nav>
 
           <div className="flex items-center gap-2 flex-shrink-0">
+            {installPrompt && (
+              <button
+                onClick={handleInstall}
+                className="hidden sm:flex items-center gap-1.5 rounded-md border border-neutral-700 text-xs text-neutral-400 px-3 py-1.5 hover:border-neutral-500 hover:text-white transition-colors"
+                title="앱 설치"
+              >
+                <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                </svg>
+                앱 설치
+              </button>
+            )}
             {status === 'loading' ? (
               <div className="w-20 h-7 rounded bg-neutral-800 animate-pulse" />
             ) : user ? (

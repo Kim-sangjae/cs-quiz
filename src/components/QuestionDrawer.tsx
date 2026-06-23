@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import ResultCard from './ResultCard';
 import type { Question } from '@/types';
@@ -51,9 +51,20 @@ export default function QuestionDrawer({
 }: QuestionDrawerProps) {
   const [fetched, setFetched] = useState<FetchedQuestion | null>(null);
   const [loading, setLoading] = useState(false);
+  const [bookmarked, setBookmarked] = useState(false);
+  const [bookmarkPending, setBookmarkPending] = useState(false);
+
+  const fetchBookmark = useCallback((qid: string) => {
+    fetch(`/api/questions/${qid}/like`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((d: { liked: boolean } | null) => { if (d) setBookmarked(d.liked); })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
-    if (!open) { setFetched(null); return; }
+    if (!open) { setFetched(null); setBookmarked(false); return; }
+    const qid = prefetched?.id ?? questionId;
+    if (qid) fetchBookmark(qid);
     if (prefetched || !questionId) return;
     setLoading(true);
     fetch(`/api/questions/${questionId}`)
@@ -61,7 +72,21 @@ export default function QuestionDrawer({
       .then((data) => setFetched(data as FetchedQuestion))
       .catch(() => setFetched(null))
       .finally(() => setLoading(false));
-  }, [open, questionId, prefetched]);
+  }, [open, questionId, prefetched, fetchBookmark]);
+
+  async function toggleBookmark(qid: string) {
+    if (bookmarkPending) return;
+    setBookmarkPending(true);
+    try {
+      const res = await fetch(`/api/questions/${qid}/like`, { method: 'POST' });
+      if (res.ok) {
+        const data = await res.json() as { liked: boolean };
+        setBookmarked(data.liked);
+      }
+    } finally {
+      setBookmarkPending(false);
+    }
+  }
 
   useEffect(() => {
     if (!open) return;
@@ -82,7 +107,6 @@ export default function QuestionDrawer({
 
   const q = prefetched ?? fetched;
   const options = q ? (q.options as string[]) : [];
-  const isUserQuestion = fetched && ['APPROVED', 'PENDING', 'REJECTED'].includes(fetched.status);
   const rejectionReason = fetched?.status === 'REJECTED' ? fetched.rejectionReason : null;
 
   return (
@@ -172,21 +196,34 @@ export default function QuestionDrawer({
                   </div>
                 </div>
               )}
+
+              <div className="flex items-center justify-between pt-2">
+                <button
+                  onClick={() => toggleBookmark(q.id)}
+                  disabled={bookmarkPending}
+                  className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border transition-colors disabled:opacity-50 ${
+                    bookmarked
+                      ? 'border-yellow-500/50 bg-yellow-500/10 text-yellow-400'
+                      : 'border-neutral-800 text-neutral-500 hover:border-neutral-600 hover:text-neutral-300'
+                  }`}
+                >
+                  <svg width={13} height={13} viewBox="0 0 24 24" fill={bookmarked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0z" />
+                  </svg>
+                  {bookmarked ? '북마크됨' : '북마크'}
+                </button>
+                <Link
+                  href={`/board/${q.id}`}
+                  onClick={onClose}
+                  className="text-xs text-neutral-500 hover:text-white transition-colors"
+                >
+                  게시판에서 보기 →
+                </Link>
+              </div>
             </>
           )}
         </div>
 
-        {q && !loading && userSelected === undefined && isUserQuestion && (
-          <div className="flex-shrink-0 px-5 pb-5 pt-3 border-t border-neutral-800">
-            <Link
-              href={`/board/${q.id}`}
-              onClick={onClose}
-              className="text-xs text-neutral-400 hover:text-white transition-colors"
-            >
-              게시판에서 보기 →
-            </Link>
-          </div>
-        )}
       </div>
     </>
   );
