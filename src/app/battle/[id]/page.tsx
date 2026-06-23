@@ -47,8 +47,11 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
   const [wasRejected, setWasRejected] = useState(false);
   const [waitTimedOut, setWaitTimedOut] = useState(false);
   const [waitCountdown, setWaitCountdown] = useState(20);
+  const [isAutoMode, setIsAutoMode] = useState(false);
   const hasAutoSubmittedRef = useRef(false);
   const waitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const autoModeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastQuestionStartedAt = useRef<string | null>(null);
 
   const [bookmarks, setBookmarks] = useState<Record<string, boolean>>({});
 
@@ -70,7 +73,6 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
 
   // 15초 카운트다운
   const [timeLeft, setTimeLeft] = useState(TIMEOUT_SECS);
-  const lastCurrentQ = useRef<number | null>(null);
 
   const { data: room, isLoading, isError } = useQuery<RoomState>({
     queryKey: ['battle', id],
@@ -137,6 +139,25 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
     return () => window.removeEventListener('popstate', handlePopState);
   }, [isPlaying, router]);
 
+  // PLAYING 중 헤더/탭 링크 클릭 이탈방지
+  useEffect(() => {
+    if (!isPlaying) return;
+    function handleNavClick(e: MouseEvent) {
+      const target = e.target as HTMLElement;
+      const anchor = target.closest('a[href]');
+      if (!anchor) return;
+      const href = anchor.getAttribute('href') ?? '';
+      if (!href || href.startsWith('#') || href === window.location.pathname) return;
+      e.preventDefault();
+      e.stopPropagation();
+      if (confirm('대결이 진행 중입니다. 정말 나가시겠습니까?')) {
+        window.location.assign(href);
+      }
+    }
+    document.addEventListener('click', handleNavClick, true);
+    return () => document.removeEventListener('click', handleNavClick, true);
+  }, [isPlaying]);
+
   useEffect(() => {
     if (isError && hadWaiting.current) {
       setWasRejected(true);
@@ -148,18 +169,39 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
     }
   }, [isError, queryClient]);
 
-  // question 변경 시 타이머 + 자동제출 플래그 리셋
+  // questionStartedAt 변경 시 타이머 서버 기준 동기화 + 자동제출 플래그 리셋
   useEffect(() => {
     if (room?.status !== 'PLAYING') return;
-    if (lastCurrentQ.current !== room.currentQ) {
-      lastCurrentQ.current = room.currentQ ?? null;
-      hasAutoSubmittedRef.current = false;
-      setTimeLeft(TIMEOUT_SECS);
-    }
-  }, [room?.currentQ, room?.status]);
+    const qsa = room.questionStartedAt;
+    if (!qsa || qsa === lastQuestionStartedAt.current) return;
+    lastQuestionStartedAt.current = qsa;
+    hasAutoSubmittedRef.current = false;
+    if (autoModeTimerRef.current) clearTimeout(autoModeTimerRef.current);
+    const serverElapsed = Math.floor((Date.now() - new Date(qsa).getTime()) / 1000);
+    setTimeLeft(Math.max(0, TIMEOUT_SECS - serverElapsed));
+  }, [room?.questionStartedAt, room?.status]);
 
   const myAnswered = room?.myRole === 'host' ? room?.hostAnswered : room?.guestAnswered;
   const isAutoSubmitted = myAnswered && room?.mySelected === -1;
+
+  // 자동응답 발생 시 자동모드 진입
+  useEffect(() => {
+    if (isAutoSubmitted) setIsAutoMode(true);
+  }, [isAutoSubmitted]);
+
+  // 자동모드: 새 질문 시작 2초 후 자동제출 (클릭하면 취소 가능)
+  useEffect(() => {
+    if (!isAutoMode || room?.status !== 'PLAYING' || myAnswered) return;
+    const questionId = room.question?.id;
+    if (!questionId) return;
+    autoModeTimerRef.current = setTimeout(() => {
+      if (!hasAutoSubmittedRef.current) {
+        hasAutoSubmittedRef.current = true;
+        submitAnswer.mutate(-1);
+      }
+    }, 2000);
+    return () => { if (autoModeTimerRef.current) clearTimeout(autoModeTimerRef.current); };
+  }, [isAutoMode, room?.question?.id, myAnswered, room?.status]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 카운트다운 (자동응답 상태면 중지)
   useEffect(() => {
@@ -255,6 +297,12 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
   const myAnswers = room.myRole === 'host' ? (room.hostAnswers ?? []) : (room.guestAnswers ?? []);
   const oppAnswers = room.myRole === 'host' ? (room.guestAnswers ?? []) : (room.hostAnswers ?? []);
 
+  const isVoid = room.status === 'FINISHED'
+    && (room.hostAnswers?.length ?? 0) > 0
+    && (room.guestAnswers?.length ?? 0) > 0
+    && room.hostAnswers!.every(a => a === -1)
+    && room.guestAnswers!.every(a => a === -1);
+
   const timerColor =
     timeLeft <= 3 ? 'text-red-400' : timeLeft <= 7 ? 'text-yellow-400' : 'text-emerald-400';
 
@@ -316,7 +364,7 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
               >
                 {joinRoom.isPending ? '수락 중...' : '대전 수락하기'}
               </button>
-              <p className={`text-xs mt-3 tabular-nums ${waitCountdown <= 5 ? 'text-red-400' : 'text-neutral-500'}`}>
+              <p className={`text-sm font-semibold tabular-nums mt-3 ${waitCountdown <= 5 ? 'text-red-400' : 'text-neutral-400'}`}>
                 {waitCountdown}초 후 요청이 취소됩니다
               </p>
             </>
@@ -388,35 +436,53 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
             </div>
           </div>
 
-          {/* 문제 */}
-          <div className="bg-[#111111] border border-neutral-800 rounded-xl p-5">
-            <p className="text-sm text-white leading-relaxed mb-4">{room.question.question}</p>
-            <div className="space-y-2">
-              {(room.question.options as string[]).map((opt, i) => {
-                let cls = 'w-full text-left rounded-md border px-4 py-2.5 text-sm flex items-start gap-3 transition-colors ';
-                if (myAnswered && !isAutoSubmitted) {
-                  cls += i === room.mySelected
-                    ? 'border-neutral-500 bg-neutral-800/50 text-neutral-300 cursor-default'
-                    : 'border-neutral-800 text-neutral-600 opacity-40 cursor-default';
-                } else {
-                  cls += 'border-neutral-800 text-neutral-300 hover:border-neutral-600 hover:text-white cursor-pointer';
-                }
-                return (
-                  <button
-                    key={i}
-                    className={cls}
-                    onClick={() => {
-                      if ((myAnswered && !isAutoSubmitted) || submitAnswer.isPending) return;
-                      submitAnswer.mutate(i);
-                    }}
-                    disabled={(myAnswered && !isAutoSubmitted) || submitAnswer.isPending}
-                  >
-                    <span className="text-xs font-mono opacity-70 flex-shrink-0 mt-0.5">{LABELS[i]}.</span>
-                    <span>{opt}</span>
-                  </button>
-                );
-              })}
+          {/* 문제 (자동모드 시 블러 + 오버레이) */}
+          <div className="relative">
+            <div className={`bg-[#111111] border border-neutral-800 rounded-xl p-5${isAutoMode && !myAnswered ? ' blur-sm pointer-events-none select-none' : ''}`}>
+              <p className="text-sm text-white leading-relaxed mb-4">{room.question.question}</p>
+              <div className="space-y-2">
+                {(room.question.options as string[]).map((opt, i) => {
+                  let cls = 'w-full text-left rounded-md border px-4 py-2.5 text-sm flex items-start gap-3 transition-colors ';
+                  if (myAnswered && !isAutoSubmitted) {
+                    cls += i === room.mySelected
+                      ? 'border-neutral-500 bg-neutral-800/50 text-neutral-300 cursor-default'
+                      : 'border-neutral-800 text-neutral-600 opacity-40 cursor-default';
+                  } else {
+                    cls += 'border-neutral-800 text-neutral-300 hover:border-neutral-600 hover:text-white cursor-pointer';
+                  }
+                  return (
+                    <button
+                      key={i}
+                      className={cls}
+                      onClick={() => {
+                        if ((myAnswered && !isAutoSubmitted) || submitAnswer.isPending) return;
+                        submitAnswer.mutate(i);
+                      }}
+                      disabled={(myAnswered && !isAutoSubmitted) || submitAnswer.isPending}
+                    >
+                      <span className="text-xs font-mono opacity-70 flex-shrink-0 mt-0.5">{LABELS[i]}.</span>
+                      <span>{opt}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
+            {isAutoMode && !myAnswered && (
+              <button
+                type="button"
+                className="absolute inset-0 z-10 flex items-center justify-center rounded-xl w-full"
+                onClick={() => {
+                  setIsAutoMode(false);
+                  if (autoModeTimerRef.current) clearTimeout(autoModeTimerRef.current);
+                  hasAutoSubmittedRef.current = false;
+                }}
+              >
+                <div className="bg-black/75 backdrop-blur-sm px-5 py-4 rounded-xl text-center border border-amber-500/30">
+                  <p className="text-sm font-semibold text-amber-400 mb-1">자동진행 중</p>
+                  <p className="text-xs text-neutral-400">클릭하여 직접 답변하기</p>
+                </div>
+              </button>
+            )}
           </div>
 
           {myAnswered && !isAutoSubmitted && room.question && (
@@ -466,23 +532,33 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
       {room.status === 'FINISHED' && room.questions && (
         <>
           <div className="bg-[#111111] border border-neutral-800 rounded-xl p-6 text-center mb-6">
-            <p className="text-xs text-neutral-500 mb-2">최종 결과</p>
-            <div className="flex items-center justify-center gap-6 mb-3">
-              <div>
-                <p className="text-xs text-neutral-500">나</p>
-                <p className="text-3xl font-bold text-white">{myScore}</p>
-              </div>
-              <p className="text-xl text-neutral-600">vs</p>
-              <div>
-                <p className="text-xs text-neutral-500">{oppNickname}</p>
-                <p className="text-3xl font-bold text-white">{oppScore}</p>
-              </div>
-            </div>
-            <p className={`text-sm font-medium ${
-              myScore > oppScore ? 'text-emerald-400' : myScore < oppScore ? 'text-red-400' : 'text-neutral-400'
-            }`}>
-              {myScore > oppScore ? '승리!' : myScore < oppScore ? '패배' : '무승부'}
-            </p>
+            {isVoid ? (
+              <>
+                <p className="text-xs text-neutral-500 mb-2">대결 결과</p>
+                <p className="text-sm font-semibold text-neutral-400 mb-1">무효 처리</p>
+                <p className="text-xs text-neutral-600">양측 모두 응답하지 않아 전적에 반영되지 않습니다</p>
+              </>
+            ) : (
+              <>
+                <p className="text-xs text-neutral-500 mb-2">최종 결과</p>
+                <div className="flex items-center justify-center gap-6 mb-3">
+                  <div>
+                    <p className="text-xs text-neutral-500">나</p>
+                    <p className="text-3xl font-bold text-white">{myScore}</p>
+                  </div>
+                  <p className="text-xl text-neutral-600">vs</p>
+                  <div>
+                    <p className="text-xs text-neutral-500">{oppNickname}</p>
+                    <p className="text-3xl font-bold text-white">{oppScore}</p>
+                  </div>
+                </div>
+                <p className={`text-sm font-medium ${
+                  myScore > oppScore ? 'text-emerald-400' : myScore < oppScore ? 'text-red-400' : 'text-neutral-400'
+                }`}>
+                  {myScore > oppScore ? '승리!' : myScore < oppScore ? '패배' : '무승부'}
+                </p>
+              </>
+            )}
           </div>
 
           <div className="space-y-3">
