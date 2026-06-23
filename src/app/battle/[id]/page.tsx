@@ -33,6 +33,8 @@ interface RoomState {
   questions?: { question: string; options: string[]; answer: number; explanation: string }[];
   hostAnswers?: number[];
   guestAnswers?: number[];
+  createdAt?: string;
+  questionStartedAt?: string | null;
 }
 
 export default function BattleRoomPage({ params }: { params: Promise<{ id: string }> }) {
@@ -44,6 +46,7 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
   const hadWaiting = useRef(false);
   const [wasRejected, setWasRejected] = useState(false);
   const [waitTimedOut, setWaitTimedOut] = useState(false);
+  const [waitCountdown, setWaitCountdown] = useState(20);
   const hasAutoSubmittedRef = useRef(false);
   const waitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -84,20 +87,32 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
     if (room?.status === 'WAITING' && room.myRole === 'host') hadWaiting.current = true;
   }, [room?.status, room?.myRole]);
 
-  // 20초 대기 타임아웃 (host만)
+  // WAITING 카운트다운 (createdAt 기준, 양쪽 모두)
+  const waitCreatedAt = room?.status === 'WAITING' ? room.createdAt : undefined;
+  useEffect(() => {
+    if (!waitCreatedAt) return;
+    function tick() {
+      const elapsed = Math.floor((Date.now() - new Date(waitCreatedAt!).getTime()) / 1000);
+      setWaitCountdown(Math.max(0, 20 - elapsed));
+    }
+    tick();
+    const tid = setInterval(tick, 1000);
+    return () => clearInterval(tid);
+  }, [waitCreatedAt]);
+
+  // 20초 대기 타임아웃 (host만) — cancel API 호출
   useEffect(() => {
     if (room?.status !== 'WAITING' || room?.myRole !== 'host') return;
     waitTimerRef.current = setTimeout(async () => {
       try {
         const res = await fetch(`/api/battle/rooms/${id}/cancel`, { method: 'POST' });
         if (res.ok) setWaitTimedOut(true);
-        // 404/400: 이미 수락됨 → 무시
       } catch { /* ignore */ }
     }, 20000);
     return () => { if (waitTimerRef.current) clearTimeout(waitTimerRef.current); };
   }, [id, room?.status, room?.myRole]);
 
-  // PLAYING 중 이탈방지 (브라우저 새로고침/닫기)
+  // PLAYING 중 이탈방지 (beforeunload)
   useEffect(() => {
     if (room?.status !== 'PLAYING') return;
     function handleBeforeUnload(e: BeforeUnloadEvent) {
@@ -106,6 +121,21 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [room?.status]);
+
+  // PLAYING 중 브라우저 뒤로가기(popstate) 차단
+  const isPlaying = room?.status === 'PLAYING';
+  useEffect(() => {
+    if (!isPlaying) return;
+    window.history.pushState(null, '', window.location.href);
+    function handlePopState() {
+      window.history.pushState(null, '', window.location.href);
+      if (confirm('대결이 진행 중입니다. 정말 나가시겠습니까?')) {
+        router.back();
+      }
+    }
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [isPlaying, router]);
 
   useEffect(() => {
     if (isError && hadWaiting.current) {
@@ -129,11 +159,12 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
   }, [room?.currentQ, room?.status]);
 
   const myAnswered = room?.myRole === 'host' ? room?.hostAnswered : room?.guestAnswered;
+  const isAutoSubmitted = myAnswered && room?.mySelected === -1;
 
-  // 카운트다운
+  // 카운트다운 (자동응답 상태면 중지)
   useEffect(() => {
     if (room?.status !== 'PLAYING' || myAnswered) return;
-    if (timeLeft <= 0) return; // submitAnswer.mutate(-1) 아래 effect에서 처리
+    if (timeLeft <= 0) return;
     const tid = setTimeout(() => setTimeLeft((t) => t - 1), 1000);
     return () => clearTimeout(tid);
   }, [timeLeft, room?.status, myAnswered]);
@@ -153,7 +184,7 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
     onError: (e: Error) => toast.error(e.message),
   });
 
-  // 시간 초과 자동 제출 (ref로 중복 방지)
+  // 시간 초과 클라이언트 자동제출 (서버사이드 타임아웃 보완)
   useEffect(() => {
     if (room?.status !== 'PLAYING' || myAnswered || timeLeft > 0 || hasAutoSubmittedRef.current) return;
     hasAutoSubmittedRef.current = true;
@@ -264,7 +295,9 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
             ) : (
               <>
                 <p className="text-sm text-neutral-400 mb-2">{oppNickname}님을 기다리는 중...</p>
-                <p className="text-xs text-neutral-600 mb-4">20초 내 응답이 없으면 자동 취소됩니다</p>
+                <p className={`text-sm font-semibold tabular-nums mb-4 ${waitCountdown <= 5 ? 'text-red-400' : 'text-neutral-400'}`}>
+                  {waitCountdown}초 후 자동 취소
+                </p>
                 <div className="flex justify-center gap-1">
                   {[0, 1, 2].map((i) => (
                     <span key={i} className="w-1.5 h-1.5 rounded-full bg-neutral-600 animate-pulse" style={{ animationDelay: `${i * 150}ms` }} />
@@ -275,7 +308,7 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
           ) : (
             <>
               <p className="text-sm text-white mb-1">{room.host.nickname}님의 대전 신청</p>
-              <p className="text-xs text-neutral-500 mb-5">카테고리: {CATEGORY_LABEL[room.category] ?? room.category}</p>
+              <p className="text-xs text-neutral-500 mb-4">카테고리: {CATEGORY_LABEL[room.category] ?? room.category}</p>
               <button
                 onClick={() => joinRoom.mutate()}
                 disabled={joinRoom.isPending}
@@ -283,6 +316,9 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
               >
                 {joinRoom.isPending ? '수락 중...' : '대전 수락하기'}
               </button>
+              <p className={`text-xs mt-3 tabular-nums ${waitCountdown <= 5 ? 'text-red-400' : 'text-neutral-500'}`}>
+                {waitCountdown}초 후 요청이 취소됩니다
+              </p>
             </>
           )}
         </div>
@@ -320,6 +356,14 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
             </div>
           )}
 
+          {/* 자동응답 배너 */}
+          {isAutoSubmitted && (
+            <div className="flex items-center gap-2 mb-3 px-3 py-2 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+              <span className="text-amber-400 text-xs">⚡</span>
+              <p className="text-xs text-amber-400">자동응답됨 — 직접 선택하여 변경할 수 있습니다</p>
+            </div>
+          )}
+
           {/* 점수판 + 타이머 */}
           <div className="flex items-center justify-between mb-5 bg-[#111111] border border-neutral-800 rounded-xl px-5 py-3">
             <div className="text-center">
@@ -330,8 +374,10 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
               <p className="text-xs text-neutral-500 mb-0.5">
                 {room.currentQ! + 1} / {room.totalQ}
               </p>
-              {myAnswered ? (
+              {myAnswered && !isAutoSubmitted ? (
                 <p className="text-xs text-neutral-600">대기 중</p>
+              ) : isAutoSubmitted ? (
+                <p className="text-xs text-amber-500">자동진행 중</p>
               ) : (
                 <p className={`text-lg font-bold tabular-nums ${timerColor}`}>{timeLeft}</p>
               )}
@@ -348,7 +394,7 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
             <div className="space-y-2">
               {(room.question.options as string[]).map((opt, i) => {
                 let cls = 'w-full text-left rounded-md border px-4 py-2.5 text-sm flex items-start gap-3 transition-colors ';
-                if (myAnswered) {
+                if (myAnswered && !isAutoSubmitted) {
                   cls += i === room.mySelected
                     ? 'border-neutral-500 bg-neutral-800/50 text-neutral-300 cursor-default'
                     : 'border-neutral-800 text-neutral-600 opacity-40 cursor-default';
@@ -359,8 +405,11 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
                   <button
                     key={i}
                     className={cls}
-                    onClick={() => !myAnswered && !submitAnswer.isPending && submitAnswer.mutate(i)}
-                    disabled={!!myAnswered || submitAnswer.isPending}
+                    onClick={() => {
+                      if ((myAnswered && !isAutoSubmitted) || submitAnswer.isPending) return;
+                      submitAnswer.mutate(i);
+                    }}
+                    disabled={(myAnswered && !isAutoSubmitted) || submitAnswer.isPending}
                   >
                     <span className="text-xs font-mono opacity-70 flex-shrink-0 mt-0.5">{LABELS[i]}.</span>
                     <span>{opt}</span>
@@ -370,7 +419,7 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
             </div>
           </div>
 
-          {myAnswered && room.question && (
+          {myAnswered && !isAutoSubmitted && room.question && (
             <div className="flex justify-end mt-2">
               <button
                 onClick={() => toggleBookmark(room.question!.id)}
@@ -390,12 +439,14 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
 
           <div className="mt-3 flex items-center justify-between">
             <div className="text-center flex-1">
-              {myAnswered ? (
+              {myAnswered && !isAutoSubmitted ? (
                 <p className="text-xs text-neutral-500">
                   {(room.myRole === 'host' ? room.guestAnswered : room.hostAnswered)
                     ? '다음 문제로 이동 중...'
                     : `${oppNickname}님 답변 대기 중...`}
                 </p>
+              ) : isAutoSubmitted ? (
+                <p className="text-xs text-amber-500/70">자동응답 — 답변을 선택하여 변경 가능</p>
               ) : (
                 <p className="text-xs text-neutral-600">답변을 선택하세요 (제한 시간 {TIMEOUT_SECS}초)</p>
               )}

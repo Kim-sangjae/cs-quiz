@@ -315,9 +315,10 @@ model GameRoom {
   currentQ      Int            @default(0)
   hostScore     Int            @default(0)
   guestScore    Int            @default(0)
-  quitRequestBy String?
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  quitRequestBy     String?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  questionStartedAt DateTime?
 
   host  User  @relation("GameRoomHost",  fields: [hostId],  references: [id])
   guest User? @relation("GameRoomGuest", fields: [guestId], references: [id])

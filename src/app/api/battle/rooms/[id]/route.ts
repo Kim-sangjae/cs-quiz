@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 
+const QUESTION_TIMEOUT_MS = 15 * 1000;
+
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -9,7 +11,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const userId = session.user.id;
   const { id } = await params;
 
-  const room = await prisma.gameRoom.findUnique({
+  let room = await prisma.gameRoom.findUnique({
     where: { id },
     include: {
       host: { select: { id: true, nickname: true } },
@@ -21,6 +23,53 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const isHost = room.hostId === userId;
   const isGuest = room.guestId === userId;
   if (!isHost && !isGuest) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+
+  // 서버사이드 타임아웃 자동제출
+  if (room.status === 'PLAYING' && room.questionStartedAt) {
+    const elapsed = Date.now() - room.questionStartedAt.getTime();
+    if (elapsed >= QUESTION_TIMEOUT_MS) {
+      const hA = room.hostAnswers as number[];
+      const gA = room.guestAnswers as number[];
+      const cQ = room.currentQ;
+      const hostNeeds = hA.length <= cQ;
+      const guestNeeds = gA.length <= cQ;
+
+      if (hostNeeds || guestNeeds) {
+        try {
+          const updated = await prisma.$transaction(async (tx) => {
+            const cur = await tx.gameRoom.findUnique({ where: { id } });
+            if (!cur || cur.status !== 'PLAYING' || !cur.questionStartedAt) return null;
+            if (Date.now() - cur.questionStartedAt.getTime() < QUESTION_TIMEOUT_MS) return null;
+            const chA = cur.hostAnswers as number[];
+            const cgA = cur.guestAnswers as number[];
+            const ccQ = cur.currentQ;
+            if (chA.length > ccQ && cgA.length > ccQ) return null;
+            const newHA = chA.length <= ccQ ? [...chA, -1] : chA;
+            const newGA = cgA.length <= ccQ ? [...cgA, -1] : cgA;
+            const both = newHA.length > ccQ && newGA.length > ccQ;
+            const newCQ = both ? ccQ + 1 : ccQ;
+            const qIds = cur.questionIds as string[];
+            const newStatus = both && newCQ >= qIds.length ? 'FINISHED' : cur.status;
+            return await tx.gameRoom.update({
+              where: { id },
+              data: {
+                hostAnswers: newHA,
+                guestAnswers: newGA,
+                currentQ: newCQ,
+                status: newStatus,
+                questionStartedAt: both && newCQ < qIds.length ? new Date() : cur.questionStartedAt,
+              },
+              include: {
+                host: { select: { id: true, nickname: true } },
+                guest: { select: { id: true, nickname: true } },
+              },
+            });
+          });
+          if (updated) room = updated;
+        } catch { /* 동시 업데이트 무시 */ }
+      }
+    }
+  }
 
   const myRole = isHost ? 'host' : 'guest';
   const questionIds = room.questionIds as string[];
@@ -35,6 +84,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       host: room.host,
       guest: room.guest,
       myRole,
+      createdAt: room.createdAt.toISOString(),
     });
   }
 
@@ -85,5 +135,6 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       ? (hostAnswers.length > currentQ ? hostAnswers[currentQ] : null)
       : (guestAnswers.length > currentQ ? guestAnswers[currentQ] : null),
     quitRequestBy: room.quitRequestBy ?? null,
+    questionStartedAt: room.questionStartedAt?.toISOString() ?? null,
   });
 }

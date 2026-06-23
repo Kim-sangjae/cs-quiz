@@ -16,7 +16,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
 
   await prisma.gameRoom.update({
     where: { id },
-    data: { status: 'PLAYING' },
+    data: { status: 'PLAYING', questionStartedAt: new Date() },
   });
 
   return NextResponse.json({ ok: true });

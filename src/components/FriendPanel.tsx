@@ -305,8 +305,9 @@ export default function FriendPanel() {
   const { data: battleRoomsData } = useQuery<{ rooms: { id: string; status: string }[] }>({
     queryKey: ['battle', 'rooms'],
     queryFn: () => fetch('/api/battle/rooms').then((r) => r.json()),
-    enabled: status === 'authenticated' && open,
-    refetchInterval: open ? 10_000 : false,
+    enabled: status === 'authenticated',
+    staleTime: 0,
+    refetchInterval: 15_000,
   });
 
   const activeRoom = (battleRoomsData?.rooms ?? []).find(
@@ -362,6 +363,7 @@ export default function FriendPanel() {
       toast.success('대전 신청을 보냈습니다');
       setSelectedFriend(null);
       setOpen(false);
+      queryClient.invalidateQueries({ queryKey: ['battle', 'rooms'] });
       if (data.roomId) router.push(`/battle/${data.roomId}`);
     },
     onError: (e: Error) => toast.error(e.message),

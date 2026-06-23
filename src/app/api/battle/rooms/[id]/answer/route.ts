@@ -22,10 +22,14 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const guestAnswers = room.guestAnswers as number[];
   const currentQ = room.currentQ;
 
-  if (isHost && hostAnswers.length > currentQ) {
+  const hostPrevAnswer = hostAnswers.length > currentQ ? hostAnswers[currentQ] : undefined;
+  const guestPrevAnswer = guestAnswers.length > currentQ ? guestAnswers[currentQ] : undefined;
+
+  // 이미 답변했고 자동제출(-1)이 아니면 차단
+  if (isHost && hostPrevAnswer !== undefined && hostPrevAnswer !== -1) {
     return NextResponse.json({ error: '이미 답변했습니다' }, { status: 400 });
   }
-  if (isGuest && guestAnswers.length > currentQ) {
+  if (isGuest && guestPrevAnswer !== undefined && guestPrevAnswer !== -1) {
     return NextResponse.json({ error: '이미 답변했습니다' }, { status: 400 });
   }
 
@@ -38,12 +42,22 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
   const isCorrect = selected >= 0 && selected === q.answer;
 
-  const newHostAnswers = isHost ? [...hostAnswers, selected] : hostAnswers;
-  const newGuestAnswers = isGuest ? [...guestAnswers, selected] : guestAnswers;
+  // 재답변(-1→실제선택) 시 해당 인덱스 교체, 최초 답변 시 push
+  const newHostAnswers = isHost
+    ? hostPrevAnswer === -1
+      ? [...hostAnswers.slice(0, currentQ), selected, ...hostAnswers.slice(currentQ + 1)]
+      : [...hostAnswers, selected]
+    : hostAnswers;
+  const newGuestAnswers = isGuest
+    ? guestPrevAnswer === -1
+      ? [...guestAnswers.slice(0, currentQ), selected, ...guestAnswers.slice(currentQ + 1)]
+      : [...guestAnswers, selected]
+    : guestAnswers;
 
   const bothAnswered = newHostAnswers.length > currentQ && newGuestAnswers.length > currentQ;
+  // 재답변 케이스: 상대가 이미 -1이 아닌 값으로 답변했으면 bothAnswered=true
   const newCurrentQ = bothAnswered ? currentQ + 1 : currentQ;
-  const newStatus = bothAnswered && newCurrentQ >= 7 ? 'FINISHED' : room.status;
+  const newStatus = bothAnswered && newCurrentQ >= questionIds.length ? 'FINISHED' : room.status;
 
   const scoreUpdate = isHost && isCorrect
     ? { hostScore: { increment: 1 } }
@@ -59,6 +73,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       currentQ: newCurrentQ,
       status: newStatus,
       ...scoreUpdate,
+      ...(bothAnswered && newCurrentQ < questionIds.length ? { questionStartedAt: new Date() } : {}),
     },
   });
 
