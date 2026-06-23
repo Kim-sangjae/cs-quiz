@@ -57,12 +57,15 @@ type ApiSession = {
 
 type DailyCompletion = { date: string; correct: boolean };
 
+type CategoryProgress = { total: number; tried: number };
+
 type StatsData = {
   totalSessions: number;
   overallAccuracy: number;
   weakestCategory: string | null;
   streakCount: number;
   dailyCompletions: DailyCompletion[];
+  categoryProgress: Record<string, CategoryProgress>;
 };
 
 type MyQuestion = {
@@ -646,6 +649,46 @@ export default function MyPage() {
           <WeeklyReport sessions={sessions} />
         </div>
       )}
+
+      {/* 학습 진도 */}
+      {stats?.categoryProgress && (() => {
+        const cp = stats.categoryProgress;
+        const totalQ = CATEGORY_ORDER.reduce((s, c) => s + (cp[c]?.total ?? 0), 0);
+        const triedQ = CATEGORY_ORDER.reduce((s, c) => s + (cp[c]?.tried ?? 0), 0);
+        const pct = totalQ > 0 ? Math.round((triedQ / totalQ) * 100) : 0;
+        return (
+          <div className="bg-[#111111] border border-neutral-800 rounded-lg p-4 mb-4">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-xs text-neutral-500">학습 진도</p>
+              <span className="text-xs text-neutral-400">
+                <span className="text-white font-semibold">{triedQ}</span>
+                <span className="text-neutral-600"> / {totalQ}문제 도전 </span>
+                <span className="text-neutral-500">({pct}%)</span>
+              </span>
+            </div>
+            <div className="h-1.5 bg-neutral-800 rounded-full overflow-hidden mb-4">
+              <div className="h-full bg-indigo-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
+            </div>
+            <div className="grid grid-cols-2 gap-x-6 gap-y-2.5">
+              {CATEGORY_ORDER.map((cat) => {
+                const { total, tried } = cp[cat] ?? { total: 0, tried: 0 };
+                const p = total > 0 ? Math.round((tried / total) * 100) : 0;
+                return (
+                  <div key={cat}>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs text-neutral-400">{CATEGORY_LABELS[cat]}</span>
+                      <span className="text-[10px] text-neutral-500">{tried}/{total}</span>
+                    </div>
+                    <div className="h-1 bg-neutral-800 rounded-full overflow-hidden">
+                      <div className="h-full bg-indigo-500/70 rounded-full" style={{ width: `${p}%` }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* 카테고리별 프로필 */}
       <div className="mb-6">

@@ -6,7 +6,9 @@ export async function GET() {
   const user = await getServerUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const [totalSessions, dbUser, attempts, completions] = await Promise.all([
+  const CATS = ['ds', 'algo', 'os', 'network', 'db', 'arch'];
+
+  const [totalSessions, dbUser, attempts, completions, questionTotals, triedByCategory] = await Promise.all([
     prisma.quizSession.count({ where: { userId: user.id } }),
     prisma.user.findUnique({
       where: { id: user.id },
@@ -24,6 +26,18 @@ export async function GET() {
       orderBy: { date: 'desc' },
       take: 90,
     }),
+    prisma.question.groupBy({
+      by: ['category'],
+      where: { status: { in: ['OFFICIAL', 'APPROVED'] } },
+      _count: { _all: true },
+    }),
+    prisma.$queryRaw<{ category: string; tried: bigint }[]>`
+      SELECT q.category, COUNT(DISTINCT qa."questionId") AS tried
+      FROM "QuestionAttempt" qa
+      JOIN "Question" q ON qa."questionId" = q.id
+      WHERE qa."userId" = ${user.id}
+      GROUP BY q.category
+    `,
   ]);
 
   const totalAttempts = attempts.length;
@@ -54,6 +68,16 @@ export async function GET() {
   const categoryAttemptCounts: Record<string, number> = {};
   for (const [cat, { total }] of catMap) categoryAttemptCounts[cat] = total;
 
+  const categoryProgress: Record<string, { total: number; tried: number }> = {};
+  for (const cat of CATS) {
+    const totalEntry = questionTotals.find((q) => q.category === cat);
+    const triedEntry = triedByCategory.find((q) => q.category === cat);
+    categoryProgress[cat] = {
+      total: totalEntry?._count._all ?? 0,
+      tried: Number(triedEntry?.tried ?? 0),
+    };
+  }
+
   return NextResponse.json({
     totalSessions,
     overallAccuracy,
@@ -61,5 +85,6 @@ export async function GET() {
     streakCount: dbUser?.streakCount ?? 0,
     categoryAttemptCounts,
     dailyCompletions: completions.map((c) => ({ date: c.date, correct: c.correct })),
+    categoryProgress,
   });
 }
