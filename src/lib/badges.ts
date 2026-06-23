@@ -1,7 +1,8 @@
 export type BadgeType =
   | 'FIRST_QUIZ' | 'QUIZ_10' | 'QUIZ_50' | 'PERFECT_SCORE'
   | 'STREAK_3' | 'STREAK_7'
-  | 'CAT_DS' | 'CAT_ALGO' | 'CAT_OS' | 'CAT_NETWORK' | 'CAT_DB' | 'CAT_ARCH';
+  | 'CAT_DS' | 'CAT_ALGO' | 'CAT_OS' | 'CAT_NETWORK' | 'CAT_DB' | 'CAT_ARCH'
+  | 'FIRST_SUBMIT' | 'APPROVED_1' | 'APPROVED_5' | 'APPROVED_10';
 
 export interface BadgeMeta {
   label: string;
@@ -22,6 +23,10 @@ export const BADGE_META: Record<BadgeType, BadgeMeta> = {
   CAT_NETWORK:   { label: '네트워크 마스터',  description: '네트워크 15회 · 정답률 80%+',  icon: '🌐' },
   CAT_DB:        { label: 'DB 마스터',       description: 'DB 15회 · 정답률 80%+',       icon: '🗃️' },
   CAT_ARCH:      { label: '컴퓨터구조 마스터', description: '컴퓨터구조 15회 · 정답률 80%+', icon: '🔧' },
+  FIRST_SUBMIT:  { label: '첫 기여',          description: '첫 문제 등록',                 icon: '✏️' },
+  APPROVED_1:    { label: '문제 기여자',       description: '문제 1개 채택',                icon: '✅' },
+  APPROVED_5:    { label: '활동 기여자',       description: '문제 5개 채택',                icon: '🌟' },
+  APPROVED_10:   { label: '핵심 기여자',       description: '문제 10개 채택',               icon: '🏆' },
 };
 
 export const ALL_BADGES: BadgeType[] = Object.keys(BADGE_META) as BadgeType[];

@@ -216,6 +216,10 @@ enum BadgeType {
   CAT_NETWORK
   CAT_DB
   CAT_ARCH
+  FIRST_SUBMIT
+  APPROVED_1
+  APPROVED_5
+  APPROVED_10
 }
 
 model UserBadge {

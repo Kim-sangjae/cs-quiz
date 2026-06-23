@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerUser } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { writeLog } from '@/lib/audit';
+import { checkQuestionBadges } from '@/lib/award-badges';
 
 export async function POST(req: NextRequest) {
   const user = await getServerUser();
@@ -19,8 +20,14 @@ export async function POST(req: NextRequest) {
     : '검토 결과 등록 기준에 맞지 않습니다.';
 
   if (action === 'approve') {
+    const toApprove = await prisma.question.findMany({
+      where: { id: { in: ids as string[] }, status: 'PENDING' },
+      select: { authorId: true },
+    });
     await prisma.question.updateMany({ where: { id: { in: ids as string[] }, status: 'PENDING' }, data: { status: 'APPROVED' } });
     writeLog({ actorId: user.id, actorRole: user.role, action: 'QUESTION_APPROVE', targetType: 'Question', targetId: ids.join(','), payload: { count: ids.length } });
+    const authorIds = [...new Set(toApprove.map((q) => q.authorId).filter(Boolean))] as string[];
+    for (const authorId of authorIds) checkQuestionBadges(authorId).catch(() => {});
   } else if (action === 'reject') {
     await prisma.question.updateMany({ where: { id: { in: ids as string[] }, status: 'PENDING' }, data: { status: 'REJECTED', rejectionReason: reason } });
     writeLog({ actorId: user.id, actorRole: user.role, action: 'QUESTION_REJECT', targetType: 'Question', targetId: ids.join(','), payload: { count: ids.length, reason } });

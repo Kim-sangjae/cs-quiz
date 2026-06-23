@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import { getServerUser } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { awardBadges } from '@/lib/award-badges';
 
 const VALID_CATEGORIES = ['ds', 'algo', 'os', 'network', 'db', 'arch'] as const;
 const PAGE_SIZE = 20;
@@ -138,6 +139,12 @@ export async function POST(req: NextRequest) {
       status: 'PENDING',
     },
   });
+
+  // 첫 문제 등록 뱃지 체크
+  const submitCount = await prisma.question.count({ where: { authorId: user.id } });
+  if (submitCount === 1) {
+    awardBadges(user.id, ['FIRST_SUBMIT']).catch(() => {});
+  }
 
   return NextResponse.json(created, { status: 201 });
 }

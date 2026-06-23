@@ -4,6 +4,7 @@ import { getServerUser } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import type { UserAnswer } from '@/types';
 import type { BadgeType } from '@/lib/badges';
+import { awardBadges } from '@/lib/award-badges';
 
 export async function POST(req: NextRequest) {
   const user = await getServerUser();
@@ -149,26 +150,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    if (candidates.length > 0) {
-      const existing = await prisma.userBadge.findMany({
-        where: { userId: user.id, badge: { in: candidates } },
-        select: { badge: true },
-      });
-      const existingSet = new Set(existing.map((e) => e.badge));
-      const toCreate = candidates.filter((b) => !existingSet.has(b));
-
-      for (const badge of toCreate) {
-        await prisma.userBadge.create({ data: { userId: user.id, badge } });
-        await prisma.notification.create({
-          data: {
-            userId: user.id,
-            type: 'BADGE_EARNED',
-            payload: { badge },
-            actionUrl: '/mypage',
-          },
-        });
-      }
-    }
+    await awardBadges(user.id, candidates);
   } catch (e) {
     console.error('[sessions/POST] badge check failed:', e);
   }

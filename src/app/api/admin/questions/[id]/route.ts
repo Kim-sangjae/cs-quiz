@@ -3,6 +3,7 @@ import { getServerUser } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { generateEmbedding, toVectorString } from '@/lib/embedding';
 import { writeLog } from '@/lib/audit';
+import { checkQuestionBadges } from '@/lib/award-badges';
 
 const VALID_CATEGORIES = ['ds', 'algo', 'os', 'network', 'db', 'arch'];
 
@@ -58,6 +59,7 @@ export async function PATCH(
       });
 
       writeLog({ actorId: user.id, actorRole: user.role, action: 'QUESTION_APPROVE', targetType: 'Question', targetId: id, payload: { questionTitle } });
+      if (question.authorId) checkQuestionBadges(question.authorId).catch(() => {});
       // 승인 후 비동기로 임베딩 생성 — 실패해도 승인은 유지됨
       const opts = question.options as string[];
       const answerText = opts?.[question.answer] ?? '';
