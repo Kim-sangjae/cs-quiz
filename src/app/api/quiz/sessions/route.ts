@@ -128,9 +128,9 @@ export async function POST(req: NextRequest) {
     const totalSessions = await prisma.quizSession.count({ where: { userId: user.id } });
     const candidates: BadgeType[] = [];
 
-    if (totalSessions === 1) candidates.push('FIRST_QUIZ');
-    if (totalSessions === 10) candidates.push('QUIZ_10');
-    if (totalSessions === 50) candidates.push('QUIZ_50');
+    if (totalSessions >= 1) candidates.push('FIRST_QUIZ');
+    if (totalSessions >= 10) candidates.push('QUIZ_10');
+    if (totalSessions >= 50) candidates.push('QUIZ_50');
     if (score === questionIds.length && questionIds.length > 0) candidates.push('PERFECT_SCORE');
     if (newStreak >= 3) candidates.push('STREAK_3');
     if (newStreak >= 7) candidates.push('STREAK_7');

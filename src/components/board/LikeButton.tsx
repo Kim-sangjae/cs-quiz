@@ -50,7 +50,7 @@ export default function LikeButton({
 
   function handleClick() {
     if (!isLoggedIn) {
-      router.push(`/api/auth/signin?callbackUrl=${encodeURIComponent(window.location.href)}`);
+      router.push(`/auth/login?callbackUrl=${encodeURIComponent(window.location.href)}`);
       return;
     }
     mutation.mutate();

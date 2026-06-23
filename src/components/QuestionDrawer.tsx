@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import ResultCard from './ResultCard';
 import type { Question } from '@/types';
 
@@ -49,6 +50,7 @@ export default function QuestionDrawer({
   questionNumber,
   onClose,
 }: QuestionDrawerProps) {
+  const router = useRouter();
   const [fetched, setFetched] = useState<FetchedQuestion | null>(null);
   const [loading, setLoading] = useState(false);
   const [bookmarked, setBookmarked] = useState(false);
@@ -79,6 +81,10 @@ export default function QuestionDrawer({
     setBookmarkPending(true);
     try {
       const res = await fetch(`/api/questions/${qid}/like`, { method: 'POST' });
+      if (res.status === 401) {
+        router.push(`/auth/login?callbackUrl=${encodeURIComponent(window.location.href)}`);
+        return;
+      }
       if (res.ok) {
         const data = await res.json() as { liked: boolean };
         setBookmarked(data.liked);
