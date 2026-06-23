@@ -82,13 +82,13 @@ export default function DailyChallenge() {
   if (!q) return null;
 
   return (
-    <section className="mb-12 border-t border-neutral-800 pt-10">
-      <div className="flex items-center gap-2 mb-4">
+    <section id="daily-challenge" className="mb-12 border-t border-neutral-800 pt-10">
+      <div className="flex items-center gap-2 mb-4 flex-wrap">
         <span className="text-sm font-medium text-neutral-400">오늘의 문제</span>
         <span className="text-[10px] text-emerald-400 border border-emerald-800/60 rounded px-1.5 py-0.5">
           {q.date}
         </span>
-        {result && (
+        {result ? (
           <span className={`text-[10px] border rounded px-1.5 py-0.5 ${
             result.correct
               ? 'text-emerald-400 border-emerald-800/60'
@@ -96,7 +96,16 @@ export default function DailyChallenge() {
           }`}>
             {result.correct ? '정답' : '오답'}
           </span>
-        )}
+        ) : null}
+        {result ? (
+          <span className="text-[10px] text-emerald-500 border border-emerald-800/50 rounded px-1.5 py-0.5">
+            ✓ 오늘 출석 완료
+          </span>
+        ) : status === 'authenticated' ? (
+          <span className="text-[10px] text-amber-500 border border-amber-800/50 rounded px-1.5 py-0.5 animate-pulse">
+            풀면 출석 인정
+          </span>
+        ) : null}
       </div>
 
       <div className="bg-[#111111] border border-neutral-800 rounded-xl p-5">

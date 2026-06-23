@@ -93,16 +93,26 @@ export default async function Home() {
               {personalization.streak.status === 'yesterday' && personalization.streak.count > 0 && (
                 <div className="flex items-center justify-between bg-amber-950/30 border border-amber-800/40 rounded-lg px-4 py-2.5">
                   <span className="text-sm text-amber-300">
-                    🔥 {personalization.streak.count}일 연속 중 · 오늘 안 풀면 streak이 끊겨요
+                    🔥 {personalization.streak.count}일 연속 중 · 오늘의 문제를 풀어야 출석이 됩니다
                   </span>
-                  <Link href="/quiz" className="text-xs text-amber-400 hover:text-amber-200 font-medium transition-colors">
+                  <a href="#daily-challenge" className="text-xs text-amber-400 hover:text-amber-200 font-medium transition-colors">
                     풀기 →
-                  </Link>
+                  </a>
+                </div>
+              )}
+              {personalization.streak.status === 'none' && (
+                <div className="flex items-center justify-between bg-neutral-900 border border-neutral-800 rounded-lg px-4 py-2.5">
+                  <span className="text-sm text-neutral-400">
+                    📅 오늘의 문제를 풀면 출석이 기록됩니다
+                  </span>
+                  <a href="#daily-challenge" className="text-xs text-neutral-400 hover:text-white font-medium transition-colors">
+                    풀기 →
+                  </a>
                 </div>
               )}
               {personalization.streak.status === 'today' && personalization.streak.count > 1 && (
                 <p className="text-xs text-emerald-500 px-1">
-                  🔥 {personalization.streak.count}일 연속 달성!
+                  🔥 {personalization.streak.count}일 연속 출석 달성!
                 </p>
               )}
               {personalization.weakCategory && (

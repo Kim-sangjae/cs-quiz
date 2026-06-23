@@ -354,7 +354,7 @@ function AttendanceCalendar({ completions }: { completions: DailyCompletion[] })
   return (
     <div>
       <div className="flex items-center justify-between mb-2">
-        <p className="text-xs text-neutral-500">오늘의 문제 출석 (최근 4주)</p>
+        <p className="text-xs text-neutral-500">출석 현황 (최근 4주)</p>
         <span className="text-xs font-medium text-emerald-400">{activeCount}일 출석</span>
       </div>
       <div className="grid grid-cols-7 gap-0.5">
@@ -383,7 +383,7 @@ function AttendanceCalendar({ completions }: { completions: DailyCompletion[] })
                 <div
                   title={key}
                   className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] ${
-                    isToday ? "ring-1 ring-neutral-500 text-white" : "text-neutral-600"
+                    isToday ? "ring-1 ring-amber-600/60 text-amber-500" : "text-neutral-600"
                   }`}
                 >
                   {day.getDate()}
@@ -393,6 +393,16 @@ function AttendanceCalendar({ completions }: { completions: DailyCompletion[] })
           );
         })}
       </div>
+
+      {/* 오늘 미완료 시 유도 */}
+      {!activeDays.has(today.toLocaleDateString("en-CA")) && (
+        <div className="mt-3 flex items-center justify-between bg-amber-950/20 border border-amber-800/30 rounded-lg px-3 py-2">
+          <p className="text-xs text-amber-500/80">오늘의 문제를 풀면 출석이 기록됩니다</p>
+          <Link href="/#daily-challenge" className="text-xs text-amber-400 hover:text-amber-200 font-medium transition-colors">
+            풀기 →
+          </Link>
+        </div>
+      )}
     </div>
   );
 }
