@@ -307,7 +307,7 @@ export default function FriendPanel() {
     queryFn: () => fetch('/api/battle/rooms').then((r) => r.json()),
     enabled: status === 'authenticated',
     staleTime: 0,
-    refetchInterval: 15_000,
+    refetchInterval: 5_000,
   });
 
   const activeRoom = (battleRoomsData?.rooms ?? []).find(

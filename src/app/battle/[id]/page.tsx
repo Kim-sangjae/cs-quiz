@@ -184,24 +184,35 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
   const myAnswered = room?.myRole === 'host' ? room?.hostAnswered : room?.guestAnswered;
   const isAutoSubmitted = myAnswered && room?.mySelected === -1;
 
-  // 자동응답 발생 시 자동모드 진입
+  // 자동응답 발생 시 자동모드 진입 (재진입 복원 포함)
   useEffect(() => {
-    if (isAutoSubmitted) setIsAutoMode(true);
-  }, [isAutoSubmitted]);
+    if (isAutoSubmitted && !isAutoMode) setIsAutoMode(true);
+  }, [isAutoSubmitted, isAutoMode]);
 
-  // 자동모드: 새 질문 시작 2초 후 자동제출 (클릭하면 취소 가능)
+  // 페이지 재진입 시 자동모드 복원 (mySelected === -1이면 자동모드 켜기)
+  useEffect(() => {
+    if (room?.status === 'PLAYING' && room?.mySelected === -1 && !isAutoMode) {
+      setIsAutoMode(true);
+    }
+  }, [room?.mySelected, room?.status]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 자동모드: questionStartedAt + 3초 기준 절대 시각으로 양쪽 동시 자동제출
   useEffect(() => {
     if (!isAutoMode || room?.status !== 'PLAYING' || myAnswered) return;
     const questionId = room.question?.id;
-    if (!questionId) return;
+    const qsa = room.questionStartedAt;
+    if (!questionId || !qsa) return;
+    // 양쪽 클라이언트가 같은 절대 시각(questionStartedAt + 3s)에 제출
+    const targetTime = new Date(qsa).getTime() + 3000;
+    const delayMs = Math.max(300, targetTime - Date.now());
     autoModeTimerRef.current = setTimeout(() => {
       if (!hasAutoSubmittedRef.current) {
         hasAutoSubmittedRef.current = true;
         submitAnswer.mutate(-1);
       }
-    }, 2000);
+    }, delayMs);
     return () => { if (autoModeTimerRef.current) clearTimeout(autoModeTimerRef.current); };
-  }, [isAutoMode, room?.question?.id, myAnswered, room?.status]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isAutoMode, room?.question?.id, myAnswered, room?.status, room?.questionStartedAt]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 카운트다운 (자동응답 상태면 중지)
   useEffect(() => {

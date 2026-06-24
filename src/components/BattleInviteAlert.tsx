@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
@@ -20,6 +21,7 @@ interface Notification {
   type: string;
   payload: BattleInvitePayload;
   isRead: boolean;
+  createdAt: string;
 }
 
 interface NotificationsResponse {
@@ -44,6 +46,7 @@ export default function BattleInviteAlert() {
   const { status } = useSession();
   const router = useRouter();
   const queryClient = useQueryClient();
+  const [countdown, setCountdown] = useState(20);
 
   const { data } = useQuery<NotificationsResponse>({
     queryKey: ['notifications'],
@@ -51,6 +54,31 @@ export default function BattleInviteAlert() {
     refetchInterval: 5_000,
     enabled: status === 'authenticated',
   });
+
+  const pending = (data?.notifications ?? []).find(
+    (n) => n.type === 'BATTLE_INVITE' && !n.isRead
+  );
+
+  // createdAt 기준 카운트다운
+  useEffect(() => {
+    if (!pending) return;
+    function tick() {
+      const elapsed = Math.floor((Date.now() - new Date(pending!.createdAt).getTime()) / 1000);
+      setCountdown(Math.max(0, 20 - elapsed));
+    }
+    tick();
+    const tid = setInterval(tick, 1000);
+    return () => clearInterval(tid);
+  }, [pending?.id, pending?.createdAt]);
+
+  // 카운트다운 만료 시 자동 읽음 처리 (팝업 사라짐)
+  useEffect(() => {
+    if (countdown === 0 && pending) {
+      markRead(pending.id).then(() => {
+        queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      }).catch(() => {});
+    }
+  }, [countdown, pending, queryClient]);
 
   const joinMutation = useMutation({
     mutationFn: async ({ notifId, roomId }: { notifId: string; roomId: string }) => {
@@ -79,10 +107,6 @@ export default function BattleInviteAlert() {
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notifications'] }),
   });
-
-  const pending = (data?.notifications ?? []).find(
-    (n) => n.type === 'BATTLE_INVITE' && !n.isRead
-  );
 
   if (!pending) return null;
 
@@ -115,9 +139,14 @@ export default function BattleInviteAlert() {
               {CATEGORY_LABEL[payload.category] ?? payload.category}
             </span>
           )}
+          <p className={`text-sm font-semibold tabular-nums mt-3 ${countdown <= 5 ? 'text-red-400' : 'text-neutral-500'}`}>
+            {countdown}초 후 만료
+          </p>
           {joinMutation.isError && (
             <p className="mt-2 text-xs text-red-400">
-              {(joinMutation.error as Error).message}
+              {(joinMutation.error as Error).message === 'Not found'
+                ? '이미 취소된 요청입니다'
+                : (joinMutation.error as Error).message}
             </p>
           )}
         </div>
