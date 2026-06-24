@@ -461,7 +461,7 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
           )}
 
           {/* 자동응답 배너 */}
-          {isAutoSubmitted && (
+          {isAutoSubmitted && !isAutoMode && (
             <div className="flex items-center gap-2 mb-3 px-3 py-2 bg-amber-500/10 border border-amber-500/20 rounded-lg">
               <span className="text-amber-400 text-xs">⚡</span>
               <p className="text-xs text-amber-400">자동응답됨 — 직접 선택하여 변경할 수 있습니다</p>
@@ -494,7 +494,7 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
 
           {/* 문제 (자동모드 시 블러 + 오버레이) */}
           <div className="relative">
-            <div className={`bg-[#111111] border border-neutral-800 rounded-xl p-5${isAutoMode && !myAnswered ? ' blur-sm pointer-events-none select-none' : ''}`}>
+            <div className={`bg-[#111111] border border-neutral-800 rounded-xl p-5${isAutoMode ? ' blur-sm pointer-events-none select-none' : ''}`}>
               <p className="text-sm text-white leading-relaxed mb-4">{room.question.question}</p>
               <div className="space-y-2">
                 {(room.question.options as string[]).map((opt, i) => {
@@ -527,7 +527,7 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
                 })}
               </div>
             </div>
-            {isAutoMode && !myAnswered && (
+            {isAutoMode && (
               <button
                 type="button"
                 className="absolute inset-0 z-10 flex items-center justify-center rounded-xl w-full"
@@ -535,12 +535,21 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
                   setIsAutoMode(false);
                   manualDismissedAutoModeRef.current = true;
                   if (autoModeTimerRef.current) clearTimeout(autoModeTimerRef.current);
-                  hasAutoSubmittedRef.current = false;
+                  if (!myAnswered) hasAutoSubmittedRef.current = false;
                 }}
               >
                 <div className="bg-black/75 backdrop-blur-sm px-5 py-4 rounded-xl text-center border border-amber-500/30">
-                  <p className="text-sm font-semibold text-amber-400 mb-1">자동진행 중</p>
-                  <p className="text-xs text-neutral-400">클릭하여 직접 답변하기</p>
+                  {myAnswered ? (
+                    <>
+                      <p className="text-sm font-semibold text-amber-400 mb-1">자동응답됨</p>
+                      <p className="text-xs text-neutral-400">클릭하여 직접 변경하기</p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-sm font-semibold text-amber-400 mb-1">자동진행 중</p>
+                      <p className="text-xs text-neutral-400">클릭하여 직접 답변하기</p>
+                    </>
+                  )}
                 </div>
               </button>
             )}
