@@ -53,6 +53,10 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
   const waitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autoModeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastQuestionStartedAt = useRef<string | null>(null);
+  // 유저가 직접 dismiss했을 때 auto-mode 재진입 방지
+  const manualDismissedAutoModeRef = useRef(false);
+  // 재진입 시 auto-mode 복원은 최초 1회만
+  const hasRestoredAutoModeRef = useRef(false);
 
   const [bookmarks, setBookmarks] = useState<Record<string, boolean>>({});
 
@@ -192,17 +196,20 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
   const myAnswered = room?.myRole === 'host' ? room?.hostAnswered : room?.guestAnswered;
   const isAutoSubmitted = myAnswered && room?.mySelected === -1;
 
-  // 자동응답 발생 시 자동모드 진입 (재진입 복원 포함)
+  // 자동응답 발생 시 자동모드 진입 (유저가 dismiss하지 않은 경우만)
   useEffect(() => {
-    if (isAutoSubmitted && !isAutoMode) setIsAutoMode(true);
+    if (isAutoSubmitted && !isAutoMode && !manualDismissedAutoModeRef.current) setIsAutoMode(true);
   }, [isAutoSubmitted, isAutoMode]);
 
-  // 페이지 재진입 시 자동모드 복원 (이전 답변에 -1이 있으면 자동모드 켜기)
+  // 재진입 시 자동모드 복원 — 최초 1회만 (이전 -1 답변이 있으면)
   useEffect(() => {
-    if (room?.status !== 'PLAYING' || isAutoMode) return;
+    if (hasRestoredAutoModeRef.current || room?.status !== 'PLAYING' || isAutoMode) return;
     const prevHasAuto = room.myPrevAnswers?.includes(-1) ?? false;
     const curIsAuto = room.mySelected === -1;
-    if (prevHasAuto || curIsAuto) setIsAutoMode(true);
+    if (prevHasAuto || curIsAuto) {
+      hasRestoredAutoModeRef.current = true;
+      setIsAutoMode(true);
+    }
   }, [room?.myPrevAnswers, room?.mySelected, room?.status]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 자동모드: questionStartedAt + 3초 기준 절대 시각으로 양쪽 동시 자동제출
@@ -246,10 +253,11 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
     onError: (e: Error) => toast.error(e.message),
   });
 
-  // 시간 초과 클라이언트 자동제출 (서버사이드 타임아웃 보완)
+  // 시간 초과 클라이언트 자동제출 — 동시에 자동모드 즉시 진입 (blur 즉시 표시)
   useEffect(() => {
     if (room?.status !== 'PLAYING' || myAnswered || timeLeft > 0 || hasAutoSubmittedRef.current) return;
     hasAutoSubmittedRef.current = true;
+    if (!manualDismissedAutoModeRef.current) setIsAutoMode(true);
     submitAnswer.mutate(-1);
   }, [timeLeft, room?.status, myAnswered]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -503,6 +511,10 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
                       className={cls}
                       onClick={() => {
                         if ((myAnswered && !isAutoSubmitted) || submitAnswer.isPending) return;
+                        // 수동 답변 시 auto-mode dismiss 해제 (다음 문제부터 정상 타이머)
+                        manualDismissedAutoModeRef.current = false;
+                        setIsAutoMode(false);
+                        if (autoModeTimerRef.current) clearTimeout(autoModeTimerRef.current);
                         submitAnswer.mutate(i);
                       }}
                       disabled={(myAnswered && !isAutoSubmitted) || submitAnswer.isPending}
@@ -520,6 +532,7 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
                 className="absolute inset-0 z-10 flex items-center justify-center rounded-xl w-full"
                 onClick={() => {
                   setIsAutoMode(false);
+                  manualDismissedAutoModeRef.current = true;
                   if (autoModeTimerRef.current) clearTimeout(autoModeTimerRef.current);
                   hasAutoSubmittedRef.current = false;
                 }}

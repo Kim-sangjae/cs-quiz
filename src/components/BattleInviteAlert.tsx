@@ -154,20 +154,20 @@ export default function BattleInviteAlert() {
         </div>
 
         {/* 버튼 */}
-        <div className="flex border-t border-neutral-800">
+        <div className="flex gap-2 px-4 pb-4">
           <button
             onClick={() => rejectMutation.mutate({ notifId: pending.id, roomId: payload.roomId })}
             disabled={isActing}
-            className="flex-1 py-3.5 text-sm text-neutral-500 hover:text-red-400 hover:bg-neutral-800/50 transition-colors disabled:opacity-40 border-r border-neutral-800"
+            className="flex-1 py-2.5 rounded-xl text-sm font-medium text-red-400 bg-red-500/10 border border-red-500/25 hover:bg-red-500/20 transition-colors disabled:opacity-40"
           >
-            {rejectMutation.isPending ? '...' : '거절하기'}
+            {rejectMutation.isPending ? '...' : '거절'}
           </button>
           <button
             onClick={() => joinMutation.mutate({ notifId: pending.id, roomId: payload.roomId })}
             disabled={isActing}
-            className="flex-1 py-3.5 text-sm font-semibold text-white hover:bg-neutral-800/50 transition-colors disabled:opacity-40"
+            className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-500 transition-colors disabled:opacity-40"
           >
-            {joinMutation.isPending ? '입장 중...' : '수락하기'}
+            {joinMutation.isPending ? '입장 중...' : '수락'}
           </button>
         </div>
       </div>
