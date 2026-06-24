@@ -201,16 +201,17 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
     if (isAutoSubmitted && !isAutoMode && !manualDismissedAutoModeRef.current) setIsAutoMode(true);
   }, [isAutoSubmitted, isAutoMode]);
 
-  // 재진입 시 자동모드 복원 — 최초 1회만 (이전 -1 답변이 있으면)
+  // 재진입 시 자동모드 복원 — 마운트 후 room 첫 도착 시 1회만
+  // deps를 room 전체로 두고 hasRestoredAutoModeRef로 1회 실행 보장
+  // (myPrevAnswers 단독 deps는 isAutoMode 체크 때문에 ref를 못 세팅해 매 문제 재진입)
   useEffect(() => {
-    if (hasRestoredAutoModeRef.current || room?.status !== 'PLAYING' || isAutoMode) return;
-    const prevHasAuto = room.myPrevAnswers?.includes(-1) ?? false;
-    const curIsAuto = room.mySelected === -1;
-    if (prevHasAuto || curIsAuto) {
-      hasRestoredAutoModeRef.current = true;
+    if (hasRestoredAutoModeRef.current) return;
+    if (!room || room.status !== 'PLAYING') return;
+    hasRestoredAutoModeRef.current = true; // isAutoMode 상태와 무관하게 항상 세팅
+    if ((room.myPrevAnswers?.includes(-1) ?? false) || room.mySelected === -1) {
       setIsAutoMode(true);
     }
-  }, [room?.myPrevAnswers, room?.mySelected, room?.status]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [room]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 자동모드: questionStartedAt + 3초 기준 절대 시각으로 양쪽 동시 자동제출
   useEffect(() => {
