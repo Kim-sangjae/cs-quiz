@@ -29,7 +29,36 @@ export async function GET() {
     orderBy: { createdAt: 'desc' },
   });
 
-  return NextResponse.json({ rooms });
+  // WAITING 룸 중 20초 초과된 것 자동 취소 (FriendPanel 폴링 시에도 정리)
+  const expiredWaiting = rooms.filter(
+    (r) => r.status === 'WAITING' && Date.now() - r.createdAt.getTime() >= 20_000
+  );
+  if (expiredWaiting.length > 0) {
+    await Promise.allSettled(
+      expiredWaiting.map(async (r) => {
+        await prisma.$transaction(async (tx) => {
+          const cur = await tx.gameRoom.findUnique({ where: { id: r.id, status: 'WAITING' } });
+          if (!cur) return;
+          if (cur.guestId) {
+            const guestNotifs = await tx.notification.findMany({
+              where: { userId: cur.guestId, type: 'BATTLE_INVITE' },
+            });
+            const toDelete = guestNotifs
+              .filter((n) => (n.payload as { roomId?: string }).roomId === r.id)
+              .map((n) => n.id);
+            if (toDelete.length > 0) await tx.notification.deleteMany({ where: { id: { in: toDelete } } });
+          }
+          await tx.gameRoom.delete({ where: { id: r.id } });
+        });
+      })
+    );
+  }
+
+  const activeRooms = rooms.filter(
+    (r) => !(r.status === 'WAITING' && Date.now() - r.createdAt.getTime() >= 20_000)
+  );
+
+  return NextResponse.json({ rooms: activeRooms });
 }
 
 export async function POST(req: Request) {

@@ -28,6 +28,7 @@ interface RoomState {
   hostAnswered?: boolean;
   guestAnswered?: boolean;
   mySelected?: number | null;
+  myPrevAnswers?: number[];
   quitRequestBy?: string | null;
   question?: { id: string; question: string; options: string[] };
   questions?: { question: string; options: string[]; answer: number; explanation: string }[];
@@ -74,10 +75,13 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
   // 15초 카운트다운
   const [timeLeft, setTimeLeft] = useState(TIMEOUT_SECS);
 
-  const { data: room, isLoading, isError } = useQuery<RoomState>({
+  const { data: room, isLoading, isError, error } = useQuery<RoomState>({
     queryKey: ['battle', id],
     queryFn: () => fetch(`/api/battle/rooms/${id}`).then(async (r) => {
-      if (!r.ok) throw new Error('Not found');
+      if (!r.ok) {
+        const body = await r.json().catch(() => ({})) as { error?: string };
+        throw new Error(body.error ?? 'Not found');
+      }
       return r.json() as Promise<RoomState>;
     }),
     enabled: status === 'authenticated',
@@ -159,7 +163,11 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
   }, [isPlaying]);
 
   useEffect(() => {
-    if (isError && hadWaiting.current) {
+    if (!isError || !hadWaiting.current) return;
+    const msg = (error as Error | null)?.message ?? '';
+    if (msg === 'waiting_timeout') {
+      setWaitTimedOut(true);
+    } else {
       setWasRejected(true);
       fetch('/api/notifications', {
         method: 'PATCH',
@@ -167,7 +175,7 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
         body: JSON.stringify({ type: 'BATTLE_REJECTED' }),
       }).then(() => queryClient.invalidateQueries({ queryKey: ['notifications'] })).catch(() => {});
     }
-  }, [isError, queryClient]);
+  }, [isError, error, queryClient]);
 
   // questionStartedAt 변경 시 타이머 서버 기준 동기화 + 자동제출 플래그 리셋
   useEffect(() => {
@@ -189,12 +197,13 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
     if (isAutoSubmitted && !isAutoMode) setIsAutoMode(true);
   }, [isAutoSubmitted, isAutoMode]);
 
-  // 페이지 재진입 시 자동모드 복원 (mySelected === -1이면 자동모드 켜기)
+  // 페이지 재진입 시 자동모드 복원 (이전 답변에 -1이 있으면 자동모드 켜기)
   useEffect(() => {
-    if (room?.status === 'PLAYING' && room?.mySelected === -1 && !isAutoMode) {
-      setIsAutoMode(true);
-    }
-  }, [room?.mySelected, room?.status]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (room?.status !== 'PLAYING' || isAutoMode) return;
+    const prevHasAuto = room.myPrevAnswers?.includes(-1) ?? false;
+    const curIsAuto = room.mySelected === -1;
+    if (prevHasAuto || curIsAuto) setIsAutoMode(true);
+  }, [room?.myPrevAnswers, room?.mySelected, room?.status]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 자동모드: questionStartedAt + 3초 기준 절대 시각으로 양쪽 동시 자동제출
   useEffect(() => {
@@ -204,7 +213,7 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
     if (!questionId || !qsa) return;
     // 양쪽 클라이언트가 같은 절대 시각(questionStartedAt + 3s)에 제출
     const targetTime = new Date(qsa).getTime() + 3000;
-    const delayMs = Math.max(300, targetTime - Date.now());
+    const delayMs = Math.max(2000, targetTime - Date.now());
     autoModeTimerRef.current = setTimeout(() => {
       if (!hasAutoSubmittedRef.current) {
         hasAutoSubmittedRef.current = true;
@@ -280,6 +289,33 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
             </div>
             <p className="text-sm font-semibold text-white mb-1">대전 거절됨</p>
             <p className="text-sm text-neutral-400">상대방이 대전 신청을<br />거절하였습니다</p>
+          </div>
+          <div className="border-t border-neutral-800">
+            <button
+              onClick={() => router.back()}
+              className="w-full py-3.5 text-sm font-semibold text-white hover:bg-neutral-800/50 transition-colors"
+            >
+              확인
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (waitTimedOut && !room) {
+    return (
+      <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+        <div className="absolute inset-0 bg-black/50 backdrop-blur-[2px]" />
+        <div className="relative w-full max-w-xs bg-[#111111] border border-neutral-700 rounded-2xl shadow-2xl overflow-hidden">
+          <div className="flex flex-col items-center pt-7 pb-5 px-6 text-center">
+            <div className="w-12 h-12 rounded-full bg-neutral-800 border border-neutral-700 flex items-center justify-center mb-3">
+              <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="text-neutral-400">
+                <circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" />
+              </svg>
+            </div>
+            <p className="text-sm font-semibold text-white mb-1">응답 없음</p>
+            <p className="text-sm text-neutral-400">상대방이 시간 내에 응답하지 않아<br />대전이 자동으로 취소되었습니다</p>
           </div>
           <div className="border-t border-neutral-800">
             <button

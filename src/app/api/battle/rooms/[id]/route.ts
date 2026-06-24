@@ -96,7 +96,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
           await tx.gameRoom.delete({ where: { id } });
         });
       } catch { /* 이미 취소됨 */ }
-      return NextResponse.json({ error: 'Not found' }, { status: 404 });
+      return NextResponse.json({ error: 'waiting_timeout' }, { status: 404 });
     }
 
     return NextResponse.json({
@@ -156,6 +156,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     mySelected: isHost
       ? (hostAnswers.length > currentQ ? hostAnswers[currentQ] : null)
       : (guestAnswers.length > currentQ ? guestAnswers[currentQ] : null),
+    myPrevAnswers: isHost ? hostAnswers.slice(0, currentQ) : guestAnswers.slice(0, currentQ),
     quitRequestBy: room.quitRequestBy ?? null,
     questionStartedAt: room.questionStartedAt?.toISOString() ?? null,
   });
