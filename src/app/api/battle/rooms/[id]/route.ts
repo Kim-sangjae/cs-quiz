@@ -49,7 +49,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
             const both = newHA.length > ccQ && newGA.length > ccQ;
             const newCQ = both ? ccQ + 1 : ccQ;
             const qIds = cur.questionIds as string[];
-            const newStatus = both && newCQ >= qIds.length ? 'FINISHED' : cur.status;
+            // 둘다 응답 없으면(모두 -1) 즉시 무효 종료
+            const allVoid = both && newHA.every(a => a === -1) && newGA.every(a => a === -1);
+            const newStatus = both && (newCQ >= qIds.length || allVoid) ? 'FINISHED' : cur.status;
             return await tx.gameRoom.update({
               where: { id },
               data: {

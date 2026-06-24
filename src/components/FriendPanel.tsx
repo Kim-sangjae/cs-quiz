@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { toast } from 'sonner';
 import { useSupabaseRealtime } from '@/hooks/useSupabaseRealtime';
 import { BADGE_META } from '@/lib/badges';
@@ -291,8 +291,10 @@ export default function FriendPanel() {
   const [selectedFriend, setSelectedFriend] = useState<Friend | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
+  const pathname = usePathname();
   const queryClient = useQueryClient();
   const { onlineUsers, realtimeActive } = useSupabaseRealtime();
+  const prevActiveRoomStatusRef = useRef<string | undefined>(undefined);
 
   const { data } = useQuery<{ friends: Friend[] }>({
     queryKey: ['friends'],
@@ -313,6 +315,22 @@ export default function FriendPanel() {
   const activeRoom = (battleRoomsData?.rooms ?? []).find(
     (r) => r.status === 'PLAYING' || r.status === 'WAITING'
   );
+  const activeRoomStatus = activeRoom?.status;
+  const activeRoomId = activeRoom?.id;
+  const isOnBattlePage = pathname?.startsWith('/battle/') ?? false;
+
+  // WAITING→null: 타임아웃 toast / WAITING→PLAYING: 호스트 자동 이동
+  useEffect(() => {
+    const prevStatus = prevActiveRoomStatusRef.current;
+    prevActiveRoomStatusRef.current = activeRoomStatus;
+    if (prevStatus === undefined) return; // 최초 렌더 스킵
+    if (prevStatus === 'WAITING' && !activeRoomStatus && !isOnBattlePage) {
+      toast.info('상대방의 응답이 없어 대전이 취소되었습니다');
+    }
+    if (prevStatus === 'WAITING' && activeRoomStatus === 'PLAYING' && !isOnBattlePage) {
+      router.push(`/battle/${activeRoomId!}`);
+    }
+  }, [activeRoomStatus]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const addFriend = useMutation({
     mutationFn: (nick: string) =>
@@ -389,8 +407,32 @@ export default function FriendPanel() {
   );
   const onlineCount = friends.filter((f) => f.isOnline).length;
 
+  const playingRoom = (battleRoomsData?.rooms ?? []).find(r => r.status === 'PLAYING');
+
   return (
     <>
+      {/* 대결 진행 중 – 다른 페이지 차단 */}
+      {playingRoom && !isOnBattlePage && battleRoomsData && (
+        <div className="fixed inset-0 z-[65] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+          <div className="relative bg-[#111111] border border-neutral-700 rounded-2xl shadow-2xl p-6 max-w-xs w-full text-center">
+            <div className="w-10 h-10 rounded-full bg-red-500/15 border border-red-500/30 flex items-center justify-center mx-auto mb-4">
+              <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="text-red-400">
+                <path d="M14.5 17.5L3 6V3h3l11.5 11.5" /><path d="M13 19l2 2" /><path d="M19 13l2 2" /><path d="M14.5 6.5l3-3 3 3-3 3" /><path d="M6.5 14.5l-3 3 3 3 3-3" />
+              </svg>
+            </div>
+            <p className="text-sm font-semibold text-white mb-1">대결 진행 중</p>
+            <p className="text-sm text-neutral-400 mb-5">대결이 진행 중입니다.<br />다른 기능을 사용하려면 대결을 완료해 주세요.</p>
+            <button
+              onClick={() => router.push(`/battle/${playingRoom.id}`)}
+              className="w-full rounded-lg bg-white text-black text-sm font-semibold py-2.5 hover:bg-neutral-200 transition-colors"
+            >
+              대결 화면으로 이동
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* 프로필 모달 */}
       {selectedFriend && (
         <ProfileModal

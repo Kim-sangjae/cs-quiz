@@ -71,13 +71,15 @@ export default function BattleInviteAlert() {
     return () => clearInterval(tid);
   }, [pending?.id, pending?.createdAt]);
 
-  // 카운트다운 만료 시 자동 읽음 처리 (팝업 사라짐)
+  // 카운트다운 만료 시 자동 읽음 처리 (이 알림이 실제로 만료된 경우에만)
   useEffect(() => {
-    if (countdown === 0 && pending) {
-      markRead(pending.id).then(() => {
-        queryClient.invalidateQueries({ queryKey: ['notifications'] });
-      }).catch(() => {});
-    }
+    if (countdown !== 0 || !pending) return;
+    // pending이 바뀌었지만 countdown이 아직 0인 경우(stale state) 방어
+    const elapsed = Date.now() - new Date(pending.createdAt).getTime();
+    if (elapsed < 20_000) return;
+    markRead(pending.id).then(() => {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    }).catch(() => {});
   }, [countdown, pending, queryClient]);
 
   const joinMutation = useMutation({
