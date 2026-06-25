@@ -91,7 +91,7 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
       return r.json() as Promise<RoomState>;
     }),
     enabled: status === 'authenticated',
-    refetchInterval: (q) => (q.state.data?.status === 'FINISHED' ? false : 3000),
+    refetchInterval: (q) => (q.state.data?.status === 'FINISHED' ? false : 1500),
     retry: false,
   });
 
@@ -211,6 +211,13 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
     if (isAutoSubmitted && !isAutoMode && !manualDismissedAutoModeRef.current) setIsAutoMode(true);
   }, [isAutoSubmitted, isAutoMode]);
 
+  // 5초 모드(consecutiveAllSkip>=1)에서는 답변 이력 무관하게 양쪽 모두 즉시 auto-mode 진입
+  // questionStartedAt/consecutiveAllSkip 변경 시에만 발동 → 유저 dismiss는 현재 문제 내에서 유지됨
+  useEffect(() => {
+    if (room?.status !== 'PLAYING' || myAnswered) return;
+    if ((room.consecutiveAllSkip ?? 0) >= 1) setIsAutoMode(true);
+  }, [room?.questionStartedAt, room?.consecutiveAllSkip, room?.status, myAnswered]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // 재진입 시 자동모드 복원 — 마운트 후 room 첫 도착 시 1회만
   // deps를 room 전체로 두고 hasRestoredAutoModeRef로 1회 실행 보장
   // (myPrevAnswers 단독 deps는 isAutoMode 체크 때문에 ref를 못 세팅해 매 문제 재진입)
@@ -264,8 +271,10 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
       }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['battle', id] });
-      // 첫 refetch가 stale할 수 있어(상대방 answer 미처리) 500ms 후 재폴링
-      setTimeout(() => void queryClient.invalidateQueries({ queryKey: ['battle', id] }), 500);
+      // 첫 refetch가 stale할 수 있어(상대방 answer 미처리) 다단계 재폴링
+      for (const ms of [300, 700, 1200]) {
+        setTimeout(() => void queryClient.invalidateQueries({ queryKey: ['battle', id] }), ms);
+      }
     },
     onError: (e: Error) => toast.error(e.message),
   });
