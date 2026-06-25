@@ -12,7 +12,7 @@ const CATEGORY_LABEL: Record<string, string> = {
 };
 
 const LABELS = ['A', 'B', 'C', 'D'] as const;
-const TIMEOUT_SECS = 15;
+const TIMEOUT_SECS = 20;
 
 interface RoomState {
   id: string;
@@ -230,17 +230,16 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
     }
   }, [room]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // 자동모드: questionStartedAt + 3초 기준 절대 시각으로 양쪽 동시 자동제출
-  // 5초 모드(consecutiveAllSkip>=1)에서는 타이머를 쓰지 않고 timeLeft=0 effect가 처리
-  // → 타이머가 0이 될 때 제출되어 "0초" 상태에서 무효처리됨
+  // 자동모드: questionStartedAt 기준 절대 시각으로 양쪽 동시 자동제출
+  // 일반(20s): +3s 기준 / 5초 모드: +5s (서버 타임아웃과 동일) → 폴링 타이밍 무관하게 동시 발동
   useEffect(() => {
     if (!isAutoMode || room?.status !== 'PLAYING' || myAnswered) return;
-    if ((room.consecutiveAllSkip ?? 0) >= 1) return; // 5초 모드: timeLeft=0 effect가 처리
     const questionId = room.question?.id;
     const qsa = room.questionStartedAt;
     if (!questionId || !qsa) return;
-    const targetTime = new Date(qsa).getTime() + 3000;
-    const delayMs = Math.max(2000, targetTime - Date.now());
+    const isSkipMode = (room.consecutiveAllSkip ?? 0) >= 1;
+    const targetTime = new Date(qsa).getTime() + (isSkipMode ? 5000 : 3000);
+    const delayMs = Math.max(isSkipMode ? 50 : 2000, targetTime - Date.now());
     autoModeTimerRef.current = setTimeout(() => {
       if (!hasAutoSubmittedRef.current) {
         hasAutoSubmittedRef.current = true;
