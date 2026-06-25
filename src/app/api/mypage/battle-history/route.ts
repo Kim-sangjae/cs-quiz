@@ -12,6 +12,7 @@ export async function GET(req: NextRequest) {
   const rooms = await prisma.gameRoom.findMany({
     where: {
       status: 'FINISHED',
+      consecutiveAllSkip: { lt: 3 }, // 무효 기록 제외
       OR: [{ hostId: myId }, { guestId: myId }],
       ...(opponentId && {
         AND: [{ OR: [{ hostId: opponentId }, { guestId: opponentId }] }],

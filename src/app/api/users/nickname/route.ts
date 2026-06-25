@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { writeLog } from '@/lib/audit';
 
 const NICKNAME_REGEX = /^[a-zA-Z0-9가-힣]{2,12}$/;
 
@@ -57,6 +58,8 @@ export async function PATCH(req: NextRequest) {
     where: { id: session.user.id },
     data: { nickname },
   });
+
+  writeLog({ actorId: session.user.id, actorRole: session.user.role ?? 'USER', action: 'NICKNAME_CHANGE', targetType: 'User', targetId: session.user.id, payload: { prev: currentUser?.nickname, next: nickname } });
 
   return NextResponse.json({ nickname });
 }

@@ -13,10 +13,18 @@ export async function GET(req: NextRequest) {
   const limit = 50;
   const action = searchParams.get('action') ?? '';
   const actorId = searchParams.get('actorId') ?? '';
+  const from = searchParams.get('from') ?? '';
+  const to = searchParams.get('to') ?? '';
 
   const where = {
     ...(action ? { action } : {}),
     ...(actorId ? { actorId } : {}),
+    ...(from || to ? {
+      createdAt: {
+        ...(from ? { gte: new Date(`${from}T00:00:00.000Z`) } : {}),
+        ...(to ? { lte: new Date(`${to}T23:59:59.999Z`) } : {}),
+      },
+    } : {}),
   };
 
   const [logs, total] = await Promise.all([

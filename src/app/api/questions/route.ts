@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import { getServerUser } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { awardBadges } from '@/lib/award-badges';
+import { writeLog } from '@/lib/audit';
 
 const VALID_CATEGORIES = ['ds', 'algo', 'os', 'network', 'db', 'arch'] as const;
 const PAGE_SIZE = 20;
@@ -139,6 +140,8 @@ export async function POST(req: NextRequest) {
       status: 'PENDING',
     },
   });
+
+  writeLog({ actorId: user.id, actorRole: user.role, action: 'QUESTION_SUBMIT', targetType: 'Question', targetId: created.id, payload: { category, questionTitle: (question as string).slice(0, 50) } });
 
   // 첫 문제 등록 뱃지 체크
   const submitCount = await prisma.question.count({ where: { authorId: user.id } });

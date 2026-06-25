@@ -89,11 +89,30 @@ export async function GET(req: NextRequest) {
 
   const visitsByKey = groupByKey(visitRows.map((r) => r.date), keyFn);
   const attemptsByKey = groupByKey(
-    sessionRows.map((r) => r.submittedAt.toISOString().slice(0, 10)),
+    sessionRows.map((r) => {
+      // KST(UTC+9) 기준 날짜 계산
+      const kst = new Date(r.submittedAt.getTime() + 9 * 60 * 60 * 1000);
+      return kst.toISOString().slice(0, 10);
+    }),
     keyFn
   );
 
-  const allKeys = [...new Set([...Object.keys(visitsByKey), ...Object.keys(attemptsByKey)])].sort();
+  // 데이터가 없는 날짜도 포함하여 전체 범위 생성
+  let allKeys: string[];
+  if (period === 'year') {
+    const ty = (target ?? today.slice(0, 4));
+    allKeys = Array.from({ length: 12 }, (_, i) => `${ty}-${String(i + 1).padStart(2, '0')}`);
+  } else {
+    const rangeKeys: string[] = [];
+    const cur = new Date(`${chartFrom}T00:00:00.000Z`);
+    const end = new Date(`${chartTo}T00:00:00.000Z`);
+    while (cur <= end) {
+      rangeKeys.push(keyFn(cur.toISOString().slice(0, 10)));
+      cur.setUTCDate(cur.getUTCDate() + 1);
+    }
+    allKeys = [...new Set(rangeKeys)].sort();
+  }
+
   const chartVisits = allKeys.map((label) => ({ label, count: visitsByKey[label] ?? 0 }));
   const chartAttempts = allKeys.map((label) => ({ label, count: attemptsByKey[label] ?? 0 }));
 

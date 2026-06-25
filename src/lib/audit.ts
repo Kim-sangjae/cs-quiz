@@ -3,6 +3,7 @@ import { prisma } from './prisma';
 export type AuditAction =
   | 'LOGIN'
   | 'LOGIN_FAIL'
+  | 'QUESTION_SUBMIT'
   | 'QUESTION_APPROVE'
   | 'QUESTION_REJECT'
   | 'QUESTION_BLIND'
@@ -14,6 +15,8 @@ export type AuditAction =
   | 'USER_ROLE_CHANGE'
   | 'USER_DEACTIVATE'
   | 'USER_REACTIVATE'
+  | 'USER_DELETE'
+  | 'NICKNAME_CHANGE'
   | 'INQUIRY_REPLY'
   | 'INQUIRY_STATUS_CHANGE';
 

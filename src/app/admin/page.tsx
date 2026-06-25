@@ -1527,6 +1527,7 @@ function ConfirmDialog({ message, onConfirm, onCancel }: {
 const ACTION_LABEL: Record<string, string> = {
   LOGIN: '로그인',
   LOGIN_FAIL: '로그인 실패',
+  QUESTION_SUBMIT: '문제 제출',
   QUESTION_APPROVE: '문제 승인',
   QUESTION_REJECT: '문제 거절',
   QUESTION_BLIND: '문제 블라인드',
@@ -1538,6 +1539,8 @@ const ACTION_LABEL: Record<string, string> = {
   USER_ROLE_CHANGE: '권한 변경',
   USER_DEACTIVATE: '계정 비활성화',
   USER_REACTIVATE: '계정 복구',
+  USER_DELETE: '계정 삭제',
+  NICKNAME_CHANGE: '닉네임 변경',
   INQUIRY_REPLY: '문의 답변',
   INQUIRY_STATUS_CHANGE: '문의 상태 변경',
 };
@@ -1545,6 +1548,7 @@ const ACTION_LABEL: Record<string, string> = {
 const ACTION_COLOR: Record<string, string> = {
   LOGIN: 'text-blue-400 border-blue-500/30',
   LOGIN_FAIL: 'text-red-400 border-red-500/30',
+  QUESTION_SUBMIT: 'text-cyan-400 border-cyan-500/30',
   QUESTION_APPROVE: 'text-green-400 border-green-500/30',
   QUESTION_REJECT: 'text-red-400 border-red-500/30',
   QUESTION_BLIND: 'text-orange-400 border-orange-500/30',
@@ -1556,6 +1560,8 @@ const ACTION_COLOR: Record<string, string> = {
   USER_ROLE_CHANGE: 'text-amber-400 border-amber-500/30',
   USER_DEACTIVATE: 'text-red-400 border-red-500/30',
   USER_REACTIVATE: 'text-green-400 border-green-500/30',
+  USER_DELETE: 'text-red-600 border-red-700/50',
+  NICKNAME_CHANGE: 'text-violet-400 border-violet-500/30',
   INQUIRY_REPLY: 'text-sky-400 border-sky-500/30',
   INQUIRY_STATUS_CHANGE: 'text-neutral-400 border-neutral-600',
 };
@@ -1760,6 +1766,8 @@ function LogsTab() {
   const [page, setPage] = useState(1);
   const [actionFilter, setActionFilter] = useState('');
   const [actorFilter, setActorFilter] = useState('');
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
   const [selectedLog, setSelectedLog] = useState<AuditLogItem | null>(null);
 
   const { data: users = [] } = useQuery<AdminUser[]>({
@@ -1769,11 +1777,13 @@ function LogsTab() {
   });
 
   const { data, isFetching } = useQuery<LogsResponse>({
-    queryKey: ['admin', 'logs', page, actionFilter, actorFilter],
+    queryKey: ['admin', 'logs', page, actionFilter, actorFilter, fromDate, toDate],
     queryFn: async () => {
       const params = new URLSearchParams({ page: String(page) });
       if (actionFilter) params.set('action', actionFilter);
       if (actorFilter) params.set('actorId', actorFilter);
+      if (fromDate) params.set('from', fromDate);
+      if (toDate) params.set('to', toDate);
       const r = await fetch(`/api/admin/logs?${params}`);
       if (!r.ok) return { logs: [], total: 0, page: 1, pageCount: 1 };
       return r.json();
@@ -1815,6 +1825,32 @@ function LogsTab() {
             value={actorFilter}
             onChange={(id) => { setActorFilter(id); setPage(1); }}
           />
+          <div className="flex items-center gap-1.5">
+            <input
+              type="date"
+              value={fromDate}
+              onChange={(e) => { setFromDate(e.target.value); setPage(1); }}
+              className="bg-[#1a1a1a] border border-neutral-700 rounded-md px-2 py-1.5 text-xs text-neutral-300 focus:outline-none focus:border-neutral-500"
+              title="시작일"
+            />
+            <span className="text-neutral-600 text-xs">~</span>
+            <input
+              type="date"
+              value={toDate}
+              onChange={(e) => { setToDate(e.target.value); setPage(1); }}
+              className="bg-[#1a1a1a] border border-neutral-700 rounded-md px-2 py-1.5 text-xs text-neutral-300 focus:outline-none focus:border-neutral-500"
+              title="종료일"
+            />
+            {(fromDate || toDate) && (
+              <button
+                onClick={() => { setFromDate(''); setToDate(''); setPage(1); }}
+                className="text-xs text-neutral-600 hover:text-white transition-colors px-1"
+                title="날짜 필터 초기화"
+              >
+                ✕
+              </button>
+            )}
+          </div>
           <span className="text-xs text-neutral-500">총 {total}건</span>
           {isFetching && <span className="text-xs text-neutral-600">로딩 중...</span>}
           {selectedLog && (
@@ -2134,6 +2170,19 @@ function AnalyticsTab() {
           <AStatCard label="총 가입자" value={data?.totalUsers ?? 0} color="text-neutral-200" loading={isLoading} />
           <AStatCard label="총 대전 수" value={data?.totalBattles ?? 0} color="text-purple-400" loading={isLoading} />
         </div>
+
+        {onlineUsers.length > 0 && (
+          <div className="mt-3 bg-[#111111] border border-neutral-800 rounded-xl px-4 py-3">
+            <p className="text-xs text-neutral-500 mb-2">접속 중인 유저 ({onlineCount}명)</p>
+            <div className="flex flex-wrap gap-1.5">
+              {onlineUsers.map((u) => (
+                <span key={u.userId} className="text-[11px] text-emerald-400 border border-emerald-500/30 bg-emerald-500/5 rounded-full px-2.5 py-0.5">
+                  {u.nickname}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Row 2: 퀴즈 활동 */}
@@ -2163,7 +2212,7 @@ function AnalyticsTab() {
                     <div className="h-full bg-sky-500 rounded-full" style={{ width: `${barWidth}%` }} />
                   </div>
                   <span className="text-xs text-neutral-400 w-12 text-right flex-shrink-0">{cs.attempts.toLocaleString()}회</span>
-                  <span className="text-[10px] text-neutral-600 w-10 text-right flex-shrink-0">{cs.avgScore.toFixed(0)}/30</span>
+                  <span className="text-[10px] text-neutral-600 w-10 text-right flex-shrink-0">{cs.avgScore.toFixed(0)}/20</span>
                   <div className="w-8 flex-shrink-0">
                     {isPopular && <span className="text-[10px] text-emerald-400 border border-emerald-500/30 rounded px-1">인기</span>}
                     {isWeak && <span className="text-[10px] text-amber-400 border border-amber-500/30 rounded px-1">취약</span>}

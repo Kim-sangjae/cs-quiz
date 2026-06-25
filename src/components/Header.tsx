@@ -71,6 +71,9 @@ export default function Header() {
           </Link>
 
           <nav className="hidden sm:flex items-center gap-6">
+            <Link href="/about" className="text-sm text-neutral-400 hover:text-white transition-colors">
+              소개
+            </Link>
             <Link href="/quiz" className="text-sm text-neutral-400 hover:text-white transition-colors">
               퀴즈
             </Link>

@@ -302,6 +302,8 @@ export default function FriendPanel() {
   const [open, setOpen] = useState(false);
   const [addingFriend, setAddingFriend] = useState(false);
   const [nickname, setNickname] = useState('');
+  const [friendSearch, setFriendSearch] = useState('');
+  const [onlineOnly, setOnlineOnly] = useState(false);
   const [selectedFriend, setSelectedFriend] = useState<Friend | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
@@ -321,6 +323,9 @@ export default function FriendPanel() {
   useEffect(() => {
     if (open) {
       void queryClient.invalidateQueries({ queryKey: ['friends'] });
+    } else {
+      setFriendSearch('');
+      setOnlineOnly(false);
     }
   }, [open, queryClient]);
 
@@ -434,10 +439,16 @@ export default function FriendPanel() {
 
   const onlineUserIds = new Set(onlineUsers.map((u) => u.userId));
 
-  const friends = (data?.friends ?? []).map((f) =>
+  const allFriends = (data?.friends ?? []).map((f) =>
     realtimeActive ? { ...f, isOnline: onlineUserIds.has(f.userId) } : f
   );
-  const onlineCount = friends.filter((f) => f.isOnline).length;
+  const onlineCount = allFriends.filter((f) => f.isOnline).length;
+
+  const friends = allFriends.filter((f) => {
+    if (onlineOnly && !f.isOnline) return false;
+    if (friendSearch.trim()) return f.nickname.toLowerCase().includes(friendSearch.toLowerCase());
+    return true;
+  });
 
   const playingRoom = (battleRoomsData?.rooms ?? []).find(r => r.status === 'PLAYING');
 
@@ -562,9 +573,29 @@ export default function FriendPanel() {
               </form>
             )}
 
+            {/* 검색 / 필터 (친구가 5명 이상일 때 표시) */}
+            {allFriends.length >= 5 && (
+              <div className="px-3 py-2 border-b border-neutral-800/60 flex items-center gap-1.5">
+                <input
+                  type="text"
+                  value={friendSearch}
+                  onChange={(e) => setFriendSearch(e.target.value)}
+                  placeholder="닉네임 검색..."
+                  className="flex-1 min-w-0 bg-neutral-800/60 border border-neutral-800 rounded px-2 py-1 text-[11px] text-white placeholder-neutral-600 focus:outline-none focus:border-neutral-600"
+                />
+                <button
+                  onClick={() => setOnlineOnly((v) => !v)}
+                  title="접속 중만 보기"
+                  className={`flex-shrink-0 px-2 py-1 rounded text-[10px] border transition-colors ${onlineOnly ? 'border-emerald-500/50 text-emerald-400 bg-emerald-500/10' : 'border-neutral-800 text-neutral-600 hover:text-neutral-400'}`}
+                >
+                  접속 중
+                </button>
+              </div>
+            )}
+
             {/* 친구 목록 */}
             <ul className="max-h-72 overflow-y-auto">
-              {friends.length === 0 ? (
+              {allFriends.length === 0 ? (
                 <li className="px-3.5 py-5 text-center">
                   <p className="text-xs text-neutral-600 mb-2">친구가 없습니다</p>
                   <button
@@ -573,6 +604,10 @@ export default function FriendPanel() {
                   >
                     친구 추가하기
                   </button>
+                </li>
+              ) : friends.length === 0 ? (
+                <li className="px-3.5 py-4 text-center">
+                  <p className="text-xs text-neutral-600">검색 결과 없음</p>
                 </li>
               ) : (
                 friends.map((f) => (
