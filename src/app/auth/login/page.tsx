@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { signIn } from 'next-auth/react';
 import { toast } from 'sonner';
@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 function LoginContent() {
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get('callbackUrl') ?? '/';
+  const [devNickname, setDevNickname] = useState('');
 
   useEffect(() => {
     if (callbackUrl !== '/') {
@@ -45,6 +46,29 @@ function LoginContent() {
           카카오로 로그인
         </button>
       </div>
+      {process.env.NODE_ENV === 'development' && (
+        <div className="mt-6 pt-5 border-t border-neutral-800">
+          <p className="text-xs text-neutral-600 mb-2">DEV — 닉네임으로 바로 로그인</p>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (devNickname.trim()) signIn('dev-credentials', { nickname: devNickname.trim(), callbackUrl });
+            }}
+            className="flex gap-2"
+          >
+            <input
+              type="text"
+              value={devNickname}
+              onChange={(e) => setDevNickname(e.target.value)}
+              placeholder="닉네임 (예: user12)"
+              className="flex-1 bg-neutral-900 text-white text-sm px-3 py-2 rounded border border-neutral-700 focus:outline-none focus:border-neutral-500"
+            />
+            <button type="submit" className="text-sm px-3 py-2 rounded bg-neutral-700 text-white hover:bg-neutral-600">
+              입장
+            </button>
+          </form>
+        </div>
+      )}
     </div>
   );
 }

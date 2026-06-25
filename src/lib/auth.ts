@@ -1,14 +1,33 @@
 import NextAuth from 'next-auth';
 import type { AdapterUser } from 'next-auth/adapters';
 import { PrismaAdapter } from '@auth/prisma-adapter';
+import Credentials from 'next-auth/providers/credentials';
 import { prisma } from './prisma';
 import { authConfig } from './auth.config';
 import { writeLog } from './audit';
 
 const prismaAdapter = PrismaAdapter(prisma);
 
+const devProviders = process.env.NODE_ENV === 'development'
+  ? [Credentials({
+      id: 'dev-credentials',
+      credentials: { nickname: {} },
+      async authorize(credentials) {
+        const nickname = credentials?.nickname as string | undefined;
+        if (!nickname) return null;
+        const user = await prisma.user.findUnique({
+          where: { nickname },
+          select: { id: true, email: true, nickname: true, role: true, tokenVersion: true },
+        });
+        if (!user) return null;
+        return { id: user.id, email: user.email, nickname: user.nickname, role: user.role, tokenVersion: user.tokenVersion };
+      },
+    })]
+  : [];
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
+  providers: [...authConfig.providers, ...devProviders],
   adapter: {
     ...prismaAdapter,
     createUser: async (data: Omit<AdapterUser, 'id'>) => {
