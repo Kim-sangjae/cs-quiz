@@ -311,9 +311,15 @@ export default function FriendPanel() {
     queryKey: ['friends'],
     queryFn: () => fetch('/api/friends').then((r) => r.json()),
     enabled: status === 'authenticated',
-    // Realtime이 살아있으면 온라인 상태는 Presence로 처리하므로 폴링 간격 늘림
-    refetchInterval: open ? (realtimeActive ? 15_000 : 5_000) : 30_000,
+    refetchInterval: open ? 5_000 : 30_000,
   });
+
+  // 패널 열릴 때마다 즉시 최신 데이터 반영
+  useEffect(() => {
+    if (open) {
+      void queryClient.invalidateQueries({ queryKey: ['friends'] });
+    }
+  }, [open, queryClient]);
 
   const { data: battleRoomsData } = useQuery<{ rooms: { id: string; status: string }[] }>({
     queryKey: ['battle', 'rooms'],

@@ -649,7 +649,7 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
               <>
                 <p className="text-xs text-neutral-500 mb-2">대결 결과</p>
                 <p className="text-sm font-semibold text-neutral-400 mb-1">무효 처리</p>
-                <p className="text-xs text-neutral-600">양측 모두 응답하지 않아 전적에 반영되지 않습니다</p>
+                <p className="text-xs text-neutral-600">전적에 반영되지 않습니다</p>
               </>
             ) : (
               <>

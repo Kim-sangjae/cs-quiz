@@ -29,18 +29,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       await prisma.gameRoom.update({ where: { id }, data: { quitRequestBy: null } });
       return NextResponse.json({ ok: true, cancelled: true });
     }
-    const opponentId = isHost ? room.guestId : room.hostId;
     await prisma.gameRoom.update({ where: { id }, data: { quitRequestBy: myRole } });
-    if (opponentId) {
-      await prisma.notification.create({
-        data: {
-          userId: opponentId,
-          type: 'BATTLE_QUIT_REQUEST',
-          payload: { roomId: id, fromNickname: me?.nickname ?? '상대방' },
-          actionUrl: `/battle/${id}`,
-        },
-      }).catch(() => {});
-    }
+    // 중단 요청은 폴링으로 상대방 화면에 바로 표시되므로 알림 미생성
     return NextResponse.json({ ok: true });
   }
 
@@ -55,9 +45,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (!requesterRole || requesterRole === myRole) {
       return NextResponse.json({ error: '잘못된 요청입니다' }, { status: 400 });
     }
+    // consecutiveAllSkip=999: 무효(void) 마커 — isVoid = consecutiveAllSkip >= 3 로직 재활용
     await prisma.gameRoom.update({
       where: { id },
-      data: { status: 'FINISHED', quitRequestBy: null },
+      data: { status: 'FINISHED', quitRequestBy: null, consecutiveAllSkip: 999 },
     });
     return NextResponse.json({ ok: true });
   }

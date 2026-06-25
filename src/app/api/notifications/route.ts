@@ -14,6 +14,11 @@ export async function GET() {
     where: { userId: session.user.id, isRead: true, createdAt: { lt: sevenDaysAgo } },
   });
 
+  // 헤더 벨에 쌓이지 않아야 할 타입 삭제
+  await prisma.notification.deleteMany({
+    where: { userId: session.user.id, type: 'BATTLE_QUIT_REQUEST' },
+  });
+
   const notifications = await prisma.notification.findMany({
     where: { userId: session.user.id },
     orderBy: { createdAt: 'desc' },
