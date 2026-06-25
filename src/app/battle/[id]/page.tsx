@@ -186,17 +186,22 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
   // 이 문제의 유효 타임아웃: 이전 턴이 쌍방 스킵이면 5초, 아니면 15초
   const effectiveTimeoutSecs = (room?.consecutiveAllSkip ?? 0) >= 1 ? 5 : TIMEOUT_SECS;
 
-  // questionStartedAt 변경 시 타이머 서버 기준 동기화 + 자동제출 플래그 리셋
+  // questionStartedAt 또는 consecutiveAllSkip 변경 시 타이머 재동기화
+  // consecutiveAllSkip만 바뀌어도(첫 폴링 지연으로 stale한 경우) 5s로 재설정
   useEffect(() => {
     if (room?.status !== 'PLAYING') return;
     const qsa = room.questionStartedAt;
-    if (!qsa || qsa === lastQuestionStartedAt.current) return;
-    lastQuestionStartedAt.current = qsa;
-    hasAutoSubmittedRef.current = false;
-    if (autoModeTimerRef.current) clearTimeout(autoModeTimerRef.current);
+    if (!qsa) return;
+    const isNewQuestion = qsa !== lastQuestionStartedAt.current;
+    if (isNewQuestion) {
+      lastQuestionStartedAt.current = qsa;
+      hasAutoSubmittedRef.current = false;
+      if (autoModeTimerRef.current) clearTimeout(autoModeTimerRef.current);
+    }
+    const effectiveSecs = (room.consecutiveAllSkip ?? 0) >= 1 ? 5 : TIMEOUT_SECS;
     const serverElapsed = Math.floor((Date.now() - new Date(qsa).getTime()) / 1000);
-    setTimeLeft(Math.max(0, effectiveTimeoutSecs - serverElapsed));
-  }, [room?.questionStartedAt, room?.status, effectiveTimeoutSecs]);
+    setTimeLeft(Math.max(0, effectiveSecs - serverElapsed));
+  }, [room?.questionStartedAt, room?.status, room?.consecutiveAllSkip]);
 
   const myAnswered = room?.myRole === 'host' ? room?.hostAnswered : room?.guestAnswered;
   const isAutoSubmitted = myAnswered && room?.mySelected === -1;
@@ -219,14 +224,15 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
   }, [room]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 자동모드: questionStartedAt + 3초 기준 절대 시각으로 양쪽 동시 자동제출
+  // 5초 모드(consecutiveAllSkip>=1)에서는 타이머를 쓰지 않고 timeLeft=0 effect가 처리
+  // → 타이머가 0이 될 때 제출되어 "0초" 상태에서 무효처리됨
   useEffect(() => {
     if (!isAutoMode || room?.status !== 'PLAYING' || myAnswered) return;
+    if ((room.consecutiveAllSkip ?? 0) >= 1) return; // 5초 모드: timeLeft=0 effect가 처리
     const questionId = room.question?.id;
     const qsa = room.questionStartedAt;
     if (!questionId || !qsa) return;
-    // 양쪽 클라이언트가 같은 절대 시각에 제출 (5초 모드면 4s, 일반 15s 모드면 3s)
-    const autoOffset = (room.consecutiveAllSkip ?? 0) >= 1 ? 4000 : 3000;
-    const targetTime = new Date(qsa).getTime() + autoOffset;
+    const targetTime = new Date(qsa).getTime() + 3000;
     const delayMs = Math.max(2000, targetTime - Date.now());
     autoModeTimerRef.current = setTimeout(() => {
       if (!hasAutoSubmittedRef.current) {
@@ -235,7 +241,7 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
       }
     }, delayMs);
     return () => { if (autoModeTimerRef.current) clearTimeout(autoModeTimerRef.current); };
-  }, [isAutoMode, room?.question?.id, myAnswered, room?.status, room?.questionStartedAt]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isAutoMode, room?.question?.id, myAnswered, room?.status, room?.questionStartedAt, room?.consecutiveAllSkip]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 카운트다운 (자동응답 상태면 중지)
   useEffect(() => {
@@ -256,7 +262,11 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
         if (!r.ok && data.error !== '이미 답변했습니다') throw new Error(data.error ?? '오류가 발생했습니다');
         return data;
       }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['battle', id] }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['battle', id] });
+      // 첫 refetch가 stale할 수 있어(상대방 answer 미처리) 500ms 후 재폴링
+      setTimeout(() => void queryClient.invalidateQueries({ queryKey: ['battle', id] }), 500);
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 
