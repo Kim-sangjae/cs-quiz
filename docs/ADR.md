@@ -264,3 +264,29 @@ MVP 속도 최우선. 외부 의존성 최소화. 작동하는 최소 구현을 
 **트레이드오프**: 카카오 SDK는 `NEXT_PUBLIC_KAKAO_APP_KEY` 환경변수 + Kakao Developers 플랫폼 도메인 등록이 필요. 키 미설정 시 카카오 버튼 미표시(graceful degradation).
 
 **localhost 주의**: `localhost` URL은 카카오/Discord 서버가 접근 불가 → OG 미리보기·카카오 SDK 공유가 정상 동작하지 않음. 배포 도메인에서만 확인 가능.
+
+---
+
+### ADR-025: 대결 실시간 동기화에 Supabase Broadcast 사용
+
+**결정**: 대결 화면(`/battle/[id]`)에서 GameRoom 상태 변경을 Supabase Realtime Broadcast로 즉시 전파. 클라이언트는 신호만 받고 인증된 API로 refetch.
+
+**이유**:
+- 폴링만으로는 5초 타이머 구간에서 양쪽 클라이언트가 상태를 다른 시각에 보는 문제 발생 (최대 폴링 간격만큼 지연)
+- `postgres_changes` 대신 Broadcast를 선택한 이유: `postgres_changes`는 Supabase Dashboard에서 테이블별 Replication 활성화 필요 + anon 키로 구독 시 RLS 없으면 전체 GameRoom row 데이터(questionIds, answers 등) 노출
+- Broadcast는 신호만 전달(payload 없음) → 실제 데이터는 인증된 API 경유 → 보안 문제 없음
+- Dashboard 설정 불필요 (DB Replication 활성화 없이 동작)
+
+**구현**:
+- 서버: `broadcastBattleUpdate(roomId)` — `supabaseServer.channel().send()` via HTTP fallback (서버리스 친화적, await으로 응답 전 완료 보장)
+- 클라이언트: `supabaseBrowser.channel('battle-room-{id}').on('broadcast', ...)` → `queryClient.invalidateQueries`
+- Fallback: Broadcast 실패 시 TanStack Query 폴링 (일반 1s, 5초 단축 모드 500ms)
+
+**연속 쌍방 스킵 로직**:
+- `consecutiveAllSkip >= 1` → 5초 단축 타이머 적용
+- `consecutiveAllSkip >= 3` → 무효(void) 종료
+- 클라이언트 auto-mode 타이머: `questionStartedAt + 5000ms` 절대 시각 기준 → 폴링 타이밍 무관하게 양쪽 동시 제출
+
+**트레이드오프**:
+- Broadcast가 100% 신뢰 보장은 아님 → 폴링 fallback 필수
+- `supabaseServer.channel().send()` 미구독 상태 HTTP fallback은 내부 구현에 의존적 → supabase-js 메이저 버전 업 시 재검증 필요

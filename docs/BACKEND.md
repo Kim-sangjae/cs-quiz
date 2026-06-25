@@ -31,6 +31,7 @@
 | `Notification` | type(QUESTION_APPROVED/QUESTION_REJECTED/ROLE_CHANGED/INQUIRY_REPLIED), payload(Json), isRead |
 | `Inquiry` | userId, type(BUG_REPORT/ACCOUNT_ISSUE/CONTENT_ISSUE/SUGGESTION/OTHER), title, content, status(PENDING/IN_PROGRESS/RESOLVED), adminReply, repliedAt |
 | `AuditLog` | actorId, actorRole, action(LOGIN/QUESTION_APPROVE/REJECT/BLIND 등), targetType, targetId, payload(Json) |
+| `GameRoom` | hostId, guestId, status(WAITING/PLAYING/FINISHED), category, questionIds(Json), hostAnswers/guestAnswers(Json), currentQ, hostScore/guestScore, consecutiveAllSkip(연속 쌍방 스킵 카운트), questionStartedAt(문제 시작 시각), quitRequestBy |
 | `Account`, `Session`, `VerificationToken` | NextAuth PrismaAdapter 전용 |
 
 **역정규화**: `Question.attemptCount`, `correctCount`는 퀴즈 제출 $transaction에서 원자적 업데이트.
@@ -60,6 +61,9 @@ GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
 OPENAI_API_KEY=             # 보기 자동 생성(gpt-4o-mini) + 유사 문제 임베딩(text-embedding-3-small)
 NEXT_PUBLIC_KAKAO_APP_KEY=  # Kakao Developers JavaScript 앱 키 (공유 SDK, 무료)
+NEXT_PUBLIC_SUPABASE_URL=   # Supabase 프로젝트 URL (브라우저 Realtime 구독용)
+NEXT_PUBLIC_SUPABASE_ANON_KEY= # Supabase anon 키 (브라우저용, 공개 가능)
+SUPABASE_SERVICE_ROLE_KEY=  # Supabase service role 키 (서버 전용, 절대 클라이언트 노출 금지)
 ```
 
 > `NEXT_PUBLIC_KAKAO_APP_KEY`: [developers.kakao.com](https://developers.kakao.com) → 내 애플리케이션 → 앱 키 → JavaScript 키. 플랫폼에 배포 도메인 등록 필요.
@@ -75,3 +79,17 @@ NEXT_PUBLIC_KAKAO_APP_KEY=  # Kakao Developers JavaScript 앱 키 (공유 SDK, �
 | `POST /api/admin/reports/bulk` | 추가 | 일괄 무시/블라인드 |
 | `POST /api/admin/inquiries/bulk` | 추가 | 일괄 상태 변경 |
 | `POST /api/admin/users/bulk` | 추가 | 일괄 권한 변경/삭제 |
+| `POST /api/battle/rooms` | 추가 | 대결방 생성 |
+| `POST /api/battle/rooms/[id]/join` | 추가 | 대결 수락(게스트 입장) |
+| `POST /api/battle/rooms/[id]/reject` | 추가 | 대결 거절 |
+| `GET /api/battle/rooms/[id]` | 추가 | 방 상태 폴링 + 서버사이드 타임아웃 자동제출 |
+| `POST /api/battle/rooms/[id]/answer` | 추가 | 답변 제출 + broadcast 발화 |
+| `POST /api/battle/rooms/[id]/quit` | 추가 | 대결 중단 요청/확정 |
+
+## Supabase Realtime Broadcast (대결 실시간 동기화)
+
+- **유틸**: `src/lib/battle-broadcast.ts` — `broadcastBattleUpdate(roomId)` 호출 시 Supabase Realtime Broadcast로 양쪽 클라이언트에 "방 변경됨" 신호 발송
+- **보안**: Broadcast는 신호만 전달(실제 GameRoom 데이터 미포함). 클라이언트는 신호 수신 후 인증된 `GET /api/battle/rooms/[id]`로 refetch → 데이터 노출 없음
+- **Dashboard 설정 불필요**: Broadcast는 DB Replication 활성화 없이 동작 (postgres_changes와 다름)
+- **Fallback**: Broadcast 실패 시 TanStack Query 폴링으로 fallback (일반 1s, 5초모드 500ms)
+- **서버사이드 타임아웃**: `GET /api/battle/rooms/[id]`에서 `questionStartedAt + effectiveTimeoutMs` 경과 시 자동제출 처리 (`$transaction`으로 동시 업데이트 방지)

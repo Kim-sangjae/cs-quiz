@@ -51,6 +51,14 @@ src/
 │       │   ├── wrong-answers/route.ts
 │       │   ├── my-questions/route.ts
 │       │   └── liked-questions/route.ts
+│       ├── battle/
+│       │   ├── rooms/route.ts             # POST — 대결방 생성
+│       │   └── rooms/[id]/
+│       │       ├── route.ts               # GET — 방 상태 폴링 + 서버사이드 타임아웃 자동제출
+│       │       ├── answer/route.ts        # POST — 답변 제출 + Broadcast 발화
+│       │       ├── join/route.ts          # POST — 대결 수락
+│       │       ├── reject/route.ts        # POST — 대결 거절
+│       │       └── quit/route.ts          # POST — 대결 중단
 │       └── admin/
 │           ├── badge/route.ts            # GET — 미처리 건수 + newTotal(방문 후 초기화)
 │           ├── badge/seen/route.ts       # POST — adminLastSeenAt 갱신
@@ -72,9 +80,13 @@ src/
 ├── public/
 │   ├── og-image-dark.png                 # OG 이미지 (다크 배경 — layout + result 메타태그)
 │   └── og-image-light.png                # OG 이미지 (화이트 배경 — 보존용)
+├── app/
+│   └── battle/[id]/page.tsx             # 대결 진행 (Client — TanStack Query + Supabase Broadcast)
 ├── components/
 │   ├── Header.tsx                        # 공통 헤더 (Client, PWA 설치 버튼 포함)
 │   ├── NotificationBell.tsx              # 알림 벨 (Client, 30초 폴링)
+│   ├── BattleInviteAlert.tsx             # 대결 초대 알림 모달 (Client, 5초 폴링)
+│   ├── FriendPanel.tsx                   # 친구 목록 + 대결 신청 패널 (Client)
 │   ├── ResultCard.tsx                    # 오답/전체 리뷰 카드 (Client, 신고+북마크 버튼 포함)
 │   ├── QuizCard.tsx                      # 퀴즈 문제 카드
 │   ├── Navigator.tsx                     # 문제 번호 점프 네비게이터
@@ -87,14 +99,17 @@ src/
 │       ├── LikeButton.tsx
 │       └── ReportModal.tsx
 ├── lib/
-│   ├── auth.ts          # NextAuth + getServerUser() — DB 접근, 서버 전용
-│   ├── auth.config.ts   # Edge-safe config — 미들웨어 전용
-│   ├── prisma.ts        # Prisma client singleton
-│   ├── audit.ts         # writeLog() — fire-and-forget 감사 로그 기록
-│   ├── embedding.ts     # OpenAI text-embedding-3-small 호출 유틸
-│   ├── sample.ts        # Fisher-Yates 랜덤 샘플링
-│   ├── grade.ts         # 채점 (순수 함수)
-│   └── guard.ts         # QuizResult 타입 가드
+│   ├── auth.ts               # NextAuth + getServerUser() — DB 접근, 서버 전용
+│   ├── auth.config.ts        # Edge-safe config — 미들웨어 전용
+│   ├── prisma.ts             # Prisma client singleton
+│   ├── supabase-browser.ts   # Supabase 브라우저 클라이언트 (Realtime 구독용)
+│   ├── supabase-server.ts    # Supabase 서버 클라이언트 (service role, Broadcast 발신용)
+│   ├── battle-broadcast.ts   # broadcastBattleUpdate() — 대결방 변경 시 Broadcast 발화
+│   ├── audit.ts              # writeLog() — fire-and-forget 감사 로그 기록
+│   ├── embedding.ts          # OpenAI text-embedding-3-small 호출 유틸
+│   ├── sample.ts             # Fisher-Yates 랜덤 샘플링
+│   ├── grade.ts              # 채점 (순수 함수)
+│   └── guard.ts              # QuizResult 타입 가드
 ├── data/
 │   └── questions.ts     # OFFICIAL 문제 정적 배열 (120개+)
 └── types/
