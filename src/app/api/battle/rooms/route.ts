@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { broadcastBattleStatusChange } from '@/lib/battle-broadcast';
 
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];
@@ -130,5 +131,6 @@ export async function POST(req: Request) {
     },
   });
 
+  await broadcastBattleStatusChange();
   return NextResponse.json({ roomId: room.id }, { status: 201 });
 }

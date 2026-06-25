@@ -6,6 +6,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter, usePathname } from 'next/navigation';
 import { toast } from 'sonner';
 import { useSupabaseRealtime } from '@/hooks/useSupabaseRealtime';
+import { supabaseBrowser } from '@/lib/supabase-browser';
 import { BADGE_META } from '@/lib/badges';
 import type { BadgeType } from '@/lib/badges';
 
@@ -314,12 +315,24 @@ export default function FriendPanel() {
     refetchInterval: open ? 5_000 : 30_000,
   });
 
-  // 패널 열릴 때마다 즉시 최신 데이터 반영
+  // 패널 열릴 때마다 즉시 최신 데이터 반영 (broadcast 미수신 시 fallback)
   useEffect(() => {
     if (open) {
       void queryClient.invalidateQueries({ queryKey: ['friends'] });
     }
   }, [open, queryClient]);
+
+  // 친구 대결 상태 실시간 반영
+  useEffect(() => {
+    if (status !== 'authenticated') return;
+    const channel = supabaseBrowser
+      .channel('battle-status-updates')
+      .on('broadcast', { event: 'battle_status_changed' }, () => {
+        void queryClient.invalidateQueries({ queryKey: ['friends'] });
+      })
+      .subscribe();
+    return () => { void supabaseBrowser.removeChannel(channel); };
+  }, [queryClient, status]);
 
   const { data: battleRoomsData } = useQuery<{ rooms: { id: string; status: string }[] }>({
     queryKey: ['battle', 'rooms'],

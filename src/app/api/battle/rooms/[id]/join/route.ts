@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { broadcastBattleStatusChange } from '@/lib/battle-broadcast';
 
 export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
@@ -19,5 +20,6 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     data: { status: 'PLAYING', questionStartedAt: new Date() },
   });
 
+  await broadcastBattleStatusChange();
   return NextResponse.json({ ok: true });
 }

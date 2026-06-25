@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-import { broadcastBattleUpdate } from '@/lib/battle-broadcast';
+import { broadcastBattleUpdate, broadcastBattleStatusChange } from '@/lib/battle-broadcast';
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
@@ -93,5 +93,6 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   });
 
   await broadcastBattleUpdate(id);
+  if (newStatus === 'FINISHED') await broadcastBattleStatusChange();
   return NextResponse.json({ correct: isCorrect });
 }
