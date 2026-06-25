@@ -126,10 +126,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       select: { id: true, question: true, options: true, answer: true, explanation: true },
     });
     const sortedQs = questionIds.map((qid) => questions.find((q) => q.id === qid)!);
-    // 무효 조건: 전체 스킵 or 연속 쌍방 스킵 2회
-    const isVoid =
-      (hostAnswers.every(a => a === -1) && guestAnswers.every(a => a === -1)) ||
-      (room.consecutiveAllSkip >= 2);
+    // 무효 조건: 연속 쌍방 스킵 2회 (처음부터 포함)
+    const isVoid = room.consecutiveAllSkip >= 2;
     return NextResponse.json({
       id: room.id,
       status: 'FINISHED',
