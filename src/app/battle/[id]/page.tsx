@@ -92,7 +92,12 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
       return r.json() as Promise<RoomState>;
     }),
     enabled: status === 'authenticated',
-    refetchInterval: (q) => (q.state.data?.status === 'FINISHED' ? false : 3000),
+    refetchInterval: (q) => {
+      const d = q.state.data;
+      if (!d || d.status === 'FINISHED') return false;
+      // 5초 모드(consecutiveAllSkip>=1)는 500ms, 일반은 1000ms
+      return d.status === 'PLAYING' && (d.consecutiveAllSkip ?? 0) >= 1 ? 500 : 1000;
+    },
     retry: false,
   });
 
