@@ -93,7 +93,7 @@ export default async function QuizSelectPage() {
     <div className="max-w-2xl mx-auto px-4 py-8">
       <h1 className="text-2xl font-semibold text-white mb-2">퀴즈 시작</h1>
       <p className="text-sm text-neutral-400 mb-8">
-        카테고리를 선택하거나 전체 문제에서 랜덤으로 30문제를 풀어보세요.
+        카테고리를 선택하거나 전체 문제에서 랜덤으로 20문제를 풀어보세요.
       </p>
 
       {/* ALL 카드 */}
@@ -163,30 +163,44 @@ function QuizCard({
     'text-emerald-400';
 
   return (
-    <Link
-      href={`/quiz/play?category=${cat}`}
-      className={`block bg-[#111111] border rounded-lg p-5 hover:bg-[#1a1a1a] transition-colors ${
-        isWeak ? 'border-red-900/50 hover:border-red-800/60' : 'border-neutral-800 hover:border-neutral-600'
-      }`}
-    >
-      <div className="flex items-start justify-between">
-        <div>
-          <div className="flex items-center gap-2">
-            <p className="text-sm font-medium text-white">{label}</p>
-            {isWeak && (
-              <span className="text-[10px] text-red-400 border border-red-900/60 rounded px-1.5 py-0.5">
-                약점
-              </span>
-            )}
+    <div className={`bg-[#111111] border rounded-lg overflow-hidden ${
+      isWeak ? 'border-red-900/50' : 'border-neutral-800'
+    }`}>
+      <Link
+        href={`/quiz/play?category=${cat}`}
+        className="block p-5 hover:bg-[#1a1a1a] transition-colors"
+      >
+        <div className="flex items-start justify-between">
+          <div>
+            <div className="flex items-center gap-2">
+              <p className="text-sm font-medium text-white">{label}</p>
+              {isWeak && (
+                <span className="text-[10px] text-red-400 border border-red-900/60 rounded px-1.5 py-0.5">
+                  약점
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-neutral-500 mt-1">{count}문제</p>
           </div>
-          <p className="text-xs text-neutral-500 mt-1">{count}문제</p>
+          {accuracy !== null && (
+            <span className={`text-xs border border-neutral-800 rounded px-2 py-0.5 ${accuracyColor}`}>
+              {accuracy}%
+            </span>
+          )}
         </div>
-        {accuracy !== null && (
-          <span className={`text-xs border border-neutral-800 rounded px-2 py-0.5 ${accuracyColor}`}>
-            {accuracy}%
-          </span>
-        )}
+      </Link>
+      <div className="px-5 pb-3 flex justify-end border-t border-neutral-800/40">
+        <Link
+          href={`/quiz/play?category=${cat}&timed=true`}
+          className="text-[10px] text-neutral-600 hover:text-amber-400 transition-colors flex items-center gap-1 pt-2"
+        >
+          <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+            <circle cx="12" cy="12" r="10" />
+            <polyline points="12 6 12 12 16 14" />
+          </svg>
+          시간 제한 모드
+        </Link>
       </div>
-    </Link>
+    </div>
   );
 }

@@ -1,7 +1,8 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { broadcastBattleUpdate, broadcastBattleStatusChange } from '@/lib/battle-broadcast';
+import { checkBattleBadges } from '@/lib/award-badges';
 
 const QUESTION_TIMEOUT_MS = 20 * 1000;
 const SKIP_TIMEOUT_MS = 5 * 1000; // 연속 쌍방 스킵 시 단축 타이머
@@ -79,7 +80,10 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
           if (updated) {
             room = updated;
             await broadcastBattleUpdate(id); // 타임아웃 자동제출 → 상대방에게 즉시 알림
-            if (updated.status === 'FINISHED') await broadcastBattleStatusChange();
+            if (updated.status === 'FINISHED') {
+              after(broadcastBattleStatusChange());
+              if (updated.guestId) after(checkBattleBadges(updated.hostId, updated.guestId).catch(() => {}));
+            }
           }
         } catch { /* 동시 업데이트 무시 */ }
       }

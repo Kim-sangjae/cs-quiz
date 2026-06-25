@@ -178,7 +178,10 @@ function ProfileModal({
 
             {/* 업적 */}
             {profile && profile.badges.length > 0 && (
-              <div className="border-t border-neutral-800 px-5 py-3.5">
+              <div
+                className="border-t border-neutral-800 px-5 py-3.5"
+                onMouseLeave={() => setHoveredBadge(null)}
+              >
                 <p className="text-[10px] text-neutral-500 mb-2">달성한 업적</p>
                 <div className="flex flex-wrap gap-1.5">
                   {profile.badges.map((badge) => {
@@ -189,7 +192,6 @@ function ProfileModal({
                         key={badge}
                         className="text-lg cursor-default select-none"
                         onMouseEnter={() => setHoveredBadge(badge)}
-                        onMouseLeave={() => setHoveredBadge(null)}
                       >
                         {meta.icon}
                       </span>

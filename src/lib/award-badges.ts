@@ -17,6 +17,30 @@ export async function awardBadges(userId: string, candidates: BadgeType[]): Prom
   }
 }
 
+export async function checkBattleBadges(hostId: string, guestId: string): Promise<void> {
+  for (const userId of [hostId, guestId]) {
+    const rooms = await prisma.gameRoom.findMany({
+      where: {
+        status: 'FINISHED',
+        consecutiveAllSkip: { lt: 3 }, // void 제외
+        OR: [{ hostId: userId }, { guestId: userId }],
+      },
+      select: { hostId: true, hostScore: true, guestScore: true },
+    });
+    const wins = rooms.filter((r) => {
+      const myScore = r.hostId === userId ? r.hostScore : (r.guestScore ?? 0);
+      const oppScore = r.hostId === userId ? (r.guestScore ?? 0) : r.hostScore;
+      return myScore > oppScore;
+    }).length;
+    const candidates: BadgeType[] = [];
+    if (rooms.length >= 1) candidates.push('BATTLE_FIRST');
+    if (wins >= 1) candidates.push('BATTLE_WIN_1');
+    if (wins >= 10) candidates.push('BATTLE_WIN_10');
+    if (wins >= 30) candidates.push('BATTLE_WIN_30');
+    await awardBadges(userId, candidates);
+  }
+}
+
 export async function checkQuestionBadges(authorId: string): Promise<void> {
   const approvedCount = await prisma.question.count({
     where: { authorId, status: 'APPROVED' },

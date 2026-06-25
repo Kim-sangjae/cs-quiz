@@ -1,0 +1,295 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ProjectInspectionProfilesVisibleTreeState">
+    <entry key="Project Default">
+      <profile-state>
+        <expanded-state>
+          <State>
+            <id>Docker-compose</id>
+          </State>
+          <State>
+            <id>Dockerfile</id>
+          </State>
+          <State>
+            <id>EditorConfig</id>
+          </State>
+          <State>
+            <id>Gradle</id>
+          </State>
+          <State>
+            <id>Groovy</id>
+          </State>
+          <State>
+            <id>HTTP 클라이언트</id>
+          </State>
+          <State>
+            <id>JPA</id>
+          </State>
+          <State>
+            <id>JUnit</id>
+          </State>
+          <State>
+            <id>JVM 언어</id>
+          </State>
+          <State>
+            <id>Java</id>
+          </State>
+          <State>
+            <id>Java 16Java 언어 수준 마이그레이션 지원Java</id>
+          </State>
+          <State>
+            <id>Java 5Java 언어 수준 마이그레이션 지원Java</id>
+          </State>
+          <State>
+            <id>Java 7Java 언어 수준 마이그레이션 지원Java</id>
+          </State>
+          <State>
+            <id>Java 8Java 언어 수준 마이그레이션 지원Java</id>
+          </State>
+          <State>
+            <id>Java 9Java 언어 수준 마이그레이션 지원Java</id>
+          </State>
+          <State>
+            <id>Java 상호운용성 문제Kotlin</id>
+          </State>
+          <State>
+            <id>Java 언어 수준 마이그레이션 지원Java</id>
+          </State>
+          <State>
+            <id>Java 언어 수준 문제Java</id>
+          </State>
+          <State>
+            <id>JavaBeans 문제Java</id>
+          </State>
+          <State>
+            <id>JavaFX</id>
+          </State>
+          <State>
+            <id>JavadocJava</id>
+          </State>
+          <State>
+            <id>Kotlin</id>
+          </State>
+          <State>
+            <id>Markdown</id>
+          </State>
+          <State>
+            <id>Maven</id>
+          </State>
+          <State>
+            <id>MongoJS</id>
+          </State>
+          <State>
+            <id>OpenAPI 사양</id>
+          </State>
+          <State>
+            <id>ReactKotlin</id>
+          </State>
+          <State>
+            <id>SQL</id>
+          </State>
+          <State>
+            <id>SQL 서버</id>
+          </State>
+          <State>
+            <id>XML</id>
+          </State>
+          <State>
+            <id>XPath</id>
+          </State>
+          <State>
+            <id>XSLT</id>
+          </State>
+          <State>
+            <id>null 값 가능성 문제가능한 버그Java</id>
+          </State>
+          <State>
+            <id>가능한 버그Java</id>
+          </State>
+          <State>
+            <id>가시성Java</id>
+          </State>
+          <State>
+            <id>국제화</id>
+          </State>
+          <State>
+            <id>국제화Java</id>
+          </State>
+          <State>
+            <id>기타 문제Kotlin</id>
+          </State>
+          <State>
+            <id>기타Groovy</id>
+          </State>
+          <State>
+            <id>대입 이슈Java</id>
+          </State>
+          <State>
+            <id>데이터 흐름Java</id>
+          </State>
+          <State>
+            <id>동시성 어노테이션 문제Java</id>
+          </State>
+          <State>
+            <id>로그 관련Java</id>
+          </State>
+          <State>
+            <id>로깅JVM 언어</id>
+          </State>
+          <State>
+            <id>리소스 관리Java</id>
+          </State>
+          <State>
+            <id>리플렉티브 액세스Java</id>
+          </State>
+          <State>
+            <id>메모리Java</id>
+          </State>
+          <State>
+            <id>메서드 메트릭Java</id>
+          </State>
+          <State>
+            <id>메서드이름 생성 규칙Java</id>
+          </State>
+          <State>
+            <id>발생할 수 있는 버그Gradle</id>
+          </State>
+          <State>
+            <id>발생할 수 있는 버그Groovy</id>
+          </State>
+          <State>
+            <id>발생할 수 있는 버그Java</id>
+          </State>
+          <State>
+            <id>발생할 수 있는 버그Kotlin</id>
+          </State>
+          <State>
+            <id>발생할 수 있는 버그ReactKotlin</id>
+          </State>
+          <State>
+            <id>보안</id>
+          </State>
+          <State>
+            <id>보안Java</id>
+          </State>
+          <State>
+            <id>복제 문제Java</id>
+          </State>
+          <State>
+            <id>불필요한 구문Kotlin</id>
+          </State>
+          <State>
+            <id>상속 문제Java</id>
+          </State>
+          <State>
+            <id>선언 중복성Java</id>
+          </State>
+          <State>
+            <id>성능Java</id>
+          </State>
+          <State>
+            <id>숫자 문제Java</id>
+          </State>
+          <State>
+            <id>스레딩 문제Groovy</id>
+          </State>
+          <State>
+            <id>스레딩 문제Java</id>
+          </State>
+          <State>
+            <id>스타일 문제Kotlin</id>
+          </State>
+          <State>
+            <id>스타일Groovy</id>
+          </State>
+          <State>
+            <id>어노테이션Groovy</id>
+          </State>
+          <State>
+            <id>오류 처리Groovy</id>
+          </State>
+          <State>
+            <id>오류 처리Java</id>
+          </State>
+          <State>
+            <id>유효성 문제Gradle</id>
+          </State>
+          <State>
+            <id>이름 생성 규칙Java</id>
+          </State>
+          <State>
+            <id>이름 지정 규칙Groovy</id>
+          </State>
+          <State>
+            <id>이식성Java</id>
+          </State>
+          <State>
+            <id>임베디드성능Java</id>
+          </State>
+          <State>
+            <id>장황하거나 중복 코드 구문Java</id>
+          </State>
+          <State>
+            <id>제어 흐름 이슈Groovy</id>
+          </State>
+          <State>
+            <id>제어 흐름 이슈Java</id>
+          </State>
+          <State>
+            <id>직렬화 문제Java</id>
+          </State>
+          <State>
+            <id>초기화Java</id>
+          </State>
+          <State>
+            <id>추상화 문제Java</id>
+          </State>
+          <State>
+            <id>캡슐화Java</id>
+          </State>
+          <State>
+            <id>컴파일러 문제Java</id>
+          </State>
+          <State>
+            <id>코드 구문이 혼동될 수 있습니다.Groovy</id>
+          </State>
+          <State>
+            <id>코드 성숙도Java</id>
+          </State>
+          <State>
+            <id>코드 스타일 이슈Java</id>
+          </State>
+          <State>
+            <id>코드 커버리지</id>
+          </State>
+          <State>
+            <id>코루틴 검사Kotlin</id>
+          </State>
+          <State>
+            <id>클래스 구조Java</id>
+          </State>
+          <State>
+            <id>테스트 프레임워크JVM 언어</id>
+          </State>
+          <State>
+            <id>테스트 프레임워크Java</id>
+          </State>
+          <State>
+            <id>패턴 유효성 검사</id>
+          </State>
+          <State>
+            <id>프로퍼티 파일Java</id>
+          </State>
+        </expanded-state>
+        <selected-state>
+          <State>
+            <id>사용자 정의</id>
+          </State>
+        </selected-state>
+      </profile-state>
+    </entry>
+  </component>
+  <component name="ProjectRootManager" version="2" languageLevel="JDK_21" default="true" project-jdk-name="21" project-jdk-type="JavaSDK">
+    <output url="file://$PROJECT_DIR$/out" />
+  </component>
+</project>

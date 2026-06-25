@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { broadcastBattleStatusChange } from '@/lib/battle-broadcast';
@@ -131,6 +131,6 @@ export async function POST(req: Request) {
     },
   });
 
-  await broadcastBattleStatusChange();
+  after(broadcastBattleStatusChange());
   return NextResponse.json({ roomId: room.id }, { status: 201 });
 }

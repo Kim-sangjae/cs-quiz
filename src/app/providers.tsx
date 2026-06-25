@@ -16,7 +16,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
         <RealtimeProvider>
           {children}
           <ProgressBar height="2px" color="#ffffff" options={{ showSpinner: false }} shallowRouting />
-          <Toaster position="top-center" theme="dark" />
+          <Toaster position="top-center" theme="dark" duration={2000} />
         </RealtimeProvider>
       </QueryClientProvider>
     </SessionProvider>

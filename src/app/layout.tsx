@@ -17,10 +17,10 @@ import BattleRejectedAlert from "@/components/BattleRejectedAlert";
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXTAUTH_URL ?? 'http://localhost:3000'),
   title: { default: 'CS Quiz', template: '%s | CS Quiz' },
-  description: 'CS 기초 지식을 30문제로 점검하세요. 자료구조·알고리즘·OS·네트워크·DB·컴퓨터 구조 6개 영역에서 랜덤 출제.',
+  description: 'CS 기초 지식을 20문제로 점검하세요. 자료구조·알고리즘·OS·네트워크·DB·컴퓨터 구조 6개 영역에서 랜덤 출제.',
   openGraph: {
     title: 'CS Quiz',
-    description: 'CS 기초 지식을 30문제로 점검하세요',
+    description: 'CS 기초 지식을 20문제로 점검하세요',
     siteName: 'CS Quiz',
     locale: 'ko_KR',
     type: 'website',
@@ -29,7 +29,7 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title: 'CS Quiz',
-    description: 'CS 기초 지식을 30문제로 점검하세요',
+    description: 'CS 기초 지식을 20문제로 점검하세요',
     images: ['/og-image-dark.png'],
   },
   appleWebApp: {

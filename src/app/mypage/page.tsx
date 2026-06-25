@@ -304,6 +304,7 @@ function WeeklyReport({ sessions }: { sessions: ApiSession[] }) {
 }
 
 function ScoreTrend({ sessions }: { sessions: ApiSession[] }) {
+  const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
   const recent = [...sessions]
     .sort((a, b) => new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime())
     .slice(-10);
@@ -311,7 +312,7 @@ function ScoreTrend({ sessions }: { sessions: ApiSession[] }) {
   if (recent.length < 2) return null;
 
   const W = 280, H = 60, PAD = 4;
-  const max = 30, min = 0;
+  const max = 20, min = 0;
   const points = recent.map((s, i) => {
     const x = PAD + (i / (recent.length - 1)) * (W - PAD * 2);
     const y = PAD + ((max - s.score) / (max - min)) * (H - PAD * 2);
@@ -319,6 +320,7 @@ function ScoreTrend({ sessions }: { sessions: ApiSession[] }) {
   });
   const d = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
   const last = points[points.length - 1];
+  const hovered = hoveredIdx !== null ? points[hoveredIdx] : null;
 
   return (
     <div className="mt-4 pt-4 border-t border-neutral-800">
@@ -326,11 +328,21 @@ function ScoreTrend({ sessions }: { sessions: ApiSession[] }) {
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: 60 }}>
         <path d={d} fill="none" stroke="#404040" strokeWidth={1.5} />
         {points.map((p, i) => (
-          <circle key={i} cx={p.x} cy={p.y} r={2.5}
-            fill={i === points.length - 1 ? '#10b981' : '#525252'} />
+          <g key={i} onMouseEnter={() => setHoveredIdx(i)} onMouseLeave={() => setHoveredIdx(null)}>
+            <circle cx={p.x} cy={p.y} r={10} fill="transparent" style={{ cursor: 'default' }} />
+            <circle cx={p.x} cy={p.y} r={hoveredIdx === i ? 3.5 : 2.5}
+              fill={i === points.length - 1 ? '#10b981' : hoveredIdx === i ? '#a3a3a3' : '#525252'} />
+          </g>
         ))}
-        <text x={last.x} y={last.y - 7} textAnchor="middle"
-          fill="#10b981" fontSize={10} fontWeight={600}>{last.score}</text>
+        {hovered ? (
+          <text x={hovered.x} y={hovered.y - 7} textAnchor="middle"
+            fill={hoveredIdx === points.length - 1 ? '#10b981' : '#d4d4d4'} fontSize={10} fontWeight={600}>
+            {hovered.score}
+          </text>
+        ) : (
+          <text x={last.x} y={last.y - 7} textAnchor="middle"
+            fill="#10b981" fontSize={10} fontWeight={600}>{last.score}</text>
+        )}
       </svg>
       <div className="flex justify-between">
         <span className="text-[10px] text-neutral-500">{recent.length}회 전</span>
@@ -658,7 +670,18 @@ export default function MyPage() {
       {reviewInfo && reviewInfo.total > 0 && (
         <div className="bg-[#111111] border border-neutral-800 rounded-lg px-4 py-3 mb-4 flex items-center justify-between">
           <div>
-            <p className="text-xs text-neutral-500 mb-0.5">복습 스케줄</p>
+            <div className="flex items-center gap-1 mb-0.5">
+              <p className="text-xs text-neutral-500">복습 스케줄</p>
+              <div className="relative group/tip">
+                <span className="text-neutral-700 text-xs cursor-default">ⓘ</span>
+                <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden group-hover/tip:block z-50 w-52">
+                  <div className="bg-[#0a0a0a] border border-neutral-700 rounded-lg px-3 py-2 text-left shadow-xl">
+                    <p className="text-[11px] font-medium text-white mb-1">간격 반복 복습</p>
+                    <p className="text-[10px] text-neutral-400 leading-relaxed">틀린 문제가 1일→3일→7일→30일 간격으로 자동 등록됩니다. 맞추면 다음 단계로, 또 틀리면 1일로 리셋. 30일 단계 통과 시 완전 마스터.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
             <p className="text-sm text-white">
               오늘{' '}
               <span className="font-semibold text-amber-400">{reviewInfo.dueIds.length}개</span>
@@ -1436,18 +1459,6 @@ export default function MyPage() {
                           : "bg-[#1a1a1a] border-neutral-800 opacity-50 grayscale"
                       }`}
                     >
-                      {/* 호버 툴팁 — 미획득 업적에서 설명 선명하게 보기 */}
-                      <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-50">
-                        <div className="bg-[#0a0a0a] border border-neutral-700 rounded-lg px-2.5 py-1.5 text-center shadow-xl whitespace-nowrap opacity-100 grayscale-0">
-                          <p className="text-[11px] font-medium text-white">{meta.label}</p>
-                          <p className="text-[10px] text-neutral-400 mt-0.5">{meta.description}</p>
-                          {earned && (
-                            <p className="text-[10px] text-neutral-500 mt-0.5">
-                              {new Date(earned.earnedAt).toLocaleDateString("ko-KR", { year: "numeric", month: "short", day: "numeric" })}
-                            </p>
-                          )}
-                        </div>
-                      </div>
                       <span className="text-2xl mb-1.5">{meta.icon}</span>
                       <span className="text-xs font-medium text-white leading-tight mb-0.5">{meta.label}</span>
                       <span className="text-[10px] text-neutral-400 leading-tight">{meta.description}</span>

@@ -3,7 +3,8 @@ export type BadgeType =
   | 'STREAK_3' | 'STREAK_7'
   | 'CAT_DS' | 'CAT_ALGO' | 'CAT_OS' | 'CAT_NETWORK' | 'CAT_DB' | 'CAT_ARCH'
   | 'FIRST_SUBMIT' | 'APPROVED_1' | 'APPROVED_5' | 'APPROVED_10'
-  | 'COMEBACK' | 'COMPLETIONIST' | 'LIKED_QUESTION';
+  | 'COMEBACK' | 'COMPLETIONIST' | 'LIKED_QUESTION'
+  | 'BATTLE_FIRST' | 'BATTLE_WIN_1' | 'BATTLE_WIN_10' | 'BATTLE_WIN_30';
 
 export interface BadgeMeta {
   label: string;
@@ -31,6 +32,10 @@ export const BADGE_META: Record<BadgeType, BadgeMeta> = {
   COMEBACK:      { label: '오답 극복',         description: '틀렸던 문제 다음에 정답',       icon: '💪' },
   COMPLETIONIST: { label: '완주',             description: '6개 카테고리 모두 1회 이상 완료', icon: '🎖️' },
   LIKED_QUESTION:{ label: '인기 출제자',       description: '내 문제가 북마크 10개 달성',    icon: '🔖' },
+  BATTLE_FIRST:  { label: '첫 대결',           description: '첫 번째 대결 완료',             icon: '⚔️' },
+  BATTLE_WIN_1:  { label: '첫 승리',           description: '첫 번째 대결 승리',             icon: '🏅' },
+  BATTLE_WIN_10: { label: '대결 고수',          description: '대결 10승 달성',               icon: '🥈' },
+  BATTLE_WIN_30: { label: '대결 달인',          description: '대결 30승 달성',               icon: '🥇' },
 };
 
 export const ALL_BADGES: BadgeType[] = Object.keys(BADGE_META) as BadgeType[];

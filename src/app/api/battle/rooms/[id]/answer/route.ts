@@ -1,7 +1,8 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { broadcastBattleUpdate, broadcastBattleStatusChange } from '@/lib/battle-broadcast';
+import { checkBattleBadges } from '@/lib/award-badges';
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
@@ -93,6 +94,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   });
 
   await broadcastBattleUpdate(id);
-  if (newStatus === 'FINISHED') await broadcastBattleStatusChange();
+  if (newStatus === 'FINISHED') {
+    after(broadcastBattleStatusChange());
+    if (room.guestId) after(checkBattleBadges(room.hostId, room.guestId).catch(() => {}));
+  }
   return NextResponse.json({ correct: isCorrect });
 }

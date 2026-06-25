@@ -6,14 +6,14 @@ import QuizPlayClient from "./QuizPlayClient";
 export default async function QuizPlayPage({
   searchParams,
 }: {
-  searchParams: Promise<{ category?: string; reviewIds?: string }>;
+  searchParams: Promise<{ category?: string; reviewIds?: string; timed?: string }>;
 }) {
-  const { category, reviewIds } = await searchParams;
+  const { category, reviewIds, timed } = await searchParams;
 
   let questions: Question[];
 
   if (reviewIds) {
-    const ids = reviewIds.split(",").filter(Boolean).slice(0, 30);
+    const ids = reviewIds.split(",").filter(Boolean).slice(0, 20);
     const dbQuestions = await prisma.question.findMany({
       where: { id: { in: ids } },
       include: { author: { select: { nickname: true } } },
@@ -48,7 +48,7 @@ export default async function QuizPlayPage({
       explanation: q.explanation,
       authorNickname: q.author?.nickname ?? null,
     }));
-    questions = sample(questions, 30);
+    questions = sample(questions, 20);
   }
 
   return (
@@ -56,6 +56,7 @@ export default async function QuizPlayPage({
       questions={questions}
       category={category ?? "all"}
       isReview={!!reviewIds}
+      isTimed={timed === 'true'}
     />
   );
 }
