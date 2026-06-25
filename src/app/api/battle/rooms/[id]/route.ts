@@ -3,6 +3,7 @@ import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 
 const QUESTION_TIMEOUT_MS = 15 * 1000;
+const SKIP_TIMEOUT_MS = 5 * 1000; // 연속 쌍방 스킵 시 단축 타이머
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
@@ -26,8 +27,10 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 
   // 서버사이드 타임아웃 자동제출
   if (room.status === 'PLAYING' && room.questionStartedAt) {
+    // consecutiveAllSkip >= 1 이면 단축 타이머(5s) 적용
+    const effectiveTimeoutMs = room.consecutiveAllSkip >= 1 ? SKIP_TIMEOUT_MS : QUESTION_TIMEOUT_MS;
     const elapsed = Date.now() - room.questionStartedAt.getTime();
-    if (elapsed >= QUESTION_TIMEOUT_MS) {
+    if (elapsed >= effectiveTimeoutMs) {
       const hA = room.hostAnswers as number[];
       const gA = room.guestAnswers as number[];
       const cQ = room.currentQ;
@@ -39,7 +42,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
           const updated = await prisma.$transaction(async (tx) => {
             const cur = await tx.gameRoom.findUnique({ where: { id } });
             if (!cur || cur.status !== 'PLAYING' || !cur.questionStartedAt) return null;
-            if (Date.now() - cur.questionStartedAt.getTime() < QUESTION_TIMEOUT_MS) return null;
+            const curTimeoutMs = cur.consecutiveAllSkip >= 1 ? SKIP_TIMEOUT_MS : QUESTION_TIMEOUT_MS;
+            if (Date.now() - cur.questionStartedAt.getTime() < curTimeoutMs) return null;
             const chA = cur.hostAnswers as number[];
             const cgA = cur.guestAnswers as number[];
             const ccQ = cur.currentQ;
@@ -49,9 +53,12 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
             const both = newHA.length > ccQ && newGA.length > ccQ;
             const newCQ = both ? ccQ + 1 : ccQ;
             const qIds = cur.questionIds as string[];
-            // 둘다 응답 없으면(모두 -1) 즉시 무효 종료
-            const allVoid = both && newHA.every(a => a === -1) && newGA.every(a => a === -1);
-            const newStatus = both && (newCQ >= qIds.length || allVoid) ? 'FINISHED' : cur.status;
+            // 이번 턴 쌍방 스킵 여부
+            const thisRoundBothSkipped = both && newHA[ccQ] === -1 && newGA[ccQ] === -1;
+            const newConsecutive = thisRoundBothSkipped ? cur.consecutiveAllSkip + 1 : 0;
+            // 2턴 연속 쌍방 스킵 → 무효 종료
+            const isVoid = newConsecutive >= 2;
+            const newStatus = both && (newCQ >= qIds.length || isVoid) ? 'FINISHED' : cur.status;
             return await tx.gameRoom.update({
               where: { id },
               data: {
@@ -59,6 +66,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
                 guestAnswers: newGA,
                 currentQ: newCQ,
                 status: newStatus,
+                consecutiveAllSkip: both ? newConsecutive : cur.consecutiveAllSkip,
                 questionStartedAt: both && newCQ < qIds.length ? new Date() : cur.questionStartedAt,
               },
               include: {
@@ -118,6 +126,10 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       select: { id: true, question: true, options: true, answer: true, explanation: true },
     });
     const sortedQs = questionIds.map((qid) => questions.find((q) => q.id === qid)!);
+    // 무효 조건: 전체 스킵 or 연속 쌍방 스킵 2회
+    const isVoid =
+      (hostAnswers.every(a => a === -1) && guestAnswers.every(a => a === -1)) ||
+      (room.consecutiveAllSkip >= 2);
     return NextResponse.json({
       id: room.id,
       status: 'FINISHED',
@@ -130,6 +142,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       guestAnswers,
       questions: sortedQs,
       myRole,
+      isVoid,
     });
   }
 
@@ -161,5 +174,6 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     myPrevAnswers: isHost ? hostAnswers.slice(0, currentQ) : guestAnswers.slice(0, currentQ),
     quitRequestBy: room.quitRequestBy ?? null,
     questionStartedAt: room.questionStartedAt?.toISOString() ?? null,
+    consecutiveAllSkip: room.consecutiveAllSkip,
   });
 }

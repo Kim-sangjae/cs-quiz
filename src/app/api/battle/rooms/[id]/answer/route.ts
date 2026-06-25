@@ -57,7 +57,20 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const bothAnswered = newHostAnswers.length > currentQ && newGuestAnswers.length > currentQ;
   // 재답변 케이스: 상대가 이미 -1이 아닌 값으로 답변했으면 bothAnswered=true
   const newCurrentQ = bothAnswered ? currentQ + 1 : currentQ;
-  const newStatus = bothAnswered && newCurrentQ >= questionIds.length ? 'FINISHED' : room.status;
+
+  // 쌍방 스킵 연속 카운트 (둘 다 -1이면 증가, 아니면 0)
+  const thisRoundBothSkipped =
+    bothAnswered &&
+    newHostAnswers[currentQ] === -1 &&
+    newGuestAnswers[currentQ] === -1;
+  const newConsecutive = bothAnswered
+    ? thisRoundBothSkipped
+      ? room.consecutiveAllSkip + 1
+      : 0
+    : room.consecutiveAllSkip;
+  const isVoid = newConsecutive >= 2;
+  const newStatus =
+    bothAnswered && (newCurrentQ >= questionIds.length || isVoid) ? 'FINISHED' : room.status;
 
   const scoreUpdate = isHost && isCorrect
     ? { hostScore: { increment: 1 } }
@@ -72,6 +85,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       guestAnswers: newGuestAnswers,
       currentQ: newCurrentQ,
       status: newStatus,
+      consecutiveAllSkip: newConsecutive,
       ...scoreUpdate,
       ...(bothAnswered && newCurrentQ < questionIds.length ? { questionStartedAt: new Date() } : {}),
     },

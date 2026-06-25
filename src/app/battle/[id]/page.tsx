@@ -36,6 +36,8 @@ interface RoomState {
   guestAnswers?: number[];
   createdAt?: string;
   questionStartedAt?: string | null;
+  consecutiveAllSkip?: number;
+  isVoid?: boolean;
 }
 
 export default function BattleRoomPage({ params }: { params: Promise<{ id: string }> }) {
@@ -181,6 +183,9 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
     }
   }, [isError, error, queryClient]);
 
+  // 이 문제의 유효 타임아웃: 이전 턴이 쌍방 스킵이면 5초, 아니면 15초
+  const effectiveTimeoutSecs = (room?.consecutiveAllSkip ?? 0) >= 1 ? 5 : TIMEOUT_SECS;
+
   // questionStartedAt 변경 시 타이머 서버 기준 동기화 + 자동제출 플래그 리셋
   useEffect(() => {
     if (room?.status !== 'PLAYING') return;
@@ -190,8 +195,8 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
     hasAutoSubmittedRef.current = false;
     if (autoModeTimerRef.current) clearTimeout(autoModeTimerRef.current);
     const serverElapsed = Math.floor((Date.now() - new Date(qsa).getTime()) / 1000);
-    setTimeLeft(Math.max(0, TIMEOUT_SECS - serverElapsed));
-  }, [room?.questionStartedAt, room?.status]);
+    setTimeLeft(Math.max(0, effectiveTimeoutSecs - serverElapsed));
+  }, [room?.questionStartedAt, room?.status, effectiveTimeoutSecs]);
 
   const myAnswered = room?.myRole === 'host' ? room?.hostAnswered : room?.guestAnswered;
   const isAutoSubmitted = myAnswered && room?.mySelected === -1;
@@ -219,8 +224,9 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
     const questionId = room.question?.id;
     const qsa = room.questionStartedAt;
     if (!questionId || !qsa) return;
-    // 양쪽 클라이언트가 같은 절대 시각(questionStartedAt + 3s)에 제출
-    const targetTime = new Date(qsa).getTime() + 3000;
+    // 양쪽 클라이언트가 같은 절대 시각에 제출 (5초 모드면 4s, 일반 15s 모드면 3s)
+    const autoOffset = (room.consecutiveAllSkip ?? 0) >= 1 ? 4000 : 3000;
+    const targetTime = new Date(qsa).getTime() + autoOffset;
     const delayMs = Math.max(2000, targetTime - Date.now());
     autoModeTimerRef.current = setTimeout(() => {
       if (!hasAutoSubmittedRef.current) {
@@ -353,14 +359,14 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
   const myAnswers = room.myRole === 'host' ? (room.hostAnswers ?? []) : (room.guestAnswers ?? []);
   const oppAnswers = room.myRole === 'host' ? (room.guestAnswers ?? []) : (room.hostAnswers ?? []);
 
-  const isVoid = room.status === 'FINISHED'
-    && (room.hostAnswers?.length ?? 0) > 0
-    && (room.guestAnswers?.length ?? 0) > 0
-    && room.hostAnswers!.every(a => a === -1)
-    && room.guestAnswers!.every(a => a === -1);
+  const isVoid = room.status === 'FINISHED' && !!room.isVoid;
 
   const timerColor =
-    timeLeft <= 3 ? 'text-red-400' : timeLeft <= 7 ? 'text-yellow-400' : 'text-emerald-400';
+    timeLeft <= (effectiveTimeoutSecs <= 5 ? 2 : 3)
+      ? 'text-red-400'
+      : timeLeft <= (effectiveTimeoutSecs <= 5 ? 3 : 7)
+        ? 'text-yellow-400'
+        : 'text-emerald-400';
 
   return (
     <main className="max-w-2xl mx-auto px-4 sm:px-6 py-10">
@@ -584,7 +590,7 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
               ) : isAutoSubmitted ? (
                 <p className="text-xs text-amber-500/70">자동응답 — 답변을 선택하여 변경 가능</p>
               ) : (
-                <p className="text-xs text-neutral-600">답변을 선택하세요 (제한 시간 {TIMEOUT_SECS}초)</p>
+                <p className="text-xs text-neutral-600">답변을 선택하세요 (제한 시간 {effectiveTimeoutSecs}초)</p>
               )}
             </div>
             <button
