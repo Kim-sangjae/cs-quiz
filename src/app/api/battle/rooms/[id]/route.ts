@@ -78,7 +78,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
           });
           if (updated) {
             room = updated;
-            broadcastBattleUpdate(id); // 타임아웃 자동제출 → 상대방에게 즉시 알림
+            await broadcastBattleUpdate(id); // 타임아웃 자동제출 → 상대방에게 즉시 알림
           }
         } catch { /* 동시 업데이트 무시 */ }
       }

@@ -1,16 +1,9 @@
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+import { supabaseServer } from './supabase-server';
 
-export function broadcastBattleUpdate(roomId: string): void {
-  void fetch(`${SUPABASE_URL}/realtime/v1/api/broadcast`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
-      apikey: SERVICE_ROLE_KEY,
-    },
-    body: JSON.stringify({
-      messages: [{ topic: `realtime:battle-room-${roomId}`, event: 'room_updated', payload: {} }],
-    }),
-  }).catch(() => {});
+export async function broadcastBattleUpdate(roomId: string): Promise<void> {
+  try {
+    const channel = supabaseServer.channel(`battle-room-${roomId}`);
+    await channel.send({ type: 'broadcast', event: 'room_updated', payload: {} });
+    await supabaseServer.removeChannel(channel);
+  } catch { /* ignore */ }
 }

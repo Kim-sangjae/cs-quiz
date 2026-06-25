@@ -92,6 +92,6 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     },
   });
 
-  broadcastBattleUpdate(id);
+  await broadcastBattleUpdate(id);
   return NextResponse.json({ correct: isCorrect });
 }
