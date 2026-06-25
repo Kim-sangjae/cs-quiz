@@ -5,6 +5,7 @@ import { useSession } from 'next-auth/react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
+import { supabaseBrowser } from '@/lib/supabase-browser';
 
 const CATEGORY_LABEL: Record<string, string> = {
   all: '전체', ds: '자료구조', algo: '알고리즘', os: '운영체제',
@@ -91,9 +92,24 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
       return r.json() as Promise<RoomState>;
     }),
     enabled: status === 'authenticated',
-    refetchInterval: (q) => (q.state.data?.status === 'FINISHED' ? false : 1500),
+    refetchInterval: (q) => (q.state.data?.status === 'FINISHED' ? false : 3000),
     retry: false,
   });
+
+  // Supabase Realtime: GameRoom 변경 즉시 반영 (폴링 보조)
+  // 전제: Supabase Dashboard → Database → Replication → GameRoom 테이블 활성화 필요
+  useEffect(() => {
+    if (status !== 'authenticated') return;
+    const channel = supabaseBrowser
+      .channel(`battle-room-${id}`)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .on('postgres_changes' as any,
+        { event: 'UPDATE', schema: 'public', table: 'GameRoom', filter: `id=eq.${id}` },
+        () => { void queryClient.invalidateQueries({ queryKey: ['battle', id] }); }
+      )
+      .subscribe();
+    return () => { void supabaseBrowser.removeChannel(channel); };
+  }, [id, queryClient, status]);
 
   useEffect(() => {
     if (room?.status === 'WAITING' && room.myRole === 'host') hadWaiting.current = true;
