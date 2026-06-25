@@ -96,17 +96,15 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
     retry: false,
   });
 
-  // Supabase Realtime: GameRoom 변경 즉시 반영 (폴링 보조)
-  // 전제: Supabase Dashboard → Database → Replication → GameRoom 테이블 활성화 필요
+  // Supabase Broadcast: 서버가 "방 변경됨" 신호만 보냄 → 클라이언트는 인증된 API로 refetch
+  // (postgres_changes와 달리 GameRoom 데이터가 Realtime에 흐르지 않음)
   useEffect(() => {
     if (status !== 'authenticated') return;
     const channel = supabaseBrowser
       .channel(`battle-room-${id}`)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .on('postgres_changes' as any,
-        { event: 'UPDATE', schema: 'public', table: 'GameRoom', filter: `id=eq.${id}` },
-        () => { void queryClient.invalidateQueries({ queryKey: ['battle', id] }); }
-      )
+      .on('broadcast', { event: 'room_updated' }, () => {
+        void queryClient.invalidateQueries({ queryKey: ['battle', id] });
+      })
       .subscribe();
     return () => { void supabaseBrowser.removeChannel(channel); };
   }, [id, queryClient, status]);
