@@ -57,7 +57,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
             const thisRoundBothSkipped = both && newHA[ccQ] === -1 && newGA[ccQ] === -1;
             const newConsecutive = thisRoundBothSkipped ? cur.consecutiveAllSkip + 1 : 0;
             // 2턴 연속 쌍방 스킵 → 무효 종료
-            const isVoid = newConsecutive >= 2;
+            const isVoid = newConsecutive >= 3;
             const newStatus = both && (newCQ >= qIds.length || isVoid) ? 'FINISHED' : cur.status;
             return await tx.gameRoom.update({
               where: { id },
@@ -127,7 +127,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     });
     const sortedQs = questionIds.map((qid) => questions.find((q) => q.id === qid)!);
     // 무효 조건: 연속 쌍방 스킵 2회 (처음부터 포함)
-    const isVoid = room.consecutiveAllSkip >= 2;
+    const isVoid = room.consecutiveAllSkip >= 3;
     return NextResponse.json({
       id: room.id,
       status: 'FINISHED',

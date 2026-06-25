@@ -68,7 +68,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       ? room.consecutiveAllSkip + 1
       : 0
     : room.consecutiveAllSkip;
-  const isVoid = newConsecutive >= 2;
+  const isVoid = newConsecutive >= 3;
   const newStatus =
     bothAnswered && (newCurrentQ >= questionIds.length || isVoid) ? 'FINISHED' : room.status;
 
