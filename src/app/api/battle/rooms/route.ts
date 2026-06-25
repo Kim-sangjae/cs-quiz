@@ -79,6 +79,28 @@ export async function POST(req: Request) {
   });
   if (!friendship) return NextResponse.json({ error: '친구 관계가 아닙니다' }, { status: 400 });
 
+  // 상대방이 이미 대결 중이면 차단
+  const friendActiveRoom = await prisma.gameRoom.findFirst({
+    where: {
+      status: { in: ['WAITING', 'PLAYING'] },
+      OR: [{ hostId: friendId }, { guestId: friendId }],
+    },
+  });
+  if (friendActiveRoom) {
+    return NextResponse.json({ error: '상대방이 이미 대결 중입니다' }, { status: 409 });
+  }
+
+  // 나도 이미 대결 중이면 차단
+  const myActiveRoom = await prisma.gameRoom.findFirst({
+    where: {
+      status: { in: ['WAITING', 'PLAYING'] },
+      OR: [{ hostId: userId }, { guestId: userId }],
+    },
+  });
+  if (myActiveRoom) {
+    return NextResponse.json({ error: '이미 대결이 진행 중입니다' }, { status: 409 });
+  }
+
   const questions = await prisma.question.findMany({
     where: {
       ...(category !== 'all' && { category }),

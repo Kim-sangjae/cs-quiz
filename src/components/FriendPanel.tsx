@@ -15,6 +15,7 @@ interface Friend {
   nickname: string;
   isOnline: boolean;
   lastSeenAt: string | null;
+  battleStatus: 'WAITING' | 'PLAYING' | null;
 }
 
 interface UserProfile {
@@ -224,7 +225,17 @@ function ProfileModal({
               </div>
             ) : (
               <div className="border-t border-neutral-800 px-4 py-3 flex gap-2">
-                {friend.isOnline && (
+                {friend.battleStatus === 'PLAYING' && (
+                  <div className="flex-1 rounded-lg bg-red-500/10 border border-red-500/30 px-3 py-2.5 text-center">
+                    <p className="text-xs text-red-400 font-medium">⚔ 대결 진행 중</p>
+                  </div>
+                )}
+                {friend.battleStatus === 'WAITING' && (
+                  <div className="flex-1 rounded-lg bg-amber-500/10 border border-amber-500/30 px-3 py-2.5 text-center">
+                    <p className="text-xs text-amber-400 font-medium">⏳ 대결 준비 중</p>
+                  </div>
+                )}
+                {!friend.battleStatus && friend.isOnline && (
                   <button
                     onClick={() => setStep('battle')}
                     className="flex-1 rounded-lg bg-white text-black text-xs font-semibold py-2.5 hover:bg-neutral-200 transition-colors"
@@ -559,11 +570,17 @@ export default function FriendPanel() {
                       </div>
                       <div className="min-w-0 flex-1">
                         <p className="text-xs font-medium text-neutral-200 truncate">{f.nickname}</p>
-                        <p className={`text-[10px] ${f.isOnline ? 'text-emerald-500' : 'text-neutral-600'}`}>
-                          {formatLastSeen(f.lastSeenAt, f.isOnline)}
+                        <p className={`text-[10px] ${
+                          f.battleStatus === 'PLAYING' ? 'text-red-500' :
+                          f.battleStatus === 'WAITING' ? 'text-amber-500' :
+                          f.isOnline ? 'text-emerald-500' : 'text-neutral-600'
+                        }`}>
+                          {f.battleStatus === 'PLAYING' ? '⚔ 대결 중' :
+                           f.battleStatus === 'WAITING' ? '⏳ 준비 중' :
+                           formatLastSeen(f.lastSeenAt, f.isOnline)}
                         </p>
                       </div>
-                      {f.isOnline && (
+                      {!f.battleStatus && f.isOnline && (
                         <span className="text-[9px] text-emerald-800 border border-emerald-900/50 rounded px-1 py-0.5 flex-shrink-0">
                           대전
                         </span>

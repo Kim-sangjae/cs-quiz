@@ -24,7 +24,7 @@ export async function GET() {
     orderBy: { updatedAt: 'desc' },
   });
 
-  const friends = friendships.map((f) => {
+  const friendEntries = friendships.map((f) => {
     const other = f.requesterId === userId ? f.addressee : f.requester;
     return {
       friendshipId: f.id,
@@ -34,6 +34,28 @@ export async function GET() {
       lastSeenAt: other.presence?.lastSeenAt?.toISOString() ?? null,
     };
   });
+
+  const friendIds = friendEntries.map((f) => f.userId);
+  const activeRooms = friendIds.length > 0
+    ? await prisma.gameRoom.findMany({
+        where: {
+          status: { in: ['WAITING', 'PLAYING'] },
+          OR: [{ hostId: { in: friendIds } }, { guestId: { in: friendIds } }],
+        },
+        select: { hostId: true, guestId: true, status: true },
+      })
+    : [];
+
+  const battleStatusMap = new Map<string, 'WAITING' | 'PLAYING'>();
+  for (const room of activeRooms) {
+    if (!battleStatusMap.has(room.hostId)) battleStatusMap.set(room.hostId, room.status as 'WAITING' | 'PLAYING');
+    if (room.guestId && !battleStatusMap.has(room.guestId)) battleStatusMap.set(room.guestId, room.status as 'WAITING' | 'PLAYING');
+  }
+
+  const friends = friendEntries.map((f) => ({
+    ...f,
+    battleStatus: battleStatusMap.get(f.userId) ?? null,
+  }));
 
   return NextResponse.json({ friends });
 }
