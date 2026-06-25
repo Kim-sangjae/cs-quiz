@@ -287,7 +287,7 @@ function WeeklyReport({ sessions }: { sessions: ApiSession[] }) {
         {thisAvg !== null && (
           <span className="text-sm text-neutral-300">
             평균 <span className="text-white font-semibold">{thisAvg}</span>
-            <span className="text-neutral-500">/30점</span>
+            <span className="text-neutral-500">/20점</span>
           </span>
         )}
         {diff !== null && (
@@ -600,6 +600,11 @@ export default function MyPage() {
           <div>
             <p className="text-xs text-neutral-500 mb-0.5">닉네임</p>
             <p className="text-sm text-white font-medium">{session?.user?.nickname ?? '–'}</p>
+            {stats && (
+              <p className="text-xs text-neutral-600 mt-0.5">
+                총 {stats.totalSessions}회 완료 · 정답률 {stats.overallAccuracy}%
+              </p>
+            )}
           </div>
           <button
             onClick={() => { setShowNicknameForm((v) => !v); setNicknameInput(''); setNicknameError(''); }}
@@ -638,28 +643,39 @@ export default function MyPage() {
       {/* 요약 카드 */}
       {stats && (
         <div className="bg-[#111111] border border-neutral-800 rounded-lg p-5 mb-4">
-          <div className="flex items-center justify-between mb-5 flex-wrap gap-y-4">
+          <div className="flex items-center justify-between mb-4 flex-wrap gap-y-4">
             <div className="text-center flex-1">
               <p className="text-xs text-neutral-500 mb-1">총 퀴즈 횟수</p>
-              <p className="text-xl font-bold text-white">{stats.totalSessions}
+              <p className="text-2xl font-bold text-white">{stats.totalSessions}
                 <span className="text-sm font-normal text-neutral-500">회</span>
               </p>
             </div>
             <div className="w-px h-10 bg-neutral-800" />
             <div className="text-center flex-1">
               <p className="text-xs text-neutral-500 mb-1">전체 정답률</p>
-              <p className="text-xl font-bold text-white">{stats.overallAccuracy}
+              <p className={`text-2xl font-bold ${stats.overallAccuracy >= 80 ? 'text-emerald-400' : stats.overallAccuracy >= 60 ? 'text-yellow-400' : 'text-white'}`}>
+                {stats.overallAccuracy}
                 <span className="text-sm font-normal text-neutral-500">%</span>
               </p>
             </div>
             <div className="w-px h-10 bg-neutral-800" />
             <div className="text-center flex-1">
               <p className="text-xs text-neutral-500 mb-1">연속 기록</p>
-              <p className="text-xl font-bold text-white">{stats.streakCount}
+              <p className={`text-2xl font-bold ${stats.streakCount >= 7 ? 'text-amber-400' : stats.streakCount >= 3 ? 'text-amber-500/70' : 'text-white'}`}>
+                {stats.streakCount}
                 <span className="text-sm font-normal text-neutral-500">일</span>
               </p>
             </div>
           </div>
+          {stats.weakestCategory && (
+            <div className="flex items-center gap-2 mb-4 px-3 py-2 bg-red-950/20 border border-red-900/30 rounded-lg">
+              <span className="text-[10px] text-neutral-500">약점 카테고리</span>
+              <span className="text-xs font-medium text-red-400">
+                {CATEGORY_LABELS[stats.weakestCategory as Category] ?? stats.weakestCategory}
+              </span>
+              <span className="text-[10px] text-neutral-600 ml-auto">집중 학습이 필요합니다</span>
+            </div>
+          )}
           <AttendanceCalendar completions={dailyCompletions} />
           {sessions.length >= 2 && <ScoreTrend sessions={sessions} />}
           <WeeklyReport sessions={sessions} />
@@ -708,7 +724,7 @@ export default function MyPage() {
         return (
           <div className="bg-[#111111] border border-neutral-800 rounded-lg p-4 mb-4">
             <div className="flex items-center justify-between mb-3">
-              <p className="text-xs text-neutral-500">학습 진도</p>
+              <p className="text-sm font-semibold text-white">학습 진도</p>
               <span className="text-xs text-neutral-400">
                 <span className="text-white font-semibold">{triedQ}</span>
                 <span className="text-neutral-600"> / {totalQ}문제 도전 </span>
@@ -741,11 +757,12 @@ export default function MyPage() {
 
       {/* 카테고리별 프로필 */}
       <div className="mb-6">
-        <p className="text-xs text-neutral-500 mb-3">카테고리별 현황</p>
+        <p className="text-sm font-semibold text-white mb-3">카테고리별 현황</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {profileStats.map(({ cat, label, total, accuracy, level, badge }) => {
             const info = LEVEL_INFO[level];
             const progress = getLevelProgress(total, level);
+            const accColor = total === 0 ? 'text-neutral-600' : accuracy >= 80 ? 'text-emerald-400' : accuracy >= 60 ? 'text-yellow-400' : 'text-red-400';
             return (
               <button
                 key={cat}
@@ -754,12 +771,17 @@ export default function MyPage() {
               >
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm font-medium text-white">{label}</span>
-                  <span className={`text-[10px] font-bold border rounded px-1.5 py-0.5 ${info.badge}`}>
-                    Lv.{level}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    {total > 0 && (
+                      <span className={`text-sm font-bold ${accColor}`}>{accuracy}%</span>
+                    )}
+                    <span className={`text-[10px] font-bold border rounded px-1.5 py-0.5 ${info.badge}`}>
+                      Lv.{level}
+                    </span>
+                  </div>
                 </div>
                 <div className="flex items-center gap-2 mb-3">
-                  <span className={`text-base font-bold ${info.text}`}>{info.name}</span>
+                  <span className={`text-sm font-bold ${info.text}`}>{info.name}</span>
                   {badge && <BadgePill tier={badge} />}
                 </div>
                 {level < 4 ? (
@@ -768,14 +790,11 @@ export default function MyPage() {
                       <div className={`h-full rounded-full transition-all ${info.bar}`} style={{ width: `${progress}%` }} />
                     </div>
                     <p className="text-[10px] text-neutral-500">
-                      {total} / {LEVEL_MAX[level]}회
+                      {total} / {LEVEL_MAX[level]}회 완료
                     </p>
                   </div>
                 ) : (
                   <p className="text-[10px] text-yellow-500/70">마스터 달성!</p>
-                )}
-                {total > 0 && (
-                  <p className="text-xs text-neutral-500 mt-2">정답률 {accuracy}%</p>
                 )}
               </button>
             );
@@ -788,16 +807,16 @@ export default function MyPage() {
         {(["history", "battle", "my-questions", "liked", "badges"] as ActiveTab[]).map((tab) => {
           const labels: Record<ActiveTab, string> = {
             history: "풀이 기록",
-            battle: "대전 기록",
-            "my-questions": "내가 등록한 문제",
-            liked: "북마크한 문제",
+            battle: "대전",
+            "my-questions": "등록 문제",
+            liked: "북마크",
             badges: "업적",
           };
           return (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`flex-shrink-0 px-4 py-2 text-sm transition-colors border-b-2 -mb-px ${
+              className={`flex-shrink-0 px-3 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
                 activeTab === tab
                   ? "border-white text-white"
                   : "border-transparent text-neutral-500 hover:text-neutral-300"
@@ -873,9 +892,9 @@ export default function MyPage() {
                   const sessionIdx = historyPage * HISTORY_PAGE_SIZE + idx;
                   const isExpanded = expandedId === session.submittedAt;
                   const scoreColor =
-                    session.score >= 27
+                    session.score >= 17
                       ? "text-green-400"
-                      : session.score >= 21
+                      : session.score >= 12
                       ? "text-yellow-400"
                       : "text-red-400";
                   const catStats = getCategoryStats(session);
@@ -910,7 +929,7 @@ export default function MyPage() {
                               {session.score}
                               <span className="text-neutral-500 text-sm font-normal">
                                 {" "}
-                                / 30
+                                / 20
                               </span>
                             </span>
                             <svg

@@ -151,23 +151,32 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 오답 극복: 이번 세션에서 맞춘 문제 중 이전에 틀린 적 있는 문제 존재
-    const correctIds = answersWithCorrectness.filter((a) => a.isCorrect).map((a) => a.questionId);
-    if (correctIds.length > 0) {
-      const priorWrong = await prisma.questionAttempt.count({
-        where: { userId: user.id, questionId: { in: correctIds }, isCorrect: false, sessionId: { not: session.id } },
+    // 오답 극복: 누적으로 틀렸던 문제 중 10개 이상을 이후에 정답 처리 (중복x)
+    const everWrong = await prisma.questionAttempt.findMany({
+      where: { userId: user.id, isCorrect: false },
+      select: { questionId: true },
+      distinct: ['questionId'],
+    });
+    if (everWrong.length >= 10) {
+      const overcame = await prisma.questionAttempt.findMany({
+        where: { userId: user.id, questionId: { in: everWrong.map((e) => e.questionId) }, isCorrect: true },
+        select: { questionId: true },
+        distinct: ['questionId'],
       });
-      if (priorWrong > 0) candidates.push('COMEBACK');
+      if (overcame.length >= 10) candidates.push('COMEBACK');
     }
 
-    // 완주: 6개 카테고리 모두 1회 이상 플레이
+    // 완주: 6개 카테고리 모두 5회 이상 플레이
     const REQUIRED_CATS = ['ds', 'algo', 'os', 'network', 'db', 'arch'];
-    const completedCats = await prisma.quizSession.findMany({
+    const catCounts = await prisma.quizSession.groupBy({
+      by: ['category'],
       where: { userId: user.id, category: { in: REQUIRED_CATS } },
-      select: { category: true },
-      distinct: ['category'],
+      _count: { _all: true },
     });
-    if (completedCats.length === REQUIRED_CATS.length) candidates.push('COMPLETIONIST');
+    const allCatsCompleted = REQUIRED_CATS.every(
+      (cat) => (catCounts.find((c) => c.category === cat)?._count._all ?? 0) >= 5,
+    );
+    if (allCatsCompleted) candidates.push('COMPLETIONIST');
 
     await awardBadges(user.id, candidates);
   } catch (e) {
