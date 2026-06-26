@@ -89,10 +89,36 @@ export async function POST(req: Request) {
     if (existing.status === 'ACCEPTED') {
       return NextResponse.json({ error: '이미 친구입니다' }, { status: 409 });
     }
+
+    const me = await prisma.user.findUnique({ where: { id: userId }, select: { nickname: true } });
+    const myNickname = me?.nickname ?? '(닉네임 없음)';
+
+    if (existing.status === 'REJECTED') {
+      // 거절된 요청 → requesterId/addresseeId를 현재 요청자 기준으로 업데이트 후 재전송
+      await prisma.$transaction([
+        prisma.friendship.update({
+          where: { id: existing.id },
+          data: { requesterId: userId, addresseeId: target.id, status: 'PENDING' },
+        }),
+        prisma.notification.deleteMany({
+          where: { type: 'FRIEND_REQUEST', payload: { path: ['friendshipId'], equals: existing.id } },
+        }),
+        prisma.notification.create({
+          data: {
+            userId: target.id,
+            type: 'FRIEND_REQUEST',
+            payload: { fromNickname: myNickname, friendshipId: existing.id },
+            actionUrl: '/friends',
+          },
+        }),
+      ]);
+      await broadcastToUser(target.id, 'friend_request', { fromNickname: myNickname });
+      return NextResponse.json({ ok: true }, { status: 200 });
+    }
+
+    // PENDING 상태
     if (existing.requesterId !== userId) {
       // 상대방이 이미 나에게 요청을 보낸 경우 → 자동 수락
-      const me = await prisma.user.findUnique({ where: { id: userId }, select: { nickname: true } });
-      const myNickname = me?.nickname ?? '(닉네임 없음)';
       await prisma.$transaction([
         prisma.friendship.update({ where: { id: existing.id }, data: { status: 'ACCEPTED' } }),
         prisma.notification.deleteMany({
@@ -113,8 +139,8 @@ export async function POST(req: Request) {
       await broadcastToUser(target.id, 'friend_accepted', { fromNickname: myNickname });
       return NextResponse.json({ ok: true }, { status: 200 });
     }
-    // 내가 보낸 요청 - 상태를 PENDING으로 되돌리고 알림 재생성
-    const me = await prisma.user.findUnique({ where: { id: userId }, select: { nickname: true } });
+
+    // 내가 보낸 PENDING 요청 → 알림 재전송
     await prisma.$transaction([
       prisma.friendship.update({ where: { id: existing.id }, data: { status: 'PENDING' } }),
       prisma.notification.deleteMany({
@@ -124,12 +150,12 @@ export async function POST(req: Request) {
         data: {
           userId: target.id,
           type: 'FRIEND_REQUEST',
-          payload: { fromNickname: me?.nickname ?? '(닉네임 없음)', friendshipId: existing.id },
+          payload: { fromNickname: myNickname, friendshipId: existing.id },
           actionUrl: '/friends',
         },
       }),
     ]);
-    await broadcastToUser(target.id, 'friend_request', { fromNickname: me?.nickname ?? '' });
+    await broadcastToUser(target.id, 'friend_request', { fromNickname: myNickname });
     return NextResponse.json({ ok: true }, { status: 200 });
   }
 
