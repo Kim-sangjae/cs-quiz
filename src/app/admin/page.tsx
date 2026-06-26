@@ -2229,7 +2229,7 @@ function AnalyticsTab() {
             onClick={() => setSidePanel('visitors')}
           />
           <AStatCard label="오늘 퀴즈 풀기" value={todayData?.periodAttempts ?? 0} dot="bg-violet-500" color="text-violet-400" loading={todayLoading} />
-          <AStatCard label="오늘 신규 가입" value={todayData?.newUsersInPeriod ?? 0} dot="bg-amber-500" color="text-amber-400" loading={todayLoading} onClick={() => setSidePanel('newusers')} />
+          <AStatCard label="오늘 신규 가입" value={todayNewUserList.length} dot="bg-amber-500" color="text-amber-400" loading={todayLoading} onClick={() => setSidePanel('newusers')} />
         </div>
       </div>
 
