@@ -1,6 +1,7 @@
 import { prisma } from './prisma';
 
 export type AuditAction =
+  | 'REGISTER'
   | 'LOGIN'
   | 'LOGIN_FAIL'
   | 'QUESTION_SUBMIT'

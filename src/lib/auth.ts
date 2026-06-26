@@ -31,14 +31,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: {
     ...prismaAdapter,
     createUser: async (data: Omit<AdapterUser, 'id'>) => {
-      return prisma.user.create({
+      const newUser = await prisma.user.create({
         data: {
           email: data.email,
           emailVerified: data.emailVerified,
           name: data.name ?? null,
           avatarUrl: data.image ?? null,
         },
-      }) as unknown as AdapterUser;
+      });
+      writeLog({ actorId: newUser.id, actorRole: 'USER', action: 'REGISTER', payload: { email: data.email } });
+      return newUser as unknown as AdapterUser;
     },
   },
   callbacks: {

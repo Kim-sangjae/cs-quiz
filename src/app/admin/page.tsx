@@ -1525,6 +1525,7 @@ function ConfirmDialog({ message, onConfirm, onCancel }: {
 }
 
 const ACTION_LABEL: Record<string, string> = {
+  REGISTER: '신규가입',
   LOGIN: '로그인',
   LOGIN_FAIL: '로그인 실패',
   QUESTION_SUBMIT: '문제 제출',
@@ -1546,6 +1547,7 @@ const ACTION_LABEL: Record<string, string> = {
 };
 
 const ACTION_COLOR: Record<string, string> = {
+  REGISTER: 'text-emerald-400 border-emerald-500/30',
   LOGIN: 'text-blue-400 border-blue-500/30',
   LOGIN_FAIL: 'text-red-400 border-red-500/30',
   QUESTION_SUBMIT: 'text-cyan-400 border-cyan-500/30',
@@ -1955,6 +1957,7 @@ interface AnalyticsData {
   chartAttempts: { label: string; count: number }[];
   categoryStats: { category: string; attempts: number }[];
   todayVisitorList: { nickname: string | null; email: string }[];
+  todayNewUserList: { nickname: string | null; email: string }[];
 }
 
 type Period = 'day' | 'month' | 'year';
@@ -2078,7 +2081,7 @@ function AnalyticsTab() {
   const [chartPeriod, setChartPeriod] = useState<'month' | 'year'>('month');
   const [targetYear, setTargetYear] = useState(String(new Date().getFullYear()));
   const [targetMonth, setTargetMonth] = useState(String(new Date().getMonth() + 1).padStart(2, '0'));
-  const [sidePanel, setSidePanel] = useState<'online' | 'visitors' | null>(null);
+  const [sidePanel, setSidePanel] = useState<'online' | 'visitors' | 'newusers' | null>(null);
 
   const availableYears = Array.from({ length: 5 }, (_, i) => String(new Date().getFullYear() - i));
 
@@ -2121,6 +2124,7 @@ function AnalyticsTab() {
       : `${targetYear}년`;
 
   const todayVisitorList = todayData?.todayVisitorList ?? [];
+  const todayNewUserList = todayData?.todayNewUserList ?? [];
 
   return (
     <div className="space-y-6">
@@ -2138,7 +2142,9 @@ function AnalyticsTab() {
           <p className="text-sm font-semibold text-white">
             {sidePanel === 'online'
               ? `현재 접속자 (${onlineCount}명)`
-              : `오늘 방문자 (${todayVisitorList.length}명)`}
+              : sidePanel === 'visitors'
+              ? `오늘 방문자 (${todayVisitorList.length}명)`
+              : `오늘 신규 가입 (${todayNewUserList.length}명)`}
           </p>
           <button
             onClick={() => setSidePanel(null)}
@@ -2164,7 +2170,7 @@ function AnalyticsTab() {
                 ))}
               </div>
             )
-          ) : (
+          ) : sidePanel === 'visitors' ? (
             todayVisitorList.length === 0 ? (
               <p className="text-xs text-neutral-600 py-4 text-center">오늘 방문 기록 없음</p>
             ) : (
@@ -2173,6 +2179,26 @@ function AnalyticsTab() {
                   <div key={i} className="flex items-center gap-3 py-2.5 border-b border-neutral-800/50 last:border-0">
                     <div className="w-8 h-8 rounded-full bg-neutral-800 flex items-center justify-center flex-shrink-0">
                       <span className="text-xs font-semibold text-neutral-300">
+                        {((v.nickname ?? v.email)[0] ?? '?').toUpperCase()}
+                      </span>
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm text-neutral-200 truncate">{v.nickname ?? '(닉네임 없음)'}</p>
+                      <p className="text-[11px] text-neutral-600 truncate">{v.email}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )
+          ) : (
+            todayNewUserList.length === 0 ? (
+              <p className="text-xs text-neutral-600 py-4 text-center">오늘 신규 가입 없음</p>
+            ) : (
+              <div className="space-y-1">
+                {todayNewUserList.map((v, i) => (
+                  <div key={i} className="flex items-center gap-3 py-2.5 border-b border-neutral-800/50 last:border-0">
+                    <div className="w-8 h-8 rounded-full bg-amber-500/20 border border-amber-500/30 flex items-center justify-center flex-shrink-0">
+                      <span className="text-xs font-semibold text-amber-400">
                         {((v.nickname ?? v.email)[0] ?? '?').toUpperCase()}
                       </span>
                     </div>
@@ -2203,7 +2229,7 @@ function AnalyticsTab() {
             onClick={() => setSidePanel('visitors')}
           />
           <AStatCard label="오늘 퀴즈 풀기" value={todayData?.periodAttempts ?? 0} dot="bg-violet-500" color="text-violet-400" loading={todayLoading} />
-          <AStatCard label="오늘 신규 가입" value={todayData?.newUsersInPeriod ?? 0} dot="bg-amber-500" color="text-amber-400" loading={todayLoading} />
+          <AStatCard label="오늘 신규 가입" value={todayData?.newUsersInPeriod ?? 0} dot="bg-amber-500" color="text-amber-400" loading={todayLoading} onClick={() => setSidePanel('newusers')} />
         </div>
       </div>
 

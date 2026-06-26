@@ -31,12 +31,13 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     prisma.gameRoom.findMany({
       where: {
         status: 'FINISHED',
+        consecutiveAllSkip: { lt: 3 },
         OR: [
           { hostId: myId, guestId: targetId },
           { hostId: targetId, guestId: myId },
         ],
       },
-      select: { hostId: true, guestId: true, hostScore: true, guestScore: true, hostAnswers: true, guestAnswers: true },
+      select: { hostId: true, guestId: true, hostScore: true, guestScore: true },
     }),
     prisma.userPresence.findUnique({ where: { userId: targetId } }),
     prisma.userBadge.findMany({
@@ -53,18 +54,13 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const accuracy = total > 0 ? correct / total : 0;
   const level = computeLevel(correct);
 
-  const nonVoidRooms = rooms.filter((r) => {
-    const hA = r.hostAnswers as number[];
-    const gA = r.guestAnswers as number[];
-    return !(hA.length > 0 && gA.length > 0 && hA.every(a => a === -1) && gA.every(a => a === -1));
-  });
-  const battleTotal = nonVoidRooms.length;
-  const battleWins = nonVoidRooms.filter((r) => {
+  const battleTotal = rooms.length;
+  const battleWins = rooms.filter((r) => {
     if (r.hostId === myId) return r.hostScore > r.guestScore;
     if (r.guestId === myId) return r.guestScore > r.hostScore;
     return false;
   }).length;
-  const battleTies = nonVoidRooms.filter((r) => r.hostScore === r.guestScore).length;
+  const battleTies = rooms.filter((r) => r.hostScore === r.guestScore).length;
   const battleLosses = battleTotal - battleWins - battleTies;
 
   const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000);

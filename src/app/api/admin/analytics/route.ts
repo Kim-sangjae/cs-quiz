@@ -60,6 +60,7 @@ export async function GET(req: NextRequest) {
     categorySessions,
     newUsersInPeriod,
     todayVisitorRows,
+    todayNewUserRows,
   ] = await Promise.all([
     prisma.userPresence.count({ where: { lastSeenAt: { gte: twoMinutesAgo } } }),
     prisma.user.count({ where: { deletedAt: null } }),
@@ -97,11 +98,23 @@ export async function GET(req: NextRequest) {
         deletedAt: null,
       },
     }),
-    // 오늘 방문자 목록 (period=day일 때만 의미있음, 항상 조회)
+    // 오늘 방문자 목록
     prisma.dailyVisit.findMany({
       where: { date: today },
       select: { user: { select: { nickname: true, email: true } } },
       orderBy: { userId: 'asc' },
+    }),
+    // 오늘 신규 가입자 목록
+    prisma.user.findMany({
+      where: {
+        createdAt: {
+          gte: new Date(`${today}T00:00:00.000Z`),
+          lte: new Date(`${today}T23:59:59.999Z`),
+        },
+        deletedAt: null,
+      },
+      select: { nickname: true, email: true },
+      orderBy: { createdAt: 'asc' },
     }),
   ]);
 
@@ -154,6 +167,11 @@ export async function GET(req: NextRequest) {
     email: r.user.email,
   }));
 
+  const todayNewUserList = todayNewUserRows.map((r) => ({
+    nickname: r.nickname,
+    email: r.email,
+  }));
+
   return NextResponse.json({
     onlineNow,
     periodVisitors,
@@ -179,5 +197,6 @@ export async function GET(req: NextRequest) {
     chartAttempts,
     categoryStats,
     todayVisitorList,
+    todayNewUserList,
   });
 }
