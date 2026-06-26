@@ -7,7 +7,7 @@ export async function GET() {
   if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const userId = session.user.id;
-  const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000);
+  const twoMinutesAgo = new Date(Date.now() - 45 * 1000);
 
   const [presences, friendships] = await Promise.all([
     prisma.userPresence.findMany({

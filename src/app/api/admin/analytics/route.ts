@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
   const target = searchParams.get('target') ?? null;
 
   const today = new Date().toISOString().slice(0, 10);
-  const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000);
+  const twoMinutesAgo = new Date(Date.now() - 45 * 1000);
 
   let chartFrom: string;
   let chartTo: string;

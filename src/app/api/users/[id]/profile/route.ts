@@ -63,7 +63,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const battleTies = rooms.filter((r) => r.hostScore === r.guestScore).length;
   const battleLosses = battleTotal - battleWins - battleTies;
 
-  const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000);
+  const twoMinutesAgo = new Date(Date.now() - 45 * 1000);
   const isOnline = presence ? presence.lastSeenAt > twoMinutesAgo : false;
 
   return NextResponse.json({

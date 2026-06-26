@@ -3,7 +3,7 @@ import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 
-const TWO_MINUTES = 2 * 60 * 1000;
+const TWO_MINUTES = 45 * 1000;
 
 type RawRow = {
   userId: string;
