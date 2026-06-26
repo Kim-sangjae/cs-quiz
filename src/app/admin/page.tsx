@@ -74,7 +74,7 @@ export default function AdminPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<Tab>('questions');
+  const [activeTab, setActiveTab] = useState<Tab>('analytics');
   const [confirm, setConfirm] = useState<ConfirmState | null>(null);
   const [prevSeenAt, setPrevSeenAt] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -2037,143 +2037,66 @@ function StatusBar({ items, total, loading }: {
 }
 
 function AnalyticsTab() {
-  const [period, setPeriod] = useState<Period>('day');
-  const [target, setTarget] = useState('');
+  const [chartPeriod, setChartPeriod] = useState<'month' | 'year'>('month');
+  const [targetYear, setTargetYear] = useState(String(new Date().getFullYear()));
+  const [targetMonth, setTargetMonth] = useState(String(new Date().getMonth() + 1).padStart(2, '0'));
 
-  const today = new Date().toISOString().slice(0, 10);
-  const currentMonthStr = today.slice(0, 7);
-  const currentYearStr = today.slice(0, 4);
-
-  const effectiveTarget =
-    target ||
-    (period === 'month' ? currentMonthStr : period === 'year' ? currentYearStr : '');
-
-  // 최근 12개월
-  const availableMonths: string[] = [];
-  for (let i = 0; i < 12; i++) {
-    const d = new Date();
-    d.setDate(1);
-    d.setMonth(d.getMonth() - i);
-    availableMonths.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
-  }
-
-  // 최근 5년
   const availableYears = Array.from({ length: 5 }, (_, i) => String(new Date().getFullYear() - i));
 
-  const { data, isLoading } = useQuery<AnalyticsData>({
-    queryKey: ['admin', 'analytics', period, effectiveTarget],
-    queryFn: () => {
-      const params = new URLSearchParams({ period });
-      if (effectiveTarget) params.set('target', effectiveTarget);
-      return fetch(`/api/admin/analytics?${params}`).then((r) => r.json());
-    },
+  // TODAY 고정 조회
+  const { data: todayData, isLoading: todayLoading } = useQuery<AnalyticsData>({
+    queryKey: ['admin', 'analytics', 'today'],
+    queryFn: () => fetch('/api/admin/analytics?period=day').then((r) => r.json()),
     refetchInterval: 30_000,
     staleTime: 15_000,
+  });
+
+  // 기간별 차트 조회 (월 / 년)
+  const chartTarget = chartPeriod === 'month' ? `${targetYear}-${targetMonth}` : targetYear;
+  const { data: chartData, isLoading: chartLoading } = useQuery<AnalyticsData>({
+    queryKey: ['admin', 'analytics', chartPeriod, chartTarget],
+    queryFn: () =>
+      fetch(`/api/admin/analytics?period=${chartPeriod}&target=${chartTarget}`).then((r) => r.json()),
+    refetchInterval: 60_000,
+    staleTime: 30_000,
   });
 
   const { onlineUsers } = useRealtime();
   const onlineCount = onlineUsers.length;
 
-  const qStats = data?.questionStats;
+  const qStats = todayData?.questionStats;
   const totalQ = qStats ? Object.values(qStats).reduce((a, b) => a + b, 0) : 0;
-  const iStats = data?.inquiryStats;
+  const iStats = todayData?.inquiryStats;
   const totalI = iStats ? Object.values(iStats).reduce((a, b) => a + b, 0) : 0;
-  const rStats = data?.reportStats;
+  const rStats = todayData?.reportStats;
   const totalR = rStats ? rStats.pending + rStats.reviewed : 0;
 
-  const categoryStats = data?.categoryStats ?? [];
+  const categoryStats = todayData?.categoryStats ?? [];
   const sortedCats = [...categoryStats].sort((a, b) => b.attempts - a.attempts);
   const popularCat = sortedCats[0]?.category;
   const weakCat = categoryStats.length > 0
     ? [...categoryStats].sort((a, b) => a.avgScore - b.avgScore)[0]?.category
     : null;
 
-  function getPeriodLabel(type: 'visitor' | 'attempt'): string {
-    if (period === 'day') return type === 'visitor' ? '오늘 방문자' : '오늘 풀기';
-    if (period === 'month' && effectiveTarget) {
-      const [y, m] = effectiveTarget.split('-');
-      return type === 'visitor' ? `${y}년 ${parseInt(m)}월 방문자` : `${y}년 ${parseInt(m)}월 풀기`;
-    }
-    if (period === 'year' && effectiveTarget) {
-      return type === 'visitor' ? `${effectiveTarget}년 방문자` : `${effectiveTarget}년 풀기`;
-    }
-    return type === 'visitor' ? '기간 방문자' : '기간 풀기';
-  }
+  const chartPeriodLabel =
+    chartPeriod === 'month'
+      ? `${targetYear}년 ${parseInt(targetMonth)}월`
+      : `${targetYear}년`;
 
   return (
-    <div className="space-y-5">
-      {/* 기간 필터 */}
-      <div className="space-y-2">
-        <div className="flex gap-1">
-          {(['day', 'month', 'year'] as Period[]).map((p) => (
-            <button
-              key={p}
-              onClick={() => { setPeriod(p); setTarget(''); }}
-              className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-                period === p
-                  ? 'bg-white text-black'
-                  : 'text-neutral-400 hover:text-white border border-neutral-800 hover:border-neutral-600'
-              }`}
-            >
-              {PERIOD_LABEL[p]}
-            </button>
-          ))}
-        </div>
+    <div className="space-y-6">
 
-        {period === 'month' && (
-          <div className="flex flex-wrap gap-1">
-            {availableMonths.map((m) => {
-              const [y, mo] = m.split('-');
-              const label = y === currentYearStr ? `${parseInt(mo)}월` : `${y}년 ${parseInt(mo)}월`;
-              return (
-                <button
-                  key={m}
-                  onClick={() => setTarget(m)}
-                  className={`px-2.5 py-1 text-xs rounded transition-colors ${
-                    effectiveTarget === m
-                      ? 'bg-neutral-700 text-white border border-neutral-600'
-                      : 'border border-neutral-800 text-neutral-500 hover:text-neutral-300 hover:border-neutral-600'
-                  }`}
-                >
-                  {label}
-                </button>
-              );
-            })}
-          </div>
-        )}
-
-        {period === 'year' && (
-          <div className="flex gap-1 flex-wrap">
-            {availableYears.map((y) => (
-              <button
-                key={y}
-                onClick={() => setTarget(y)}
-                className={`px-2.5 py-1 text-xs rounded transition-colors ${
-                  effectiveTarget === y
-                    ? 'bg-neutral-700 text-white border border-neutral-600'
-                    : 'border border-neutral-800 text-neutral-500 hover:text-neutral-300 hover:border-neutral-600'
-                }`}
-              >
-                {y}년
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Row 1: 접속 현황 */}
+      {/* ── TODAY ── */}
       <div>
-        <p className="text-[11px] text-neutral-600 font-medium uppercase tracking-wider mb-2">접속 현황</p>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <p className="text-[10px] text-neutral-600 font-bold uppercase tracking-widest mb-2">Today</p>
+        <div className="grid grid-cols-3 gap-3">
           <AStatCard label="현재 접속자" value={onlineCount} dot="bg-emerald-500" pulse color="text-emerald-400" loading={false} />
-          <AStatCard label={getPeriodLabel('visitor')} value={data?.periodVisitors ?? 0} dot="bg-blue-500" color="text-blue-400" loading={isLoading} />
-          <AStatCard label="총 가입자" value={data?.totalUsers ?? 0} color="text-neutral-200" loading={isLoading} />
-          <AStatCard label="총 대전 수" value={data?.totalBattles ?? 0} color="text-purple-400" loading={isLoading} />
+          <AStatCard label="오늘 방문자" value={todayData?.periodVisitors ?? 0} dot="bg-blue-500" color="text-blue-400" loading={todayLoading} />
+          <AStatCard label="오늘 퀴즈 풀기" value={todayData?.periodAttempts ?? 0} dot="bg-violet-500" color="text-violet-400" loading={todayLoading} />
         </div>
-
         {onlineUsers.length > 0 && (
           <div className="mt-3 bg-[#111111] border border-neutral-800 rounded-xl px-4 py-3">
-            <p className="text-xs text-neutral-500 mb-2">접속 중인 유저 ({onlineCount}명)</p>
+            <p className="text-[11px] text-neutral-500 mb-2">접속 중 ({onlineCount}명)</p>
             <div className="flex flex-wrap gap-1.5">
               {onlineUsers.map((u) => (
                 <span key={u.userId} className="text-[11px] text-emerald-400 border border-emerald-500/30 bg-emerald-500/5 rounded-full px-2.5 py-0.5">
@@ -2185,109 +2108,174 @@ function AnalyticsTab() {
         )}
       </div>
 
-      {/* Row 2: 퀴즈 활동 */}
+      {/* ── 기간별 추이 ── */}
       <div>
-        <p className="text-[11px] text-neutral-600 font-medium uppercase tracking-wider mb-2">퀴즈 활동</p>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          <AStatCard label={getPeriodLabel('attempt')} value={data?.periodAttempts ?? 0} dot="bg-emerald-500" color="text-emerald-400" loading={isLoading} />
-          <AStatCard label="누적 풀기" value={data?.totalAttempts ?? 0} color="text-neutral-200" loading={isLoading} />
-          <AStatCard label="대기 중 문제" value={qStats?.pending ?? 0} dot="bg-amber-500" color="text-amber-400" loading={isLoading} />
-        </div>
-      </div>
+        <p className="text-[10px] text-neutral-600 font-bold uppercase tracking-widest mb-3">기간별 추이</p>
 
-      {/* 카테고리별 활동 */}
-      {sortedCats.length > 0 && (
-        <div className="bg-[#111111] border border-neutral-800 rounded-xl px-4 py-4">
-          <p className="text-xs font-medium text-neutral-300 mb-3">카테고리별 활동</p>
-          <div className="space-y-2.5">
-            {sortedCats.map((cs) => {
-              const maxAttempts = sortedCats[0]?.attempts ?? 1;
-              const barWidth = Math.max(Math.round((cs.attempts / maxAttempts) * 100), 2);
-              const isPopular = cs.category === popularCat;
-              const isWeak = cs.category === weakCat && cs.category !== popularCat;
-              return (
-                <div key={cs.category} className="flex items-center gap-3">
-                  <span className="text-xs text-neutral-500 w-20 flex-shrink-0">{CATEGORY_LABEL[cs.category] ?? cs.category}</span>
-                  <div className="flex-1 h-1.5 bg-neutral-800 rounded-full overflow-hidden">
-                    <div className="h-full bg-sky-500 rounded-full" style={{ width: `${barWidth}%` }} />
-                  </div>
-                  <span className="text-xs text-neutral-400 w-12 text-right flex-shrink-0">{cs.attempts.toLocaleString()}회</span>
-                  <span className="text-[10px] text-neutral-600 w-10 text-right flex-shrink-0">{cs.avgScore.toFixed(0)}/20</span>
-                  <div className="w-8 flex-shrink-0">
-                    {isPopular && <span className="text-[10px] text-emerald-400 border border-emerald-500/30 rounded px-1">인기</span>}
-                    {isWeak && <span className="text-[10px] text-amber-400 border border-amber-500/30 rounded px-1">취약</span>}
-                  </div>
-                </div>
-              );
-            })}
+        {/* 필터 박스 */}
+        <div className="bg-[#111111] border border-neutral-800 rounded-xl px-4 py-4 space-y-3 mb-3">
+          <div className="flex items-center gap-3 flex-wrap">
+            {/* 월별 / 연도별 탭 */}
+            <div className="flex gap-1">
+              {(['month', 'year'] as const).map((p) => (
+                <button
+                  key={p}
+                  onClick={() => setChartPeriod(p)}
+                  className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                    chartPeriod === p
+                      ? 'bg-white text-black'
+                      : 'text-neutral-400 hover:text-white border border-neutral-800 hover:border-neutral-600'
+                  }`}
+                >
+                  {p === 'month' ? '월별' : '연도별'}
+                </button>
+              ))}
+            </div>
+
+            {/* 년도 드롭박스 */}
+            <select
+              value={targetYear}
+              onChange={(e) => setTargetYear(e.target.value)}
+              className="bg-[#1a1a1a] border border-neutral-700 text-xs text-neutral-300 rounded-lg px-3 py-1.5 focus:outline-none focus:border-neutral-500 cursor-pointer"
+            >
+              {availableYears.map((y) => (
+                <option key={y} value={y}>{y}년</option>
+              ))}
+            </select>
+          </div>
+
+          {/* 월 버튼 1~12 (월별 모드) */}
+          {chartPeriod === 'month' && (
+            <div className="flex gap-1 flex-wrap">
+              {Array.from({ length: 12 }, (_, i) => {
+                const m = String(i + 1).padStart(2, '0');
+                return (
+                  <button
+                    key={m}
+                    onClick={() => setTargetMonth(m)}
+                    className={`px-2.5 py-1 text-xs rounded-lg transition-colors ${
+                      targetMonth === m
+                        ? 'bg-neutral-700 text-white border border-neutral-600'
+                        : 'border border-neutral-800 text-neutral-500 hover:text-neutral-300 hover:border-neutral-600'
+                    }`}
+                  >
+                    {i + 1}월
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* 차트 2개 */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="bg-[#111111] border border-neutral-800 rounded-xl px-4 py-4">
+            <div className="flex items-baseline justify-between mb-3">
+              <p className="text-xs font-medium text-neutral-300">방문자 추이</p>
+              <p className="text-[11px] text-neutral-500">{chartPeriodLabel} · {(chartData?.periodVisitors ?? 0).toLocaleString()}명</p>
+            </div>
+            {chartLoading ? (
+              <div className="h-24 bg-neutral-800 rounded animate-pulse" />
+            ) : chartData && chartData.chartVisits.some((d) => d.count > 0) ? (
+              <MiniBarChart data={chartData.chartVisits} color="bg-blue-500" period={chartPeriod} />
+            ) : (
+              <p className="text-xs text-neutral-500 text-center py-8">이 기간 방문 데이터 없음</p>
+            )}
+          </div>
+          <div className="bg-[#111111] border border-neutral-800 rounded-xl px-4 py-4">
+            <div className="flex items-baseline justify-between mb-3">
+              <p className="text-xs font-medium text-neutral-300">퀴즈 풀기 추이</p>
+              <p className="text-[11px] text-neutral-500">{chartPeriodLabel} · {(chartData?.periodAttempts ?? 0).toLocaleString()}회</p>
+            </div>
+            {chartLoading ? (
+              <div className="h-24 bg-neutral-800 rounded animate-pulse" />
+            ) : chartData && chartData.chartAttempts.some((d) => d.count > 0) ? (
+              <MiniBarChart data={chartData.chartAttempts} color="bg-violet-500" period={chartPeriod} />
+            ) : (
+              <p className="text-xs text-neutral-500 text-center py-8">이 기간 퀴즈 데이터 없음</p>
+            )}
           </div>
         </div>
-      )}
-
-      {/* 그래프 2개 */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div className="bg-[#111111] border border-neutral-800 rounded-xl px-4 py-4">
-          <p className="text-xs font-medium text-neutral-300 mb-3">방문자 추이</p>
-          {isLoading ? (
-            <div className="h-24 bg-neutral-800 rounded animate-pulse" />
-          ) : data && data.chartVisits.some((d) => d.count > 0) ? (
-            <MiniBarChart data={data.chartVisits} color="bg-blue-500" period={period} />
-          ) : (
-            <p className="text-xs text-neutral-600 text-center py-4">이 기간 방문 데이터 없음</p>
-          )}
-        </div>
-        <div className="bg-[#111111] border border-neutral-800 rounded-xl px-4 py-4">
-          <p className="text-xs font-medium text-neutral-300 mb-3">퀴즈 풀기 추이</p>
-          {isLoading ? (
-            <div className="h-24 bg-neutral-800 rounded animate-pulse" />
-          ) : data && data.chartAttempts.some((d) => d.count > 0) ? (
-            <MiniBarChart data={data.chartAttempts} color="bg-emerald-500" period={period} />
-          ) : (
-            <p className="text-xs text-neutral-600 text-center py-4">이 기간 퀴즈 데이터 없음</p>
-          )}
-        </div>
       </div>
 
-      {/* 문제 현황 */}
-      <div className="bg-[#111111] border border-neutral-800 rounded-xl px-4 py-4">
-        <p className="text-xs font-medium text-neutral-300 mb-3">문제 현황 (총 {totalQ.toLocaleString()}개)</p>
-        <StatusBar
-          loading={isLoading}
-          total={totalQ}
-          items={[
-            { key: 'official', label: '기본 문제', color: 'bg-blue-500', value: qStats?.official ?? 0 },
-            { key: 'approved', label: '승인됨', color: 'bg-emerald-500', value: qStats?.approved ?? 0 },
-            { key: 'pending', label: '대기 중', color: 'bg-amber-500', value: qStats?.pending ?? 0 },
-            { key: 'rejected', label: '반려됨', color: 'bg-red-500', value: qStats?.rejected ?? 0 },
-            { key: 'blinded', label: '블라인드', color: 'bg-orange-500', value: qStats?.blinded ?? 0 },
-          ]}
-        />
-      </div>
+      {/* ── 전체 현황 ── */}
+      <div>
+        <p className="text-[10px] text-neutral-600 font-bold uppercase tracking-widest mb-3">전체 현황</p>
+        <div className="space-y-3">
+          <div className="grid grid-cols-3 gap-3">
+            <AStatCard label="총 가입자" value={todayData?.totalUsers ?? 0} color="text-neutral-200" loading={todayLoading} />
+            <AStatCard label="총 대전 수" value={todayData?.totalBattles ?? 0} color="text-purple-400" loading={todayLoading} />
+            <AStatCard label="누적 퀴즈 풀기" value={todayData?.totalAttempts ?? 0} color="text-neutral-200" loading={todayLoading} />
+          </div>
 
-      {/* 문의 / 신고 현황 */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div className="bg-[#111111] border border-neutral-800 rounded-xl px-4 py-4">
-          <p className="text-xs font-medium text-neutral-300 mb-3">문의 현황 (총 {totalI.toLocaleString()}건)</p>
-          <StatusBar
-            loading={isLoading}
-            total={totalI}
-            items={[
-              { key: 'pending', label: '미처리', color: 'bg-amber-500', value: iStats?.pending ?? 0 },
-              { key: 'inProgress', label: '처리 중', color: 'bg-blue-500', value: iStats?.inProgress ?? 0 },
-              { key: 'resolved', label: '해결됨', color: 'bg-emerald-500', value: iStats?.resolved ?? 0 },
-            ]}
-          />
-        </div>
-        <div className="bg-[#111111] border border-neutral-800 rounded-xl px-4 py-4">
-          <p className="text-xs font-medium text-neutral-300 mb-3">신고 현황 (총 {totalR.toLocaleString()}건)</p>
-          <StatusBar
-            loading={isLoading}
-            total={totalR}
-            items={[
-              { key: 'pending', label: '미처리', color: 'bg-red-500', value: rStats?.pending ?? 0 },
-              { key: 'reviewed', label: '처리 완료', color: 'bg-emerald-500', value: rStats?.reviewed ?? 0 },
-            ]}
-          />
+          {sortedCats.length > 0 && (
+            <div className="bg-[#111111] border border-neutral-800 rounded-xl px-4 py-4">
+              <p className="text-xs font-medium text-neutral-300 mb-3">카테고리별 활동</p>
+              <div className="space-y-2.5">
+                {sortedCats.map((cs) => {
+                  const maxAttempts = sortedCats[0]?.attempts ?? 1;
+                  const barWidth = Math.max(Math.round((cs.attempts / maxAttempts) * 100), 2);
+                  const isPopular = cs.category === popularCat;
+                  const isWeak = cs.category === weakCat && cs.category !== popularCat;
+                  return (
+                    <div key={cs.category} className="flex items-center gap-3">
+                      <span className="text-xs text-neutral-500 w-20 flex-shrink-0">{CATEGORY_LABEL[cs.category] ?? cs.category}</span>
+                      <div className="flex-1 h-1.5 bg-neutral-800 rounded-full overflow-hidden">
+                        <div className="h-full bg-sky-500 rounded-full" style={{ width: `${barWidth}%` }} />
+                      </div>
+                      <span className="text-xs text-neutral-400 w-12 text-right flex-shrink-0">{cs.attempts.toLocaleString()}회</span>
+                      <span className="text-[10px] text-neutral-600 w-10 text-right flex-shrink-0">{cs.avgScore.toFixed(0)}/20</span>
+                      <div className="w-8 flex-shrink-0">
+                        {isPopular && <span className="text-[10px] text-emerald-400 border border-emerald-500/30 rounded px-1">인기</span>}
+                        {isWeak && <span className="text-[10px] text-amber-400 border border-amber-500/30 rounded px-1">취약</span>}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          <div className="bg-[#111111] border border-neutral-800 rounded-xl px-4 py-4">
+            <p className="text-xs font-medium text-neutral-300 mb-3">문제 현황 (총 {totalQ.toLocaleString()}개)</p>
+            <StatusBar
+              loading={todayLoading}
+              total={totalQ}
+              items={[
+                { key: 'official', label: '기본 문제', color: 'bg-blue-500', value: qStats?.official ?? 0 },
+                { key: 'approved', label: '승인됨', color: 'bg-emerald-500', value: qStats?.approved ?? 0 },
+                { key: 'pending', label: '대기 중', color: 'bg-amber-500', value: qStats?.pending ?? 0 },
+                { key: 'rejected', label: '반려됨', color: 'bg-red-500', value: qStats?.rejected ?? 0 },
+                { key: 'blinded', label: '블라인드', color: 'bg-orange-500', value: qStats?.blinded ?? 0 },
+              ]}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="bg-[#111111] border border-neutral-800 rounded-xl px-4 py-4">
+              <p className="text-xs font-medium text-neutral-300 mb-3">문의 현황 (총 {totalI.toLocaleString()}건)</p>
+              <StatusBar
+                loading={todayLoading}
+                total={totalI}
+                items={[
+                  { key: 'pending', label: '미처리', color: 'bg-amber-500', value: iStats?.pending ?? 0 },
+                  { key: 'inProgress', label: '처리 중', color: 'bg-blue-500', value: iStats?.inProgress ?? 0 },
+                  { key: 'resolved', label: '해결됨', color: 'bg-emerald-500', value: iStats?.resolved ?? 0 },
+                ]}
+              />
+            </div>
+            <div className="bg-[#111111] border border-neutral-800 rounded-xl px-4 py-4">
+              <p className="text-xs font-medium text-neutral-300 mb-3">신고 현황 (총 {totalR.toLocaleString()}건)</p>
+              <StatusBar
+                loading={todayLoading}
+                total={totalR}
+                items={[
+                  { key: 'pending', label: '미처리', color: 'bg-red-500', value: rStats?.pending ?? 0 },
+                  { key: 'reviewed', label: '처리 완료', color: 'bg-emerald-500', value: rStats?.reviewed ?? 0 },
+                ]}
+              />
+            </div>
+          </div>
         </div>
       </div>
     </div>
