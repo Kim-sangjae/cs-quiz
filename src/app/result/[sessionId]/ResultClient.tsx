@@ -78,7 +78,7 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
   }, []);
 
   useEffect(() => {
-    if (!data || data.session.score < 30) return;
+    if (!data || data.session.score < data.questions.length) return;
     const end = Date.now() + 2500;
     const frame = () => {
       confetti({ particleCount: 6, angle: 60, spread: 55, origin: { x: 0 }, colors: ['#10b981', '#ffffff', '#6ee7b7'] });
@@ -91,6 +91,7 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
   if (!data) return null;
 
   const { session, questions, answers } = data;
+  const total = questions.length;
 
   const ShareModal = shareModal !== null ? (
     <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center px-4" onClick={() => setShareModal(null)}>
@@ -100,16 +101,16 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
           {process.env.NEXT_PUBLIC_KAKAO_APP_KEY && (
             <button
               onClick={() => {
-                const pct = Math.round((session.score / 30) * 100);
-                const catSummaryText = catEntries.map(([cat, { correct, total }]) =>
-                  `${CATEGORY_LABEL[cat] ?? cat} ${correct}/${total}`
+                const pct = Math.round((session.score / total) * 100);
+                const catSummaryText = catEntries.map(([cat, { correct, total: t }]) =>
+                  `${CATEGORY_LABEL[cat] ?? cat} ${correct}/${t}`
                 ).join(' · ');
                 setShareModal(null);
                 if (!window.Kakao?.isInitialized()) return;
                 window.Kakao.Share.sendDefault({
                   objectType: 'feed',
                   content: {
-                    title: `CS Quiz 결과 — ${session.score}/30점 (${pct}%)`,
+                    title: `CS Quiz 결과 — ${session.score}/${total}점 (${pct}%)`,
                     description: `${catSummaryText}\n나도 도전해보기!`,
                     link: { mobileWebUrl: window.location.href, webUrl: window.location.href },
                   },
@@ -130,14 +131,14 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
           {typeof navigator !== 'undefined' && 'share' in navigator && (
             <button
               onClick={() => {
-                const catSummary = catEntries.map(([cat, { correct, total }]) =>
-                  `${CATEGORY_LABEL[cat] ?? cat} ${correct}/${total}`
+                const catSummary = catEntries.map(([cat, { correct, total: t }]) =>
+                  `${CATEGORY_LABEL[cat] ?? cat} ${correct}/${t}`
                 ).join(' · ');
-                const pct = Math.round((session.score / 30) * 100);
+                const pct = Math.round((session.score / total) * 100);
                 setShareModal(null);
                 navigator.share({
-                  title: `CS Quiz — ${session.score}/30점`,
-                  text: `📊 CS Quiz 결과 — ${session.score}/30점 (${pct}%)\n\n${catSummary}\n\n지금 도전해보기 👉`,
+                  title: `CS Quiz — ${session.score}/${total}점`,
+                  text: `📊 CS Quiz 결과 — ${session.score}/${total}점 (${pct}%)\n\n${catSummary}\n\n지금 도전해보기 👉`,
                   url: window.location.href,
                 }).catch(() => {});
               }}
@@ -171,17 +172,18 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
     </div>
   ) : null;
 
+  const pctScore = total > 0 ? session.score / total : 0;
   const scoreColor =
-    session.score >= 27
+    pctScore >= 0.85
       ? "text-green-400"
-      : session.score >= 21
+      : pctScore >= 0.70
       ? "text-yellow-400"
       : "text-red-400";
 
   const message =
-    session.score >= 27
+    pctScore >= 0.85
       ? "우수 — CS 기초가 탄탄합니다"
-      : session.score >= 21
+      : pctScore >= 0.70
       ? "양호 — 취약 부분을 확인하세요"
       : "분발 — 오답 해설을 꼼꼼히 읽어보세요";
 
@@ -214,11 +216,11 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
           <span className={`text-4xl font-bold ${scoreColor}`}>
             {session.score}
           </span>
-          <span className="text-4xl text-neutral-500"> / 30</span>
+          <span className="text-4xl text-neutral-500"> / {total}</span>
         </div>
         <p className={`text-sm ${scoreColor} mb-1`}>{message}</p>
         <p className="text-sm text-neutral-400">
-          정답 {session.score}개 · 오답 {30 - session.score}개
+          정답 {session.score}개 · 오답 {total - session.score}개
         </p>
       </div>
 

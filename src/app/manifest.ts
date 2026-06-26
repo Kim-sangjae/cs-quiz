@@ -4,7 +4,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: 'CS Quiz',
     short_name: 'CS Quiz',
-    description: 'CS 기초 지식을 30문제로 점검하세요',
+    description: '6개 영역 CS 기초 지식을 20문제로 빠르게 점검하세요',
     start_url: '/',
     display: 'standalone',
     background_color: '#0a0a0a',

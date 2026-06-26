@@ -99,11 +99,11 @@ export default async function QuizSelectPage() {
       {/* ALL 카드 */}
       <div className="mb-4">
         <QuizCard
-          label="전체"
+          label="전체 랜덤"
           cat="all"
           count={counts.all}
           accuracy={accuracy?.all ?? null}
-          minRequired={30}
+          minRequired={20}
         />
       </div>
 

@@ -9,10 +9,10 @@ import BoardQuizWidget from '@/components/board/BoardQuizWidget';
 const CATEGORY_LABELS: Record<string, string> = {
   ds: '자료구조',
   algo: '알고리즘',
-  os: 'OS',
+  os: '운영체제',
   network: '네트워크',
-  db: 'DB',
-  arch: '컴퓨터구조',
+  db: '데이터베이스',
+  arch: '컴퓨터 구조',
 };
 
 interface PageProps {

@@ -103,13 +103,15 @@ export default function SetupNicknamePage() {
   return (
     <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center px-4">
       <div className="w-full max-w-sm">
-        <h1 className="text-2xl font-semibold text-white mb-2">닉네임 설정</h1>
-        <p className="text-sm text-neutral-400 mb-8">
-          2~12자, 영문·숫자·한글만 허용됩니다.
+        <p className="text-xs text-neutral-600 mb-6">CS Quiz</p>
+        <h1 className="text-2xl font-bold text-white mb-1.5">닉네임을 설정해주세요</h1>
+        <p className="text-sm text-neutral-500 mb-8">
+          랭킹, 대결, 게시판에서 사용될 이름입니다. 나중에 변경할 수 있습니다.
         </p>
         <Suspense>
           <SetupNicknameForm />
         </Suspense>
+        <p className="text-xs text-neutral-700 mt-4">2~12자, 영문·숫자·한글만 사용 가능</p>
       </div>
     </div>
   );

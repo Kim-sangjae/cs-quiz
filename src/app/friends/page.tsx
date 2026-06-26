@@ -100,8 +100,11 @@ export default function FriendsPage() {
 
   if (status === 'unauthenticated') {
     return (
-      <main className="max-w-2xl mx-auto px-4 sm:px-6 py-12">
-        <p className="text-sm text-neutral-500">로그인 후 이용할 수 있습니다.</p>
+      <main className="max-w-2xl mx-auto px-4 sm:px-6 py-16 text-center">
+        <p className="text-neutral-400 mb-2">친구 기능은 로그인 후 사용할 수 있습니다.</p>
+        <a href="/auth/login" className="text-sm text-white underline underline-offset-2 hover:text-neutral-300 transition-colors">
+          로그인하기
+        </a>
       </main>
     );
   }
@@ -112,8 +115,8 @@ export default function FriendsPage() {
   const pendingCount = received.length;
 
   return (
-    <main className="max-w-2xl mx-auto px-4 sm:px-6 py-10">
-      <h1 className="text-base font-semibold text-white mb-6">친구</h1>
+    <main className="max-w-2xl mx-auto px-4 sm:px-6 py-8">
+      <h1 className="text-xl font-semibold text-white mb-6">친구</h1>
 
       {/* 친구 추가 */}
       <div className="mb-6">

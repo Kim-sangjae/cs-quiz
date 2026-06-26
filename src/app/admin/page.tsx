@@ -121,7 +121,7 @@ export default function AdminPage() {
     { key: 'reports', label: '신고 접수', count: badge?.reports },
     { key: 'users', label: '유저 관리' },
     { key: 'inquiries', label: '문의 관리', count: badge?.inquiries },
-    { key: 'logs', label: '활동 로그' },
+    { key: 'logs', label: '감사 로그' },
     { key: 'errors', label: '오류 로그' },
   ];
 

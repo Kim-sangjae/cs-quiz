@@ -4,6 +4,7 @@ import { useRef, useState, useEffect, Suspense } from 'react';
 import { useSession, signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 
 const CATEGORIES = [
   { value: 'ds', label: '자료구조' },
@@ -164,13 +165,14 @@ function SubmitContent() {
   return (
     <main className="max-w-2xl mx-auto px-4 sm:px-6 py-8">
       <div className="mb-6">
+        <Link href="/board" className="text-xs text-neutral-600 hover:text-neutral-400 transition-colors mb-4 inline-block">← 게시판</Link>
         <h1 className="text-2xl font-semibold text-white mb-1">
           {isResubmit ? '문제 수정' : '문제 등록'}
         </h1>
         <p className="text-sm text-neutral-500">
           {isResubmit
             ? '내용을 수정하면 다시 검토 후 게시판에 노출됩니다.'
-            : 'CS 문제를 등록하면 검토 후 게시판에 노출됩니다.'}
+            : 'AI가 오답 보기와 해설을 자동으로 생성해줍니다.'}
         </p>
       </div>
 

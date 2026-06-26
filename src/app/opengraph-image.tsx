@@ -1,7 +1,7 @@
 import { ImageResponse } from 'next/og';
 
 export const runtime = 'edge';
-export const alt = 'CS Quiz — CS 기초 지식을 30문제로 점검하세요';
+export const alt = 'CS Quiz — 6개 영역 CS 기초 지식을 20문제로 점검하세요';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 
@@ -30,10 +30,10 @@ export default function OGImage() {
           CS 기초 지식을
         </div>
         <div style={{ color: '#ffffff', fontSize: 64, fontWeight: 700, letterSpacing: '-1px', marginBottom: 32, textAlign: 'center', lineHeight: 1.1 }}>
-          30문제로 점검하세요
+          20문제로 점검하세요
         </div>
         <div style={{ color: '#737373', fontSize: 22, marginBottom: 56, textAlign: 'center' }}>
-          취업 준비 · 실력 점검 · 복습
+          6개 영역 · 즉시 해설 · 오답 복습
         </div>
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', justifyContent: 'center' }}>
           {CATEGORIES.map((cat) => (
