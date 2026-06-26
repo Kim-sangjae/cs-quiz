@@ -61,6 +61,8 @@ export async function GET(req: NextRequest) {
     newUsersInPeriod,
     todayVisitorRows,
     todayNewUserRows,
+    chartNewUserRows,
+    todayQuizRows,
   ] = await Promise.all([
     prisma.userPresence.count({ where: { lastSeenAt: { gte: twoMinutesAgo } } }),
     prisma.user.count({ where: { deletedAt: null } }),
@@ -116,6 +118,24 @@ export async function GET(req: NextRequest) {
       select: { nickname: true, email: true },
       orderBy: { createdAt: 'asc' },
     }),
+    // 차트용 신규 가입자 (시계열)
+    prisma.user.findMany({
+      where: {
+        createdAt: {
+          gte: new Date(`${chartFrom}T00:00:00.000Z`),
+          lte: new Date(`${chartTo}T23:59:59.999Z`),
+        },
+        deletedAt: null,
+      },
+      select: { createdAt: true },
+    }),
+    // 오늘 퀴즈 풀기 유저 목록
+    prisma.quizSession.findMany({
+      where: { submittedAt: { gte: new Date(`${today}T00:00:00.000Z`) } },
+      select: { userId: true, user: { select: { nickname: true, email: true } } },
+      orderBy: { submittedAt: 'asc' },
+      take: 200,
+    }),
   ]);
 
   const visitsByKey = groupByKey(visitRows.map((r) => r.date), keyFn);
@@ -146,6 +166,23 @@ export async function GET(req: NextRequest) {
 
   const chartVisits = allKeys.map((label) => ({ label, count: visitsByKey[label] ?? 0 }));
   const chartAttempts = allKeys.map((label) => ({ label, count: attemptsByKey[label] ?? 0 }));
+
+  const newUsersByKey: Record<string, number> = {};
+  for (const r of chartNewUserRows) {
+    const kst = new Date(r.createdAt.getTime() + 9 * 60 * 60 * 1000);
+    const k = keyFn(kst.toISOString().slice(0, 10));
+    newUsersByKey[k] = (newUsersByKey[k] ?? 0) + 1;
+  }
+  const chartNewUsers = allKeys.map((label) => ({ label, count: newUsersByKey[label] ?? 0 }));
+
+  const seenQuizUsers = new Set<string>();
+  const todayQuizList: { nickname: string | null; email: string }[] = [];
+  for (const r of todayQuizRows) {
+    if (!seenQuizUsers.has(r.userId)) {
+      seenQuizUsers.add(r.userId);
+      todayQuizList.push({ nickname: r.user.nickname, email: r.user.email });
+    }
+  }
 
   const periodVisitors = period === 'day'
     ? visitsByKey[today] ?? 0
@@ -195,8 +232,10 @@ export async function GET(req: NextRequest) {
     reportStats: { pending: pendingReports, reviewed: reviewedReports },
     chartVisits,
     chartAttempts,
+    chartNewUsers,
     categoryStats,
     todayVisitorList,
     todayNewUserList,
+    todayQuizList,
   });
 }

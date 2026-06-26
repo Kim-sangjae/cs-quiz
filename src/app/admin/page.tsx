@@ -1955,9 +1955,11 @@ interface AnalyticsData {
   reportStats: { pending: number; reviewed: number };
   chartVisits: { label: string; count: number }[];
   chartAttempts: { label: string; count: number }[];
+  chartNewUsers: { label: string; count: number }[];
   categoryStats: { category: string; attempts: number }[];
   todayVisitorList: { nickname: string | null; email: string }[];
   todayNewUserList: { nickname: string | null; email: string }[];
+  todayQuizList: { nickname: string | null; email: string }[];
 }
 
 type Period = 'day' | 'month' | 'year';
@@ -1965,9 +1967,10 @@ type Period = 'day' | 'month' | 'year';
 const PERIOD_LABEL: Record<Period, string> = { day: '일', month: '월', year: '년' };
 
 function formatChartLabel(label: string, period: Period): string {
-  if (period === 'year') return `${parseInt(label.slice(5))}월`;
-  if (period === 'month') return label.slice(8);
-  return label.slice(5).replace('-', '/');
+  if (period === 'year') return `${parseInt(label.slice(5))}`;
+  if (period === 'month') return `${parseInt(label.slice(8))}`;
+  const [, m, d] = label.split('-');
+  return `${parseInt(m)}/${parseInt(d)}`;
 }
 
 function MiniBarChart({ data, color, period }: { data: { label: string; count: number }[]; color: string; period: Period }) {
@@ -1975,14 +1978,6 @@ function MiniBarChart({ data, color, period }: { data: { label: string; count: n
   const maxCount = Math.max(...data.map((d) => d.count), 1);
   const MAX_BAR_PX = 72;
   const LABEL_H = 14;
-
-  const showLabel = (i: number): boolean => {
-    if (period === 'year') return true;
-    const n = data.length;
-    if (n <= 10) return true;
-    if (n <= 20) return i % 5 === 0 || i === n - 1;
-    return i % 7 === 0 || i === n - 1;
-  };
 
   return (
     <div className="relative overflow-visible">
@@ -1998,7 +1993,6 @@ function MiniBarChart({ data, color, period }: { data: { label: string; count: n
               onMouseEnter={() => setHoveredIdx(i)}
               onMouseLeave={() => setHoveredIdx(null)}
             >
-              {/* hover tooltip */}
               {isHovered && (
                 <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 z-10 pointer-events-none">
                   <div className="bg-neutral-800 border border-neutral-700 rounded px-1.5 py-0.5 text-[9px] text-white whitespace-nowrap shadow">
@@ -2014,15 +2008,13 @@ function MiniBarChart({ data, color, period }: { data: { label: string; count: n
           );
         })}
       </div>
-      {/* 날짜 레이블 행 */}
-      <div className="flex gap-px mt-1" style={{ height: `${LABEL_H}px` }}>
-        {data.map((d, i) => (
-          <div key={d.label} className="flex-1 min-w-0 flex items-center justify-center">
-            {showLabel(i) && (
-              <span className="text-[8px] text-neutral-600 truncate leading-none">
-                {formatChartLabel(d.label, period)}
-              </span>
-            )}
+      {/* 날짜 레이블: 모든 칸 표시 */}
+      <div className="flex gap-px mt-0.5 overflow-visible" style={{ height: `${LABEL_H}px` }}>
+        {data.map((d) => (
+          <div key={d.label} className="flex-1 min-w-0 flex items-center justify-center overflow-visible">
+            <span className="text-[7px] text-neutral-600 leading-none" style={{ whiteSpace: 'nowrap' }}>
+              {formatChartLabel(d.label, period)}
+            </span>
           </div>
         ))}
       </div>
@@ -2081,7 +2073,7 @@ function AnalyticsTab() {
   const [chartPeriod, setChartPeriod] = useState<'month' | 'year'>('month');
   const [targetYear, setTargetYear] = useState(String(new Date().getFullYear()));
   const [targetMonth, setTargetMonth] = useState(String(new Date().getMonth() + 1).padStart(2, '0'));
-  const [sidePanel, setSidePanel] = useState<'online' | 'visitors' | 'newusers' | null>(null);
+  const [sidePanel, setSidePanel] = useState<'online' | 'visitors' | 'newusers' | 'quizzes' | null>(null);
 
   const availableYears = Array.from({ length: 5 }, (_, i) => String(new Date().getFullYear() - i));
 
@@ -2125,6 +2117,7 @@ function AnalyticsTab() {
 
   const todayVisitorList = todayData?.todayVisitorList ?? [];
   const todayNewUserList = todayData?.todayNewUserList ?? [];
+  const todayQuizList = todayData?.todayQuizList ?? [];
 
   return (
     <div className="space-y-6">
@@ -2144,6 +2137,8 @@ function AnalyticsTab() {
               ? `현재 접속자 (${onlineCount}명)`
               : sidePanel === 'visitors'
               ? `오늘 방문자 (${todayVisitorList.length}명)`
+              : sidePanel === 'quizzes'
+              ? `오늘 퀴즈 풀기 (${todayQuizList.length}명)`
               : `오늘 신규 가입 (${todayNewUserList.length}명)`}
           </p>
           <button
@@ -2179,6 +2174,26 @@ function AnalyticsTab() {
                   <div key={i} className="flex items-center gap-3 py-2.5 border-b border-neutral-800/50 last:border-0">
                     <div className="w-8 h-8 rounded-full bg-neutral-800 flex items-center justify-center flex-shrink-0">
                       <span className="text-xs font-semibold text-neutral-300">
+                        {((v.nickname ?? v.email)[0] ?? '?').toUpperCase()}
+                      </span>
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm text-neutral-200 truncate">{v.nickname ?? '(닉네임 없음)'}</p>
+                      <p className="text-[11px] text-neutral-600 truncate">{v.email}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )
+          ) : sidePanel === 'quizzes' ? (
+            todayQuizList.length === 0 ? (
+              <p className="text-xs text-neutral-600 py-4 text-center">오늘 퀴즈 풀기 기록 없음</p>
+            ) : (
+              <div className="space-y-1">
+                {todayQuizList.map((v, i) => (
+                  <div key={i} className="flex items-center gap-3 py-2.5 border-b border-neutral-800/50 last:border-0">
+                    <div className="w-8 h-8 rounded-full bg-violet-500/20 border border-violet-500/30 flex items-center justify-center flex-shrink-0">
+                      <span className="text-xs font-semibold text-violet-400">
                         {((v.nickname ?? v.email)[0] ?? '?').toUpperCase()}
                       </span>
                     </div>
@@ -2228,7 +2243,7 @@ function AnalyticsTab() {
             dot="bg-blue-500" color="text-blue-400" loading={todayLoading}
             onClick={() => setSidePanel('visitors')}
           />
-          <AStatCard label="오늘 퀴즈 풀기" value={todayData?.periodAttempts ?? 0} dot="bg-violet-500" color="text-violet-400" loading={todayLoading} />
+          <AStatCard label="오늘 퀴즈 풀기" value={todayData?.periodAttempts ?? 0} dot="bg-violet-500" color="text-violet-400" loading={todayLoading} onClick={() => setSidePanel('quizzes')} />
           <AStatCard label="오늘 신규 가입" value={todayNewUserList.length} dot="bg-amber-500" color="text-amber-400" loading={todayLoading} onClick={() => setSidePanel('newusers')} />
         </div>
       </div>
@@ -2294,8 +2309,8 @@ function AnalyticsTab() {
           <AStatCard label={`${chartPeriodLabel} 신규 가입`} value={chartData?.newUsersInPeriod ?? 0} dot="bg-amber-500" color="text-amber-400" loading={chartLoading} />
         </div>
 
-        {/* 차트 2개 */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {/* 차트 3개 */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div className="bg-[#111111] border border-neutral-800 rounded-xl px-4 py-4">
             <p className="text-xs font-medium text-neutral-300 mb-3">방문자 추이</p>
             {chartLoading ? (
@@ -2312,6 +2327,16 @@ function AnalyticsTab() {
               <div className="h-24 bg-neutral-800 rounded animate-pulse" />
             ) : chartData ? (
               <MiniBarChart data={chartData.chartAttempts} color="bg-violet-500" period={chartPeriod} />
+            ) : (
+              <p className="text-xs text-neutral-500 text-center py-8">데이터 없음</p>
+            )}
+          </div>
+          <div className="bg-[#111111] border border-neutral-800 rounded-xl px-4 py-4">
+            <p className="text-xs font-medium text-neutral-300 mb-3">신규 가입 추이</p>
+            {chartLoading ? (
+              <div className="h-24 bg-neutral-800 rounded animate-pulse" />
+            ) : chartData ? (
+              <MiniBarChart data={chartData.chartNewUsers ?? []} color="bg-amber-500" period={chartPeriod} />
             ) : (
               <p className="text-xs text-neutral-500 text-center py-8">데이터 없음</p>
             )}
