@@ -58,6 +58,8 @@ export async function GET(req: NextRequest) {
     visitRows,
     sessionRows,
     categorySessions,
+    newUsersInPeriod,
+    todayVisitorRows,
   ] = await Promise.all([
     prisma.userPresence.count({ where: { lastSeenAt: { gte: twoMinutesAgo } } }),
     prisma.user.count({ where: { deletedAt: null } }),
@@ -85,6 +87,22 @@ export async function GET(req: NextRequest) {
       _count: { id: true },
       _avg: { score: true },
     }),
+    // 기간 내 신규 가입자 수
+    prisma.user.count({
+      where: {
+        createdAt: {
+          gte: new Date(`${chartFrom}T00:00:00.000Z`),
+          lte: new Date(`${chartTo}T23:59:59.999Z`),
+        },
+        deletedAt: null,
+      },
+    }),
+    // 오늘 방문자 목록 (period=day일 때만 의미있음, 항상 조회)
+    prisma.dailyVisit.findMany({
+      where: { date: today },
+      select: { user: { select: { nickname: true, email: true } } },
+      orderBy: { userId: 'asc' },
+    }),
   ]);
 
   const visitsByKey = groupByKey(visitRows.map((r) => r.date), keyFn);
@@ -97,7 +115,7 @@ export async function GET(req: NextRequest) {
     keyFn
   );
 
-  // 데이터가 없는 날짜도 포함하여 전체 범위 생성
+  // 전체 범위 키 생성
   let allKeys: string[];
   if (period === 'year') {
     const ty = (target ?? today.slice(0, 4));
@@ -129,13 +147,18 @@ export async function GET(req: NextRequest) {
   const categoryStats = categorySessions.map((cs) => ({
     category: cs.category,
     attempts: cs._count.id,
-    avgScore: Math.round((cs._avg.score ?? 0) * 10) / 10,
+  }));
+
+  const todayVisitorList = todayVisitorRows.map((r) => ({
+    nickname: r.user.nickname,
+    email: r.user.email,
   }));
 
   return NextResponse.json({
     onlineNow,
     periodVisitors,
     periodAttempts,
+    newUsersInPeriod,
     totalUsers,
     totalBattles,
     totalAttempts,
@@ -155,5 +178,6 @@ export async function GET(req: NextRequest) {
     chartVisits,
     chartAttempts,
     categoryStats,
+    todayVisitorList,
   });
 }

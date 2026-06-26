@@ -1944,6 +1944,7 @@ interface AnalyticsData {
   onlineNow: number;
   periodVisitors: number;
   periodAttempts: number;
+  newUsersInPeriod: number;
   totalUsers: number;
   totalBattles: number;
   totalAttempts: number;
@@ -1952,7 +1953,8 @@ interface AnalyticsData {
   reportStats: { pending: number; reviewed: number };
   chartVisits: { label: string; count: number }[];
   chartAttempts: { label: string; count: number }[];
-  categoryStats: { category: string; attempts: number; avgScore: number }[];
+  categoryStats: { category: string; attempts: number }[];
+  todayVisitorList: { nickname: string | null; email: string }[];
 }
 
 type Period = 'day' | 'month' | 'year';
@@ -2040,6 +2042,7 @@ function AnalyticsTab() {
   const [chartPeriod, setChartPeriod] = useState<'month' | 'year'>('month');
   const [targetYear, setTargetYear] = useState(String(new Date().getFullYear()));
   const [targetMonth, setTargetMonth] = useState(String(new Date().getMonth() + 1).padStart(2, '0'));
+  const [showVisitorList, setShowVisitorList] = useState(false);
 
   const availableYears = Array.from({ length: 5 }, (_, i) => String(new Date().getFullYear() - i));
 
@@ -2074,14 +2077,14 @@ function AnalyticsTab() {
   const categoryStats = todayData?.categoryStats ?? [];
   const sortedCats = [...categoryStats].sort((a, b) => b.attempts - a.attempts);
   const popularCat = sortedCats[0]?.category;
-  const weakCat = categoryStats.length > 0
-    ? [...categoryStats].sort((a, b) => a.avgScore - b.avgScore)[0]?.category
-    : null;
+  const leastCat = sortedCats.length > 1 ? sortedCats[sortedCats.length - 1]?.category : null;
 
   const chartPeriodLabel =
     chartPeriod === 'month'
       ? `${targetYear}년 ${parseInt(targetMonth)}월`
       : `${targetYear}년`;
+
+  const todayVisitorList = todayData?.todayVisitorList ?? [];
 
   return (
     <div className="space-y-6">
@@ -2089,13 +2092,48 @@ function AnalyticsTab() {
       {/* ── TODAY ── */}
       <div>
         <p className="text-[10px] text-neutral-600 font-bold uppercase tracking-widest mb-2">Today</p>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <AStatCard label="현재 접속자" value={onlineCount} dot="bg-emerald-500" pulse color="text-emerald-400" loading={false} />
-          <AStatCard label="오늘 방문자" value={todayData?.periodVisitors ?? 0} dot="bg-blue-500" color="text-blue-400" loading={todayLoading} />
+          <div
+            className="bg-[#111111] border border-neutral-800 rounded-xl px-4 py-4 cursor-pointer hover:border-neutral-600 transition-colors"
+            onClick={() => setShowVisitorList((v) => !v)}
+          >
+            <div className="flex items-center gap-1.5 mb-2">
+              <span className="w-2 h-2 rounded-full bg-blue-500" />
+              <span className="text-xs text-neutral-500">오늘 방문자</span>
+              <span className="ml-auto text-[10px] text-neutral-600">{showVisitorList ? '▲' : '▼'}</span>
+            </div>
+            {todayLoading ? (
+              <div className="h-7 w-14 bg-neutral-800 rounded animate-pulse" />
+            ) : (
+              <span className="text-2xl font-semibold text-blue-400">{(todayData?.periodVisitors ?? 0).toLocaleString()}</span>
+            )}
+          </div>
           <AStatCard label="오늘 퀴즈 풀기" value={todayData?.periodAttempts ?? 0} dot="bg-violet-500" color="text-violet-400" loading={todayLoading} />
+          <AStatCard label="오늘 신규 가입" value={todayData?.newUsersInPeriod ?? 0} dot="bg-amber-500" color="text-amber-400" loading={todayLoading} />
         </div>
+
+        {/* 오늘 방문자 목록 */}
+        {showVisitorList && (
+          <div className="mt-2 bg-[#111111] border border-neutral-800 rounded-xl px-4 py-3">
+            <p className="text-[11px] text-neutral-500 mb-2">오늘 방문한 유저 ({todayVisitorList.length}명)</p>
+            {todayVisitorList.length === 0 ? (
+              <p className="text-xs text-neutral-600">아직 방문 기록 없음</p>
+            ) : (
+              <div className="flex flex-wrap gap-1.5">
+                {todayVisitorList.map((v, i) => (
+                  <span key={i} className="text-[11px] text-blue-400 border border-blue-500/30 bg-blue-500/5 rounded-full px-2.5 py-0.5">
+                    {v.nickname ?? v.email}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 현재 접속 중인 유저 */}
         {onlineUsers.length > 0 && (
-          <div className="mt-3 bg-[#111111] border border-neutral-800 rounded-xl px-4 py-3">
+          <div className="mt-2 bg-[#111111] border border-neutral-800 rounded-xl px-4 py-3">
             <p className="text-[11px] text-neutral-500 mb-2">접속 중 ({onlineCount}명)</p>
             <div className="flex flex-wrap gap-1.5">
               {onlineUsers.map((u) => (
@@ -2115,7 +2153,6 @@ function AnalyticsTab() {
         {/* 필터 박스 */}
         <div className="bg-[#111111] border border-neutral-800 rounded-xl px-4 py-4 space-y-3 mb-3">
           <div className="flex items-center gap-3 flex-wrap">
-            {/* 월별 / 연도별 탭 */}
             <div className="flex gap-1">
               {(['month', 'year'] as const).map((p) => (
                 <button
@@ -2131,8 +2168,6 @@ function AnalyticsTab() {
                 </button>
               ))}
             </div>
-
-            {/* 년도 드롭박스 */}
             <select
               value={targetYear}
               onChange={(e) => setTargetYear(e.target.value)}
@@ -2143,8 +2178,6 @@ function AnalyticsTab() {
               ))}
             </select>
           </div>
-
-          {/* 월 버튼 1~12 (월별 모드) */}
           {chartPeriod === 'month' && (
             <div className="flex gap-1 flex-wrap">
               {Array.from({ length: 12 }, (_, i) => {
@@ -2167,32 +2200,33 @@ function AnalyticsTab() {
           )}
         </div>
 
+        {/* 기간 요약 스탯 */}
+        <div className="grid grid-cols-3 gap-3 mb-3">
+          <AStatCard label={`${chartPeriodLabel} 방문자`} value={chartData?.periodVisitors ?? 0} dot="bg-blue-500" color="text-blue-400" loading={chartLoading} />
+          <AStatCard label={`${chartPeriodLabel} 퀴즈 풀기`} value={chartData?.periodAttempts ?? 0} dot="bg-violet-500" color="text-violet-400" loading={chartLoading} />
+          <AStatCard label={`${chartPeriodLabel} 신규 가입`} value={chartData?.newUsersInPeriod ?? 0} dot="bg-amber-500" color="text-amber-400" loading={chartLoading} />
+        </div>
+
         {/* 차트 2개 */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="bg-[#111111] border border-neutral-800 rounded-xl px-4 py-4">
-            <div className="flex items-baseline justify-between mb-3">
-              <p className="text-xs font-medium text-neutral-300">방문자 추이</p>
-              <p className="text-[11px] text-neutral-500">{chartPeriodLabel} · {(chartData?.periodVisitors ?? 0).toLocaleString()}명</p>
-            </div>
+            <p className="text-xs font-medium text-neutral-300 mb-3">방문자 추이</p>
             {chartLoading ? (
               <div className="h-24 bg-neutral-800 rounded animate-pulse" />
-            ) : chartData && chartData.chartVisits.some((d) => d.count > 0) ? (
+            ) : chartData ? (
               <MiniBarChart data={chartData.chartVisits} color="bg-blue-500" period={chartPeriod} />
             ) : (
-              <p className="text-xs text-neutral-500 text-center py-8">이 기간 방문 데이터 없음</p>
+              <p className="text-xs text-neutral-500 text-center py-8">데이터 없음</p>
             )}
           </div>
           <div className="bg-[#111111] border border-neutral-800 rounded-xl px-4 py-4">
-            <div className="flex items-baseline justify-between mb-3">
-              <p className="text-xs font-medium text-neutral-300">퀴즈 풀기 추이</p>
-              <p className="text-[11px] text-neutral-500">{chartPeriodLabel} · {(chartData?.periodAttempts ?? 0).toLocaleString()}회</p>
-            </div>
+            <p className="text-xs font-medium text-neutral-300 mb-3">퀴즈 풀기 추이</p>
             {chartLoading ? (
               <div className="h-24 bg-neutral-800 rounded animate-pulse" />
-            ) : chartData && chartData.chartAttempts.some((d) => d.count > 0) ? (
+            ) : chartData ? (
               <MiniBarChart data={chartData.chartAttempts} color="bg-violet-500" period={chartPeriod} />
             ) : (
-              <p className="text-xs text-neutral-500 text-center py-8">이 기간 퀴즈 데이터 없음</p>
+              <p className="text-xs text-neutral-500 text-center py-8">데이터 없음</p>
             )}
           </div>
         </div>
@@ -2216,7 +2250,7 @@ function AnalyticsTab() {
                   const maxAttempts = sortedCats[0]?.attempts ?? 1;
                   const barWidth = Math.max(Math.round((cs.attempts / maxAttempts) * 100), 2);
                   const isPopular = cs.category === popularCat;
-                  const isWeak = cs.category === weakCat && cs.category !== popularCat;
+                  const isLeast = cs.category === leastCat;
                   return (
                     <div key={cs.category} className="flex items-center gap-3">
                       <span className="text-xs text-neutral-500 w-20 flex-shrink-0">{CATEGORY_LABEL[cs.category] ?? cs.category}</span>
@@ -2224,10 +2258,9 @@ function AnalyticsTab() {
                         <div className="h-full bg-sky-500 rounded-full" style={{ width: `${barWidth}%` }} />
                       </div>
                       <span className="text-xs text-neutral-400 w-12 text-right flex-shrink-0">{cs.attempts.toLocaleString()}회</span>
-                      <span className="text-[10px] text-neutral-600 w-10 text-right flex-shrink-0">{cs.avgScore.toFixed(0)}/20</span>
-                      <div className="w-8 flex-shrink-0">
+                      <div className="w-10 flex-shrink-0 flex justify-end">
                         {isPopular && <span className="text-[10px] text-emerald-400 border border-emerald-500/30 rounded px-1">인기</span>}
-                        {isWeak && <span className="text-[10px] text-amber-400 border border-amber-500/30 rounded px-1">취약</span>}
+                        {isLeast && !isPopular && <span className="text-[10px] text-neutral-500 border border-neutral-700 rounded px-1">비인기</span>}
                       </div>
                     </div>
                   );
