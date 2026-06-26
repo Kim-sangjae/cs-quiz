@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 
@@ -32,12 +32,32 @@ function storageKey(date: string) {
   return `daily-${date}`;
 }
 
+interface Participant {
+  nickname: string;
+  correct: boolean;
+}
+
 export default function DailyChallenge() {
   const { status } = useSession();
   const router = useRouter();
   const [q, setQ] = useState<DailyQuestion | null>(null);
   const [result, setResult] = useState<DailyResult | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [showPanel, setShowPanel] = useState(false);
+  const [participants, setParticipants] = useState<Participant[] | null>(null);
+  const [panelLoading, setPanelLoading] = useState(false);
+
+  const openParticipants = useCallback(async () => {
+    if (status !== 'authenticated') { router.push('/auth/login'); return; }
+    setShowPanel(true);
+    if (participants !== null) return;
+    setPanelLoading(true);
+    try {
+      const r = await fetch('/api/daily/participants');
+      if (r.ok) setParticipants((await r.json() as { participants: Participant[] }).participants);
+    } catch {}
+    setPanelLoading(false);
+  }, [status, router, participants]);
 
   useEffect(() => {
     fetch('/api/daily')
@@ -153,13 +173,16 @@ export default function DailyChallenge() {
         </div>
 
         <div className="mt-4 pt-3 border-t border-neutral-800 flex items-center justify-between">
-          <span className="text-[11px] text-neutral-400">
+          <button
+            onClick={openParticipants}
+            className="text-[11px] text-neutral-400 hover:text-neutral-200 transition-colors text-left"
+          >
             {q.attemptCount > 0
-              ? `${q.attemptCount.toLocaleString()}명 도전`
+              ? `${q.attemptCount.toLocaleString()}명 도전 →`
               : result
-                ? '1명 도전'
+                ? '1명 도전 →'
                 : '첫 번째 도전자가 되어보세요'}
-          </span>
+          </button>
           {q.correctRate !== null ? (
             <span className="text-[11px] text-neutral-400">
               정답률{' '}
@@ -177,6 +200,48 @@ export default function DailyChallenge() {
             <p className="text-xs text-neutral-400 leading-relaxed">{result.explanation}</p>
           </div>
         )}
+      </div>
+
+      {/* 도전자 슬라이드 패널 */}
+      <div
+        className={`fixed inset-0 z-[200] transition-opacity duration-200 ${showPanel ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
+        style={{ background: 'rgba(0,0,0,0.55)' }}
+        onClick={() => setShowPanel(false)}
+      />
+      <div className={`fixed top-0 right-0 h-full z-[201] w-72 bg-[#0d0d0d] border-l border-neutral-800 shadow-2xl flex flex-col transition-transform duration-200 ${showPanel ? 'translate-x-0' : 'translate-x-full'}`}>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-neutral-800">
+          <p className="text-sm font-semibold text-white">
+            오늘 도전자 ({participants?.length ?? q.attemptCount}명)
+          </p>
+          <button onClick={() => setShowPanel(false)} className="text-neutral-500 hover:text-white text-lg leading-none transition-colors">✕</button>
+        </div>
+        <div className="flex-1 overflow-y-auto px-5 py-4">
+          {panelLoading ? (
+            <div className="space-y-3 pt-2">
+              {[1, 2, 3].map((i) => <div key={i} className="h-10 bg-neutral-800 rounded-lg animate-pulse" />)}
+            </div>
+          ) : participants === null ? (
+            <p className="text-xs text-neutral-600 py-4 text-center">불러오는 중...</p>
+          ) : participants.length === 0 ? (
+            <p className="text-xs text-neutral-600 py-4 text-center">아직 도전자 없음</p>
+          ) : (
+            <div className="space-y-1">
+              {participants.map((p, i) => (
+                <div key={i} className="flex items-center gap-3 py-2.5 border-b border-neutral-800/50 last:border-0">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${p.correct ? 'bg-emerald-500/20 border border-emerald-500/30' : 'bg-neutral-800'}`}>
+                    <span className={`text-xs font-semibold ${p.correct ? 'text-emerald-400' : 'text-neutral-400'}`}>
+                      {(p.nickname[0] ?? '?').toUpperCase()}
+                    </span>
+                  </div>
+                  <span className="text-sm text-neutral-200 flex-1 truncate">{p.nickname}</span>
+                  <span className={`text-[10px] rounded px-1.5 py-0.5 border ${p.correct ? 'text-emerald-400 border-emerald-500/30' : 'text-red-400 border-red-500/30'}`}>
+                    {p.correct ? '정답' : '오답'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </section>
   );
