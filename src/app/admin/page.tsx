@@ -1969,25 +1969,27 @@ function formatChartLabel(label: string, period: Period): string {
 
 function MiniBarChart({ data, color, period }: { data: { label: string; count: number }[]; color: string; period: Period }) {
   const maxCount = Math.max(...data.map((d) => d.count), 1);
+  const MAX_BAR_PX = 80;
   return (
-    <div className="flex items-end gap-px h-24">
+    <div className="flex items-end gap-px" style={{ height: '96px' }}>
       {data.map((d) => {
-        const heightPct = d.count > 0 ? Math.max((d.count / maxCount) * 100, 10) : 2;
+        const barPx = d.count > 0 ? Math.max(Math.round((d.count / maxCount) * MAX_BAR_PX), 8) : 2;
         return (
           <div
             key={d.label}
-            className="flex-1 flex flex-col items-center group min-w-0"
+            className="flex-1 flex flex-col items-center justify-end group min-w-0"
+            style={{ height: '96px' }}
             title={`${d.label}: ${d.count}`}
           >
-            <div
-              className={`w-full rounded-sm transition-opacity ${d.count > 0 ? `opacity-70 hover:opacity-100 ${color}` : 'opacity-20 bg-neutral-700'}`}
-              style={{ height: `${heightPct}%` }}
-            />
             {data.length <= 14 && (
-              <span className="text-[8px] text-neutral-700 mt-0.5 hidden sm:block truncate w-full text-center">
+              <span className="text-[8px] text-neutral-700 mb-0.5 hidden sm:block truncate w-full text-center leading-none">
                 {formatChartLabel(d.label, period)}
               </span>
             )}
+            <div
+              className={`w-full rounded-sm transition-opacity ${d.count > 0 ? `opacity-75 hover:opacity-100 ${color}` : 'opacity-30 bg-neutral-700'}`}
+              style={{ height: `${barPx}px` }}
+            />
           </div>
         );
       })}
@@ -1995,14 +1997,18 @@ function MiniBarChart({ data, color, period }: { data: { label: string; count: n
   );
 }
 
-function AStatCard({ label, value, color, dot, pulse, loading }: {
-  label: string; value: number; color: string; dot?: string; pulse?: boolean; loading: boolean;
+function AStatCard({ label, value, color, dot, pulse, loading, onClick }: {
+  label: string; value: number; color: string; dot?: string; pulse?: boolean; loading: boolean; onClick?: () => void;
 }) {
   return (
-    <div className="bg-[#111111] border border-neutral-800 rounded-xl px-4 py-4">
+    <div
+      className={`bg-[#111111] border border-neutral-800 rounded-xl px-4 py-4 ${onClick ? 'cursor-pointer hover:border-neutral-600 transition-colors' : ''}`}
+      onClick={onClick}
+    >
       <div className="flex items-center gap-1.5 mb-2">
         {dot && <span className={`w-2 h-2 rounded-full ${dot} ${pulse ? 'animate-pulse' : ''}`} />}
         <span className="text-xs text-neutral-500">{label}</span>
+        {onClick && <span className="ml-auto text-[10px] text-neutral-700">↗</span>}
       </div>
       {loading ? (
         <div className="h-7 w-14 bg-neutral-800 rounded animate-pulse" />
@@ -2042,7 +2048,7 @@ function AnalyticsTab() {
   const [chartPeriod, setChartPeriod] = useState<'month' | 'year'>('month');
   const [targetYear, setTargetYear] = useState(String(new Date().getFullYear()));
   const [targetMonth, setTargetMonth] = useState(String(new Date().getMonth() + 1).padStart(2, '0'));
-  const [showVisitorList, setShowVisitorList] = useState(false);
+  const [sidePanel, setSidePanel] = useState<'online' | 'visitors' | null>(null);
 
   const availableYears = Array.from({ length: 5 }, (_, i) => String(new Date().getFullYear() - i));
 
@@ -2089,61 +2095,86 @@ function AnalyticsTab() {
   return (
     <div className="space-y-6">
 
+      {/* ── 슬라이드 패널 ── */}
+      <div
+        className={`fixed inset-0 z-[200] transition-opacity duration-200 ${sidePanel ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
+        style={{ background: 'rgba(0,0,0,0.55)' }}
+        onClick={() => setSidePanel(null)}
+      />
+      <div
+        className={`fixed top-0 right-0 h-full z-[201] w-72 bg-[#0d0d0d] border-l border-neutral-800 shadow-2xl flex flex-col transition-transform duration-200 ${sidePanel ? 'translate-x-0' : 'translate-x-full'}`}
+      >
+        <div className="flex items-center justify-between px-5 py-4 border-b border-neutral-800">
+          <p className="text-sm font-semibold text-white">
+            {sidePanel === 'online'
+              ? `현재 접속자 (${onlineCount}명)`
+              : `오늘 방문자 (${todayVisitorList.length}명)`}
+          </p>
+          <button
+            onClick={() => setSidePanel(null)}
+            className="text-neutral-500 hover:text-white text-lg leading-none transition-colors"
+          >
+            ✕
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto px-5 py-4">
+          {sidePanel === 'online' ? (
+            onlineUsers.length === 0 ? (
+              <p className="text-xs text-neutral-600 py-4 text-center">현재 접속 중인 유저 없음</p>
+            ) : (
+              <div className="space-y-1">
+                {onlineUsers.map((u) => (
+                  <div key={u.userId} className="flex items-center gap-3 py-2.5 border-b border-neutral-800/50 last:border-0">
+                    <div className="relative w-8 h-8 rounded-full bg-neutral-800 flex items-center justify-center flex-shrink-0">
+                      <span className="text-xs font-semibold text-neutral-300">{(u.nickname[0] ?? '?').toUpperCase()}</span>
+                      <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-[#0d0d0d]" />
+                    </div>
+                    <span className="text-sm text-neutral-200">{u.nickname}</span>
+                  </div>
+                ))}
+              </div>
+            )
+          ) : (
+            todayVisitorList.length === 0 ? (
+              <p className="text-xs text-neutral-600 py-4 text-center">오늘 방문 기록 없음</p>
+            ) : (
+              <div className="space-y-1">
+                {todayVisitorList.map((v, i) => (
+                  <div key={i} className="flex items-center gap-3 py-2.5 border-b border-neutral-800/50 last:border-0">
+                    <div className="w-8 h-8 rounded-full bg-neutral-800 flex items-center justify-center flex-shrink-0">
+                      <span className="text-xs font-semibold text-neutral-300">
+                        {((v.nickname ?? v.email)[0] ?? '?').toUpperCase()}
+                      </span>
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm text-neutral-200 truncate">{v.nickname ?? '(닉네임 없음)'}</p>
+                      <p className="text-[11px] text-neutral-600 truncate">{v.email}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )
+          )}
+        </div>
+      </div>
+
       {/* ── TODAY ── */}
       <div>
         <p className="text-[10px] text-neutral-600 font-bold uppercase tracking-widest mb-2">Today</p>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <AStatCard label="현재 접속자" value={onlineCount} dot="bg-emerald-500" pulse color="text-emerald-400" loading={false} />
-          <div
-            className="bg-[#111111] border border-neutral-800 rounded-xl px-4 py-4 cursor-pointer hover:border-neutral-600 transition-colors"
-            onClick={() => setShowVisitorList((v) => !v)}
-          >
-            <div className="flex items-center gap-1.5 mb-2">
-              <span className="w-2 h-2 rounded-full bg-blue-500" />
-              <span className="text-xs text-neutral-500">오늘 방문자</span>
-              <span className="ml-auto text-[10px] text-neutral-600">{showVisitorList ? '▲' : '▼'}</span>
-            </div>
-            {todayLoading ? (
-              <div className="h-7 w-14 bg-neutral-800 rounded animate-pulse" />
-            ) : (
-              <span className="text-2xl font-semibold text-blue-400">{(todayData?.periodVisitors ?? 0).toLocaleString()}</span>
-            )}
-          </div>
+          <AStatCard
+            label="현재 접속자" value={onlineCount}
+            dot="bg-emerald-500" pulse color="text-emerald-400" loading={false}
+            onClick={() => setSidePanel('online')}
+          />
+          <AStatCard
+            label="오늘 방문자" value={todayData?.periodVisitors ?? 0}
+            dot="bg-blue-500" color="text-blue-400" loading={todayLoading}
+            onClick={() => setSidePanel('visitors')}
+          />
           <AStatCard label="오늘 퀴즈 풀기" value={todayData?.periodAttempts ?? 0} dot="bg-violet-500" color="text-violet-400" loading={todayLoading} />
           <AStatCard label="오늘 신규 가입" value={todayData?.newUsersInPeriod ?? 0} dot="bg-amber-500" color="text-amber-400" loading={todayLoading} />
         </div>
-
-        {/* 오늘 방문자 목록 */}
-        {showVisitorList && (
-          <div className="mt-2 bg-[#111111] border border-neutral-800 rounded-xl px-4 py-3">
-            <p className="text-[11px] text-neutral-500 mb-2">오늘 방문한 유저 ({todayVisitorList.length}명)</p>
-            {todayVisitorList.length === 0 ? (
-              <p className="text-xs text-neutral-600">아직 방문 기록 없음</p>
-            ) : (
-              <div className="flex flex-wrap gap-1.5">
-                {todayVisitorList.map((v, i) => (
-                  <span key={i} className="text-[11px] text-blue-400 border border-blue-500/30 bg-blue-500/5 rounded-full px-2.5 py-0.5">
-                    {v.nickname ?? v.email}
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* 현재 접속 중인 유저 */}
-        {onlineUsers.length > 0 && (
-          <div className="mt-2 bg-[#111111] border border-neutral-800 rounded-xl px-4 py-3">
-            <p className="text-[11px] text-neutral-500 mb-2">접속 중 ({onlineCount}명)</p>
-            <div className="flex flex-wrap gap-1.5">
-              {onlineUsers.map((u) => (
-                <span key={u.userId} className="text-[11px] text-emerald-400 border border-emerald-500/30 bg-emerald-500/5 rounded-full px-2.5 py-0.5">
-                  {u.nickname}
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
 
       {/* ── 기간별 추이 ── */}
