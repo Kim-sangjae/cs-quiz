@@ -1977,7 +1977,6 @@ function MiniBarChart({ data, color, period }: { data: { label: string; count: n
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
   const maxCount = Math.max(...data.map((d) => d.count), 1);
   const MAX_BAR_PX = 72;
-  const LABEL_H = 14;
 
   return (
     <div className="relative overflow-visible">
@@ -1995,8 +1994,9 @@ function MiniBarChart({ data, color, period }: { data: { label: string; count: n
             >
               {isHovered && (
                 <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 z-10 pointer-events-none">
-                  <div className="bg-neutral-800 border border-neutral-700 rounded px-1.5 py-0.5 text-[9px] text-white whitespace-nowrap shadow">
-                    {d.count.toLocaleString()}
+                  <div className="bg-neutral-800 border border-neutral-700 rounded px-1.5 py-1 text-[9px] text-white whitespace-nowrap shadow text-center leading-tight">
+                    <div className="text-neutral-400">{formatChartLabel(d.label, period)}</div>
+                    <div className="font-semibold">{d.count.toLocaleString()}</div>
                   </div>
                 </div>
               )}
@@ -2007,16 +2007,6 @@ function MiniBarChart({ data, color, period }: { data: { label: string; count: n
             </div>
           );
         })}
-      </div>
-      {/* 날짜 레이블: 모든 칸 표시 */}
-      <div className="flex gap-px mt-0.5 overflow-visible" style={{ height: `${LABEL_H}px` }}>
-        {data.map((d) => (
-          <div key={d.label} className="flex-1 min-w-0 flex items-center justify-center overflow-visible">
-            <span className="text-[7px] text-neutral-600 leading-none" style={{ whiteSpace: 'nowrap' }}>
-              {formatChartLabel(d.label, period)}
-            </span>
-          </div>
-        ))}
       </div>
     </div>
   );

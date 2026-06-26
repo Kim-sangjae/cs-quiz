@@ -28,13 +28,12 @@ export async function GET() {
     friendships.map((f) => (f.requesterId === userId ? f.addresseeId : f.requesterId))
   );
 
-  const users = presences
-    .filter((p) => p.userId !== userId)
-    .map((p) => ({
-      id: p.userId,
-      nickname: p.user.nickname ?? '(닉네임 없음)',
-      isFriend: friendIds.has(p.userId),
-    }));
+  const users = presences.map((p) => ({
+    id: p.userId,
+    nickname: p.user.nickname ?? '(닉네임 없음)',
+    isFriend: friendIds.has(p.userId),
+    isSelf: p.userId === userId,
+  }));
 
   return NextResponse.json({ users, totalCount: presences.length });
 }
