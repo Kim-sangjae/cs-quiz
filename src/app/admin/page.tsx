@@ -1968,9 +1968,9 @@ function formatChartLabel(label: string, period: Period): string {
 function MiniBarChart({ data, color, period }: { data: { label: string; count: number }[]; color: string; period: Period }) {
   const maxCount = Math.max(...data.map((d) => d.count), 1);
   return (
-    <div className="flex items-end gap-px h-20">
+    <div className="flex items-end gap-px h-24">
       {data.map((d) => {
-        const heightPct = Math.max((d.count / maxCount) * 100, 3);
+        const heightPct = d.count > 0 ? Math.max((d.count / maxCount) * 100, 10) : 2;
         return (
           <div
             key={d.label}
@@ -1978,7 +1978,7 @@ function MiniBarChart({ data, color, period }: { data: { label: string; count: n
             title={`${d.label}: ${d.count}`}
           >
             <div
-              className={`w-full rounded-sm opacity-70 hover:opacity-100 transition-opacity ${color}`}
+              className={`w-full rounded-sm transition-opacity ${d.count > 0 ? `opacity-70 hover:opacity-100 ${color}` : 'opacity-20 bg-neutral-700'}`}
               style={{ height: `${heightPct}%` }}
             />
             {data.length <= 14 && (
@@ -2229,21 +2229,21 @@ function AnalyticsTab() {
         <div className="bg-[#111111] border border-neutral-800 rounded-xl px-4 py-4">
           <p className="text-xs font-medium text-neutral-300 mb-3">방문자 추이</p>
           {isLoading ? (
-            <div className="h-20 bg-neutral-800 rounded animate-pulse" />
-          ) : data && data.chartVisits.length > 0 ? (
+            <div className="h-24 bg-neutral-800 rounded animate-pulse" />
+          ) : data && data.chartVisits.some((d) => d.count > 0) ? (
             <MiniBarChart data={data.chartVisits} color="bg-blue-500" period={period} />
           ) : (
-            <p className="text-xs text-neutral-600 text-center py-4">데이터 없음</p>
+            <p className="text-xs text-neutral-600 text-center py-4">이 기간 방문 데이터 없음</p>
           )}
         </div>
         <div className="bg-[#111111] border border-neutral-800 rounded-xl px-4 py-4">
           <p className="text-xs font-medium text-neutral-300 mb-3">퀴즈 풀기 추이</p>
           {isLoading ? (
-            <div className="h-20 bg-neutral-800 rounded animate-pulse" />
-          ) : data && data.chartAttempts.length > 0 ? (
+            <div className="h-24 bg-neutral-800 rounded animate-pulse" />
+          ) : data && data.chartAttempts.some((d) => d.count > 0) ? (
             <MiniBarChart data={data.chartAttempts} color="bg-emerald-500" period={period} />
           ) : (
-            <p className="text-xs text-neutral-600 text-center py-4">데이터 없음</p>
+            <p className="text-xs text-neutral-600 text-center py-4">이 기간 퀴즈 데이터 없음</p>
           )}
         </div>
       </div>

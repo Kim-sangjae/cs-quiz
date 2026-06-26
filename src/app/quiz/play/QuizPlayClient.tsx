@@ -37,9 +37,8 @@ export default function QuizPlayClient({ questions, category, isReview, isTimed 
   const [bookmarks, setBookmarks] = useState<Record<string, boolean>>({});
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const [timeExpired, setTimeExpired] = useState(false);
-  const startedAtRef = useRef<number | null>(null);
 
-  const totalSeconds = questions.length * 60;
+  const QUESTION_SECONDS = 20;
   const isDirty = answers.length > 0 && !isSubmitting;
 
   // 키보드 단축키
@@ -81,34 +80,35 @@ export default function QuizPlayClient({ questions, category, isReview, isTimed 
   }, []);
 
   const progressKey = `quiz-progress-${category}-${questions[0]?.id ?? ''}`;
-  const timerKey = `${progressKey}-started`;
 
-  // 타이머 초기화 (timed 모드)
+  // 문제별 타이머 초기화 (timed 모드)
   useEffect(() => {
     if (!isTimed) return;
-    const saved = localStorage.getItem(timerKey);
-    const startedAt = saved ? parseInt(saved) : Date.now();
-    if (!saved) localStorage.setItem(timerKey, String(startedAt));
-    startedAtRef.current = startedAt;
-    const elapsed = Math.floor((Date.now() - startedAt) / 1000);
-    const remaining = Math.max(0, totalSeconds - elapsed);
-    setTimeLeft(remaining);
-    if (remaining <= 0) setTimeExpired(true);
+    setTimeLeft(QUESTION_SECONDS);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [currentIndex, isTimed]);
 
-  // 카운트다운
+  // 문제별 카운트다운
   useEffect(() => {
-    if (!isTimed || timeLeft === null || timeLeft <= 0) return;
-    const timer = setTimeout(() => {
-      if (!startedAtRef.current) return;
-      const elapsed = Math.floor((Date.now() - startedAtRef.current) / 1000);
-      const remaining = Math.max(0, totalSeconds - elapsed);
-      setTimeLeft(remaining);
-      if (remaining <= 0) setTimeExpired(true);
-    }, 500);
-    return () => clearTimeout(timer);
-  }, [timeLeft, isTimed, totalSeconds]);
+    if (!isTimed) return;
+    const interval = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev === null || prev <= 1) return 0;
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [currentIndex, isTimed]);
+
+  // 시간 만료 시 자동 이동 또는 제출
+  useEffect(() => {
+    if (!isTimed || timeLeft === null || timeLeft > 0) return;
+    if (currentIndex < questions.length - 1) {
+      setCurrentIndex((i) => i + 1);
+    } else {
+      setTimeExpired(true);
+    }
+  }, [timeLeft, isTimed, currentIndex, questions.length]);
 
   // 자동 이동 설정 복원
   useEffect(() => {
@@ -266,7 +266,6 @@ export default function QuizPlayClient({ questions, category, isReview, isTimed 
       }
       const { sessionId } = await res.json() as { sessionId: string };
       localStorage.removeItem(progressKey);
-      if (isTimed) localStorage.removeItem(timerKey);
       router.push(`/result/${sessionId}`);
     } catch (e) {
       console.error("[QuizPlay] submit failed:", e);
@@ -290,8 +289,8 @@ export default function QuizPlayClient({ questions, category, isReview, isTimed 
 
   const timerColor =
     timeLeft === null ? '' :
-    timeLeft < 60 ? 'text-red-400 border-red-800/60 bg-red-950/20' :
-    timeLeft < 300 ? 'text-yellow-400 border-yellow-800/60 bg-yellow-950/20' :
+    timeLeft <= 5 ? 'text-red-400 border-red-800/60 bg-red-950/20 animate-pulse' :
+    timeLeft <= 10 ? 'text-yellow-400 border-yellow-800/60 bg-yellow-950/20' :
     'text-neutral-400 border-neutral-800';
 
   return (
@@ -300,9 +299,9 @@ export default function QuizPlayClient({ questions, category, isReview, isTimed 
       {timeExpired && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 px-4">
           <div className="bg-[#111] border border-neutral-800 rounded-xl p-6 max-w-sm w-full">
-            <h2 className="text-white font-semibold text-base mb-2">시간이 초과되었습니다</h2>
+            <h2 className="text-white font-semibold text-base mb-2">마지막 문제 시간 초과</h2>
             <p className="text-neutral-400 text-sm mb-6 leading-relaxed">
-              제한 시간이 끝났습니다. 현재까지 답변한 {answers.length}개를 제출합니다.
+              문제 제한 시간이 끝났습니다. 현재까지 답변한 {answers.length}개를 제출합니다.
             </p>
             <button
               onClick={handleSubmit}
@@ -402,8 +401,8 @@ export default function QuizPlayClient({ questions, category, isReview, isTimed 
               자동이동
             </button>
             {isTimed && timeLeft !== null && (
-              <span className={`text-[10px] border rounded px-1.5 py-0.5 font-mono ${timerColor}`}>
-                ⏱ {formatTime(timeLeft)}
+              <span className={`text-[10px] border rounded px-1.5 py-0.5 font-mono tabular-nums ${timerColor}`}>
+                ⏱ {timeLeft}s
               </span>
             )}
           </div>

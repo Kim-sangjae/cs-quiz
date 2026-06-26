@@ -71,6 +71,7 @@ function ProfileModal({
   const [confirmingRemove, setConfirmingRemove] = useState(false);
   const [category, setCategory] = useState('ds');
   const [hoveredBadge, setHoveredBadge] = useState<string | null>(null);
+  const [badgeTooltipPos, setBadgeTooltipPos] = useState<{ x: number; y: number } | null>(null);
 
   const { data: profile, isLoading } = useQuery<UserProfile>({
     queryKey: ['profile', friend.userId],
@@ -178,10 +179,7 @@ function ProfileModal({
 
             {/* 업적 */}
             {profile && profile.badges.length > 0 && (
-              <div
-                className="border-t border-neutral-800 px-5 py-3.5"
-                onMouseLeave={() => setHoveredBadge(null)}
-              >
+              <div className="border-t border-neutral-800 px-5 py-3.5">
                 <p className="text-[10px] text-neutral-500 mb-2">달성한 업적</p>
                 <div className="flex flex-wrap gap-1.5">
                   {profile.badges.map((badge) => {
@@ -191,19 +189,44 @@ function ProfileModal({
                       <span
                         key={badge}
                         className="text-lg cursor-default select-none"
-                        onMouseEnter={() => setHoveredBadge(badge)}
+                        onMouseEnter={(e) => {
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          setBadgeTooltipPos({ x: rect.left + rect.width / 2, y: rect.top });
+                          setHoveredBadge(badge);
+                        }}
+                        onMouseLeave={() => {
+                          setHoveredBadge(null);
+                          setBadgeTooltipPos(null);
+                        }}
                       >
                         {meta.icon}
                       </span>
                     );
                   })}
                 </div>
-                {hoveredBadge && BADGE_META[hoveredBadge as BadgeType] && (
-                  <div className="mt-2 px-2.5 py-1.5 bg-neutral-900 rounded-lg border border-neutral-800">
-                    <p className="text-[11px] font-medium text-white">{BADGE_META[hoveredBadge as BadgeType].label}</p>
-                    <p className="text-[10px] text-neutral-500 mt-0.5">{BADGE_META[hoveredBadge as BadgeType].description}</p>
-                  </div>
-                )}
+              </div>
+            )}
+            {/* 배지 말풍선 툴팁 (fixed — overflow-hidden 우회) */}
+            {hoveredBadge && badgeTooltipPos && BADGE_META[hoveredBadge as BadgeType] && (
+              <div
+                className="fixed z-[9999] pointer-events-none"
+                style={{
+                  left: badgeTooltipPos.x,
+                  top: badgeTooltipPos.y - 8,
+                  transform: 'translate(-50%, -100%)',
+                }}
+              >
+                <div className="w-48 bg-neutral-900 border border-neutral-700 rounded-xl px-3 py-2.5 shadow-2xl">
+                  <p className="text-[11px] font-semibold text-white leading-tight whitespace-normal">
+                    {BADGE_META[hoveredBadge as BadgeType].icon} {BADGE_META[hoveredBadge as BadgeType].label}
+                  </p>
+                  <p className="text-[10px] text-neutral-400 mt-1 leading-snug whitespace-normal">
+                    {BADGE_META[hoveredBadge as BadgeType].description}
+                  </p>
+                </div>
+                <div className="flex justify-center">
+                  <div className="w-2.5 h-2.5 bg-neutral-900 border-r border-b border-neutral-700 rotate-45 -mt-1.5" />
+                </div>
               </div>
             )}
 
