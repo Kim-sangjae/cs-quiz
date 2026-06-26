@@ -311,11 +311,11 @@ function ScoreTrend({ sessions }: { sessions: ApiSession[] }) {
 
   if (recent.length < 2) return null;
 
-  const W = 280, H = 60, PAD = 4;
+  const W = 280, H = 60, PAD_X = 12, PAD_Y = 16;
   const max = 20, min = 0;
   const points = recent.map((s, i) => {
-    const x = PAD + (i / (recent.length - 1)) * (W - PAD * 2);
-    const y = PAD + ((max - s.score) / (max - min)) * (H - PAD * 2);
+    const x = PAD_X + (i / (recent.length - 1)) * (W - PAD_X * 2);
+    const y = PAD_Y + ((max - s.score) / (max - min)) * (H - PAD_Y * 2);
     return { x, y, score: s.score };
   });
   const d = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
@@ -325,22 +325,22 @@ function ScoreTrend({ sessions }: { sessions: ApiSession[] }) {
   return (
     <div className="mt-4 pt-4 border-t border-neutral-800">
       <p className="text-xs text-neutral-500 mb-2">최근 {recent.length}회 점수 추이</p>
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: 60 }}>
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full overflow-visible" overflow="visible" style={{ height: 64 }}>
         <path d={d} fill="none" stroke="#404040" strokeWidth={1.5} />
         {points.map((p, i) => (
           <g key={i} onMouseEnter={() => setHoveredIdx(i)} onMouseLeave={() => setHoveredIdx(null)}>
-            <circle cx={p.x} cy={p.y} r={10} fill="transparent" style={{ cursor: 'default' }} />
+            <circle cx={p.x} cy={p.y} r={12} fill="transparent" style={{ cursor: 'default' }} />
             <circle cx={p.x} cy={p.y} r={hoveredIdx === i ? 3.5 : 2.5}
               fill={i === points.length - 1 ? '#10b981' : hoveredIdx === i ? '#a3a3a3' : '#525252'} />
           </g>
         ))}
         {hovered ? (
-          <text x={hovered.x} y={hovered.y - 7} textAnchor="middle"
+          <text x={Math.max(PAD_X, Math.min(W - PAD_X, hovered.x))} y={Math.max(10, hovered.y - 8)} textAnchor="middle"
             fill={hoveredIdx === points.length - 1 ? '#10b981' : '#d4d4d4'} fontSize={10} fontWeight={600}>
             {hovered.score}
           </text>
         ) : (
-          <text x={last.x} y={last.y - 7} textAnchor="middle"
+          <text x={Math.max(PAD_X, Math.min(W - PAD_X, last.x))} y={Math.max(10, last.y - 8)} textAnchor="middle"
             fill="#10b981" fontSize={10} fontWeight={600}>{last.score}</text>
         )}
       </svg>

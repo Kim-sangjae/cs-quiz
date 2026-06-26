@@ -1968,31 +1968,61 @@ function formatChartLabel(label: string, period: Period): string {
 }
 
 function MiniBarChart({ data, color, period }: { data: { label: string; count: number }[]; color: string; period: Period }) {
+  const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
   const maxCount = Math.max(...data.map((d) => d.count), 1);
-  const MAX_BAR_PX = 80;
+  const MAX_BAR_PX = 72;
+  const LABEL_H = 14;
+
+  const showLabel = (i: number): boolean => {
+    if (period === 'year') return true;
+    const n = data.length;
+    if (n <= 10) return true;
+    if (n <= 20) return i % 5 === 0 || i === n - 1;
+    return i % 7 === 0 || i === n - 1;
+  };
+
   return (
-    <div className="flex items-end gap-px" style={{ height: '96px' }}>
-      {data.map((d) => {
-        const barPx = d.count > 0 ? Math.max(Math.round((d.count / maxCount) * MAX_BAR_PX), 8) : 2;
-        return (
-          <div
-            key={d.label}
-            className="flex-1 flex flex-col items-center justify-end group min-w-0"
-            style={{ height: '96px' }}
-            title={`${d.label}: ${d.count}`}
-          >
-            {data.length <= 14 && (
-              <span className="text-[8px] text-neutral-700 mb-0.5 hidden sm:block truncate w-full text-center leading-none">
+    <div className="relative overflow-visible">
+      <div className="flex items-end gap-px overflow-visible" style={{ height: `${MAX_BAR_PX}px` }}>
+        {data.map((d, i) => {
+          const barPx = d.count > 0 ? Math.max(Math.round((d.count / maxCount) * MAX_BAR_PX), 8) : 2;
+          const isHovered = hoveredIdx === i;
+          return (
+            <div
+              key={d.label}
+              className="flex-1 flex flex-col items-center justify-end relative min-w-0"
+              style={{ height: `${MAX_BAR_PX}px` }}
+              onMouseEnter={() => setHoveredIdx(i)}
+              onMouseLeave={() => setHoveredIdx(null)}
+            >
+              {/* hover tooltip */}
+              {isHovered && (
+                <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 z-10 pointer-events-none">
+                  <div className="bg-neutral-800 border border-neutral-700 rounded px-1.5 py-0.5 text-[9px] text-white whitespace-nowrap shadow">
+                    {d.count.toLocaleString()}
+                  </div>
+                </div>
+              )}
+              <div
+                className={`w-full rounded-sm transition-all ${d.count > 0 ? `${color} ${isHovered ? 'opacity-100' : 'opacity-70'}` : `bg-neutral-700 ${isHovered ? 'opacity-40' : 'opacity-20'}`}`}
+                style={{ height: `${barPx}px` }}
+              />
+            </div>
+          );
+        })}
+      </div>
+      {/* 날짜 레이블 행 */}
+      <div className="flex gap-px mt-1" style={{ height: `${LABEL_H}px` }}>
+        {data.map((d, i) => (
+          <div key={d.label} className="flex-1 min-w-0 flex items-center justify-center">
+            {showLabel(i) && (
+              <span className="text-[8px] text-neutral-600 truncate leading-none">
                 {formatChartLabel(d.label, period)}
               </span>
             )}
-            <div
-              className={`w-full rounded-sm transition-opacity ${d.count > 0 ? `opacity-75 hover:opacity-100 ${color}` : 'opacity-30 bg-neutral-700'}`}
-              style={{ height: `${barPx}px` }}
-            />
           </div>
-        );
-      })}
+        ))}
+      </div>
     </div>
   );
 }
