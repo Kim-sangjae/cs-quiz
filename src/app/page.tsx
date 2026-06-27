@@ -41,7 +41,8 @@ export default async function Home() {
       <div className="max-w-2xl mx-auto">
 
         {/* Hero */}
-        <div className="mb-10">
+        <div className="mb-10 relative">
+          <div className="absolute -top-16 -left-8 w-72 h-72 bg-emerald-500/[0.04] rounded-full blur-3xl pointer-events-none" />
           <div className="flex items-center gap-2 mb-5 flex-wrap">
             <div className="inline-flex items-center gap-1.5 text-xs text-neutral-500 border border-neutral-800 rounded-full px-3 py-1">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
@@ -50,29 +51,30 @@ export default async function Home() {
             <OnlineCountBadge />
           </div>
 
-          <h1 className="text-3xl font-bold text-white tracking-tight mb-2">CS Quiz</h1>
-          <p className="text-neutral-500 text-sm leading-relaxed mb-6">
-            카테고리별 20문제 · 즉시 해설 · 오답 자동 복습
+          <h1 className="text-4xl font-bold text-white tracking-tight mb-3">CS Quiz</h1>
+          <p className="text-neutral-400 text-sm leading-relaxed mb-7 max-w-sm">
+            자료구조부터 네트워크까지, 컴퓨터과학 핵심 개념을 퀴즈로 빠르게 점검하세요.<br className="hidden sm:block" />
+            친구와 실시간 대결로 실력을 겨뤄볼 수도 있습니다.
           </p>
 
           <div className="flex items-center gap-3 flex-wrap">
             <Link
               href="/quiz"
-              className="rounded-md bg-white text-black text-sm font-semibold px-6 py-2.5 hover:bg-neutral-200 transition-colors"
+              className="rounded-lg bg-white text-black text-sm font-semibold px-6 py-2.5 hover:bg-neutral-100 transition-all duration-200"
             >
               퀴즈 시작
             </Link>
             {user ? (
               <Link
                 href="/mypage"
-                className="rounded-md border border-neutral-700 text-neutral-400 text-sm px-4 py-2.5 hover:border-neutral-500 hover:text-white transition-colors"
+                className="rounded-lg border border-neutral-700 text-neutral-400 text-sm px-4 py-2.5 hover:border-neutral-500 hover:text-white transition-all duration-200"
               >
                 내 기록
               </Link>
             ) : (
               <Link
                 href="/auth/login"
-                className="rounded-md border border-neutral-700 text-neutral-400 text-sm px-4 py-2.5 hover:border-neutral-500 hover:text-white transition-colors"
+                className="rounded-lg border border-neutral-700 text-neutral-400 text-sm px-4 py-2.5 hover:border-neutral-500 hover:text-white transition-all duration-200"
               >
                 로그인
               </Link>
@@ -81,9 +83,9 @@ export default async function Home() {
 
           {/* 개인화 배너 */}
           {personalization && (
-            <div className="mt-4 flex flex-col gap-2">
+            <div className="mt-5 flex flex-col gap-2">
               {personalization.streak.status === 'yesterday' && personalization.streak.count > 0 && (
-                <div className="flex items-center justify-between bg-amber-950/30 border border-amber-800/40 rounded-lg px-4 py-2.5">
+                <div className="flex items-center justify-between bg-amber-950/25 border border-amber-800/30 rounded-xl px-4 py-3">
                   <span className="text-sm text-amber-300">
                     🔥 {personalization.streak.count}일 연속 출석 중
                   </span>
@@ -93,7 +95,7 @@ export default async function Home() {
                 </div>
               )}
               {personalization.streak.status === 'none' && (
-                <div className="flex items-center justify-between bg-neutral-900 border border-neutral-800 rounded-lg px-4 py-2.5">
+                <div className="flex items-center justify-between bg-neutral-900/60 border border-neutral-800 rounded-xl px-4 py-3">
                   <span className="text-sm text-neutral-400">
                     오늘의 문제를 풀면 출석이 기록됩니다
                   </span>
@@ -108,7 +110,7 @@ export default async function Home() {
                 </p>
               )}
               {personalization.weakCategory && (
-                <div className="flex items-center justify-between bg-neutral-900 border border-neutral-800 rounded-lg px-4 py-2.5">
+                <div className="flex items-center justify-between bg-neutral-900/60 border border-neutral-800 rounded-xl px-4 py-3">
                   <span className="text-sm text-neutral-300">
                     약점 카테고리:{" "}
                     <span className="text-white font-medium">{personalization.weakCategory.label}</span>
@@ -142,10 +144,10 @@ export default async function Home() {
               <Link
                 key={c.key}
                 href={`/quiz/play?category=${c.key}`}
-                className="bg-[#111111] border border-neutral-800 rounded-xl px-4 py-3 hover:bg-[#161616] hover:border-neutral-700 transition-colors"
+                className="bg-[#111111] border border-neutral-800 rounded-xl px-4 py-3.5 hover:bg-[#181818] hover:border-neutral-700 hover:shadow-lg hover:shadow-black/30 transition-all duration-200 group"
               >
-                <p className="text-sm font-medium text-white mb-0.5">{c.label}</p>
-                <p className="text-[11px] text-neutral-600">{c.sub}</p>
+                <p className="text-sm font-medium text-white mb-0.5 group-hover:text-neutral-100 transition-colors">{c.label}</p>
+                <p className="text-[11px] text-neutral-600 group-hover:text-neutral-500 transition-colors">{c.sub}</p>
               </Link>
             ))}
           </div>
