@@ -21,7 +21,7 @@ function LoginContent() {
     <div className="w-full max-w-sm">
       <Link href="/" className="text-xs text-neutral-600 hover:text-neutral-400 transition-colors mb-8 inline-block">← 홈으로</Link>
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-white mb-1.5">CS Quiz</h1>
+        <h1 className="text-2xl font-bold text-white mb-1.5">CSORA</h1>
         <p className="text-sm text-neutral-500">
           로그인하면 풀이 기록, 오답 복습, 친구 대결을 이용할 수 있습니다.
         </p>

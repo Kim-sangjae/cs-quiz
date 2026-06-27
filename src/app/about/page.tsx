@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
   title: '서비스 소개',
-  description: 'CS Quiz 서비스 소개 — 퀴즈 시스템, 문제 등록, 대결, 복습 스케줄까지.',
+  description: 'CSORA 서비스 소개 — 퀴즈 시스템, 문제 등록, 대결, 복습 스케줄까지.',
 };
 
 const FEATURES = [
@@ -62,7 +62,7 @@ export default function AboutPage() {
       {/* 헤더 */}
       <div className="mb-10">
         <Link href="/" className="text-sm text-neutral-500 hover:text-white transition-colors">← 홈</Link>
-        <h1 className="text-3xl font-bold text-white mt-4 mb-3">CS Quiz</h1>
+        <h1 className="text-3xl font-bold text-white mt-4 mb-3">CSORA</h1>
         <p className="text-neutral-400 leading-relaxed">
           CS 기초 지식을 <span className="text-white font-medium">6개 영역 20문제</span>로 빠르게 점검하고,
           오답을 자동으로 복습하며, 친구와 실시간 대결할 수 있는 학습 플랫폼입니다.

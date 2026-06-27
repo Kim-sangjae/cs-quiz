@@ -20,7 +20,7 @@ export async function generateMetadata({
       select: { score: true, category: true, questionIds: true },
     });
 
-    if (!session) return { title: 'CS Quiz 결과' };
+    if (!session) return { title: 'CSORA 결과' };
 
     const total = (session.questionIds as string[]).length;
     const pct = Math.round((session.score / total) * 100);
@@ -29,7 +29,7 @@ export async function generateMetadata({
         ? '전체'
         : (CATEGORY_LABEL[session.category] ?? session.category);
 
-    const title = `CS Quiz 결과 — ${session.score}/${total}점`;
+    const title = `CSORA 결과 — ${session.score}/${total}점`;
     const description = `${catLabel} · 정답 ${session.score}개 · 오답 ${total - session.score}개 (${pct}%) | 나도 도전해보기`;
 
     return {
@@ -39,7 +39,7 @@ export async function generateMetadata({
         title,
         description,
         type: 'website',
-        images: [{ url: '/og-image-dark.png', width: 1200, height: 630, alt: 'CS Quiz' }],
+        images: [{ url: '/og-image-dark.png', width: 1200, height: 630, alt: 'CSORA' }],
       },
       twitter: {
         card: 'summary_large_image',
@@ -49,7 +49,7 @@ export async function generateMetadata({
       },
     };
   } catch {
-    return { title: 'CS Quiz 결과' };
+    return { title: 'CSORA 결과' };
   }
 }
 

@@ -51,10 +51,10 @@ export default async function Home() {
             <OnlineCountBadge />
           </div>
 
-          <h1 className="text-4xl font-bold text-white tracking-tight mb-3">CS Quiz</h1>
+          <h1 className="text-4xl font-bold text-white tracking-tight mb-3">CSORA</h1>
           <p className="text-neutral-400 text-sm leading-relaxed mb-7 max-w-sm">
-            자료구조부터 네트워크까지, 컴퓨터과학 핵심 개념을 퀴즈로 빠르게 점검하세요.<br className="hidden sm:block" />
-            친구와 실시간 대결로 실력을 겨뤄볼 수도 있습니다.
+            자료구조부터 네트워크까지, CS 핵심 개념을 퀴즈로 빠르게 점검하세요.
+            나만의 문제를 등록해 지식을 공유하고, 친구와 실시간 대결로 실력을 겨뤄볼 수 있습니다.
           </p>
 
           <div className="flex items-center gap-3 flex-wrap">

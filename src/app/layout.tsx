@@ -16,25 +16,25 @@ import BattleRejectedAlert from "@/components/BattleRejectedAlert";
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXTAUTH_URL ?? 'http://localhost:3000'),
-  title: { default: 'CS Quiz', template: '%s | CS Quiz' },
+  title: { default: 'CSORA', template: '%s | CSORA' },
   description: 'CS 기초 지식을 20문제로 점검하세요. 자료구조·알고리즘·OS·네트워크·DB·컴퓨터 구조 6개 영역에서 랜덤 출제.',
   openGraph: {
-    title: 'CS Quiz',
+    title: 'CSORA',
     description: 'CS 기초 지식을 20문제로 점검하세요',
-    siteName: 'CS Quiz',
+    siteName: 'CSORA',
     locale: 'ko_KR',
     type: 'website',
-    images: [{ url: '/og-image-dark.png', width: 1200, height: 630, alt: 'CS Quiz' }],
+    images: [{ url: '/og-image-dark.png', width: 1200, height: 630, alt: 'CSORA' }],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'CS Quiz',
+    title: 'CSORA',
     description: 'CS 기초 지식을 20문제로 점검하세요',
     images: ['/og-image-dark.png'],
   },
   appleWebApp: {
     capable: true,
-    title: 'CS Quiz',
+    title: 'CSORA',
     statusBarStyle: 'black-translucent',
   },
 };

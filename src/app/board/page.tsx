@@ -32,7 +32,6 @@ export default async function BoardPage({ searchParams }: PageProps) {
 
   const q = typeof params.q === 'string' ? params.q.trim() : '';
   const cat = typeof params.cat === 'string' ? params.cat : 'all';
-  const statusParam = typeof params.status === 'string' ? params.status : 'all';
   const sort = typeof params.sort === 'string' ? params.sort : 'newest';
   const page = Math.max(1, parseInt(typeof params.page === 'string' ? params.page : '1', 10));
 
@@ -41,12 +40,7 @@ export default async function BoardPage({ searchParams }: PageProps) {
   const user = await getServerUser();
   const isAdmin = user?.role === 'ADMIN';
 
-  let statusIn: string[];
-  if (statusParam === 'approved') {
-    statusIn = ['APPROVED'];
-  } else {
-    statusIn = isAdmin ? ['OFFICIAL', 'APPROVED', 'BLINDED'] : ['OFFICIAL', 'APPROVED'];
-  }
+  const statusIn = isAdmin ? ['OFFICIAL', 'APPROVED', 'BLINDED'] : ['OFFICIAL', 'APPROVED'];
 
   const where: Prisma.QuestionWhereInput = {
     status: { in: statusIn as Prisma.EnumQuestionStatusFilter['in'] },

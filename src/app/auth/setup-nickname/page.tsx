@@ -103,7 +103,7 @@ export default function SetupNicknamePage() {
   return (
     <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center px-4">
       <div className="w-full max-w-sm">
-        <p className="text-xs text-neutral-600 mb-6">CS Quiz</p>
+        <p className="text-xs text-neutral-600 mb-6">CSORA</p>
         <h1 className="text-2xl font-bold text-white mb-1.5">닉네임을 설정해주세요</h1>
         <p className="text-sm text-neutral-500 mb-8">
           랭킹, 대결, 게시판에서 사용될 이름입니다. 나중에 변경할 수 있습니다.

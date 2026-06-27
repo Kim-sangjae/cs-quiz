@@ -1,7 +1,7 @@
 import { ImageResponse } from 'next/og';
 
 export const runtime = 'edge';
-export const alt = 'CS Quiz — 6개 영역 CS 기초 지식을 20문제로 점검하세요';
+export const alt = 'CSORA — 6개 영역 CS 기초 지식을 20문제로 점검하세요';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 
@@ -24,7 +24,7 @@ export default function OGImage() {
         }}
       >
         <div style={{ color: '#10b981', fontSize: 18, fontWeight: 600, marginBottom: 24, letterSpacing: '0.1em' }}>
-          CS QUIZ
+          CSORA
         </div>
         <div style={{ color: '#ffffff', fontSize: 64, fontWeight: 700, letterSpacing: '-1px', marginBottom: 20, textAlign: 'center', lineHeight: 1.1 }}>
           CS 기초 지식을

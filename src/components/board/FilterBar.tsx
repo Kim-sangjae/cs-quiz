@@ -13,11 +13,6 @@ const CATEGORIES = [
   { value: 'arch', label: '컴퓨터구조' },
 ] as const;
 
-const STATUSES = [
-  { value: 'all', label: '전체' },
-  { value: 'approved', label: '승인' },
-] as const;
-
 const SORTS = [
   { value: 'newest', label: '최신순' },
   { value: 'accuracy_asc', label: '정답률 낮은순' },
@@ -31,7 +26,6 @@ export default function FilterBar({ isLoggedIn = false }: { isLoggedIn?: boolean
   const searchParams = useSearchParams();
 
   const cat = searchParams.get('cat') ?? 'all';
-  const status = searchParams.get('status') ?? 'all';
   const sort = searchParams.get('sort') ?? 'newest';
   const untried = searchParams.get('untried') === '1';
 
@@ -65,19 +59,6 @@ export default function FilterBar({ isLoggedIn = false }: { isLoggedIn?: boolean
 
       <div className="flex flex-wrap gap-x-3 gap-y-2">
         <div className="flex gap-1.5">
-          {STATUSES.map((s) => (
-            <button
-              key={s.value}
-              onClick={() => update('status', s.value)}
-              className={`rounded px-3 py-1 text-xs transition-colors ${
-                status === s.value
-                  ? 'border border-neutral-500 text-white'
-                  : 'border border-neutral-800 text-neutral-500 hover:border-neutral-600 hover:text-neutral-300'
-              }`}
-            >
-              {s.label}
-            </button>
-          ))}
           {isLoggedIn && (
             <button
               onClick={() => update('untried', untried ? '0' : '1')}

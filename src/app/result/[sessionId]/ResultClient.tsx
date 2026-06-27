@@ -110,7 +110,7 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
                 window.Kakao.Share.sendDefault({
                   objectType: 'feed',
                   content: {
-                    title: `CS Quiz 결과 — ${session.score}/${total}점 (${pct}%)`,
+                    title: `CSORA 결과 — ${session.score}/${total}점 (${pct}%)`,
                     description: `${catSummaryText}\n나도 도전해보기!`,
                     link: { mobileWebUrl: window.location.href, webUrl: window.location.href },
                   },
@@ -137,8 +137,8 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
                 const pct = Math.round((session.score / total) * 100);
                 setShareModal(null);
                 navigator.share({
-                  title: `CS Quiz — ${session.score}/${total}점`,
-                  text: `📊 CS Quiz 결과 — ${session.score}/${total}점 (${pct}%)\n\n${catSummary}\n\n지금 도전해보기 👉`,
+                  title: `CSORA — ${session.score}/${total}점`,
+                  text: `📊 CSORA 결과 — ${session.score}/${total}점 (${pct}%)\n\n${catSummary}\n\n지금 도전해보기 👉`,
                   url: window.location.href,
                 }).catch(() => {});
               }}

@@ -67,7 +67,7 @@ export default function Header() {
       <header className="border-b border-neutral-800 bg-[#0a0a0a] sticky top-0 z-40">
         <div className="max-w-2xl mx-auto px-4 sm:px-6 flex items-center justify-between h-14">
           <Link href="/" className="text-white font-semibold text-sm tracking-tight flex-shrink-0">
-            CS Quiz
+            CSORA
           </Link>
 
           <nav className="hidden sm:flex items-center gap-6">
@@ -162,7 +162,7 @@ export default function Header() {
         <div className="fixed inset-0 bg-[#0a0a0a] z-50 flex flex-col sm:hidden">
           <div className="flex items-center justify-between px-4 h-14 border-b border-neutral-800 flex-shrink-0">
             <Link href="/" onClick={closeMenu} className="text-white font-semibold text-sm tracking-tight">
-              CS Quiz
+              CSORA
             </Link>
             <button
               onClick={closeMenu}
