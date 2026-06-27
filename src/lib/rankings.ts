@@ -135,6 +135,31 @@ export async function getHomepagePersonalization(userId: string): Promise<Homepa
   return { streak: { count: streakCount, status: streakStatus }, weakCategory };
 }
 
+export type ContributorEntry = {
+  userId: string;
+  nickname: string;
+  approved: number;
+};
+
+export async function getTopContributors(): Promise<ContributorEntry[]> {
+  const rows = await prisma.question.groupBy({
+    by: ['authorId'],
+    where: { authorId: { not: null }, status: { in: ['OFFICIAL', 'APPROVED'] } },
+    _count: { id: true },
+    orderBy: { _count: { id: 'desc' } },
+    take: 5,
+  });
+  const authorIds = rows.map((r) => r.authorId!);
+  const users = await prisma.user.findMany({
+    where: { id: { in: authorIds } },
+    select: { id: true, nickname: true },
+  });
+  const userMap = Object.fromEntries(users.map((u) => [u.id, u.nickname]));
+  return rows
+    .filter((r) => r.authorId && userMap[r.authorId])
+    .map((r) => ({ userId: r.authorId!, nickname: userMap[r.authorId!] ?? '(알 수 없음)', approved: r._count.id }));
+}
+
 export async function buildRankings(): Promise<CategoryRankings> {
   const rows = await prisma.$queryRaw<RawRow[]>`
     WITH ranked AS (

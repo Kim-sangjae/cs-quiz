@@ -2,7 +2,7 @@ import Link from "next/link";
 import { unstable_cache } from "next/cache";
 import { questions } from "@/data/questions";
 import { getServerUser } from "@/lib/auth";
-import { buildRankings, getMyRanks, getHomepagePersonalization, type CategoryRankings, type MyRankEntry, type HomepagePersonalization } from "@/lib/rankings";
+import { buildRankings, getMyRanks, getHomepagePersonalization, getTopContributors, type CategoryRankings, type MyRankEntry, type HomepagePersonalization, type ContributorEntry } from "@/lib/rankings";
 import RankingSection from "@/components/RankingSection";
 import DailyChallenge from "@/components/DailyChallenge";
 import OnlineCountBadge from "@/components/OnlineCountBadge";
@@ -14,6 +14,7 @@ const EMPTY_RANKINGS: CategoryRankings = {
 };
 
 const getCachedRankings = unstable_cache(buildRankings, ['rankings'], { revalidate: 60 });
+const getCachedContributors = unstable_cache(getTopContributors, ['contributors'], { revalidate: 60 });
 
 const CATEGORIES = [
   { key: 'ds',      label: '자료구조',    sub: '스택·큐·트리·그래프' },
@@ -25,9 +26,10 @@ const CATEGORIES = [
 ];
 
 export default async function Home() {
-  const [user, rankings] = await Promise.all([
+  const [user, rankings, contributors] = await Promise.all([
     getServerUser(),
     getCachedRankings().catch(() => EMPTY_RANKINGS),
+    getCachedContributors().catch(() => [] as ContributorEntry[]),
   ]);
   const [myRanks, personalization] = user
     ? await Promise.all([
@@ -154,7 +156,7 @@ export default async function Home() {
         </section>
 
         {/* 랭킹 */}
-        <RankingSection rankings={rankings} currentUserId={user?.id ?? null} myRanks={myRanks} />
+        <RankingSection rankings={rankings} currentUserId={user?.id ?? null} myRanks={myRanks} contributors={contributors} />
 
         {/* 하단 링크 */}
         <div className="mt-10 pt-6 border-t border-neutral-800 flex items-center justify-between flex-wrap gap-3">

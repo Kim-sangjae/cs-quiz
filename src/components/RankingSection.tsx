@@ -1,8 +1,9 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
-import type { CategoryRankings, RankEntry, MyRankEntry } from '@/lib/rankings';
+import type { CategoryRankings, RankEntry, MyRankEntry, ContributorEntry } from '@/lib/rankings';
 
 const CATEGORY_TABS: { key: keyof CategoryRankings; label: string }[] = [
   { key: 'ds', label: 'DS' },
@@ -27,7 +28,10 @@ interface RankingSectionProps {
   rankings: CategoryRankings;
   currentUserId: string | null;
   myRanks: Record<string, MyRankEntry>;
+  contributors: ContributorEntry[];
 }
+
+const MEDAL = ['🥇', '🥈', '🥉'];
 
 function FriendRankings({ currentUserId }: { currentUserId: string | null }) {
   const { data, isLoading } = useQuery<{ rankings: FriendRankEntry[] }>({
@@ -84,16 +88,24 @@ function FriendRankings({ currentUserId }: { currentUserId: string | null }) {
   );
 }
 
-export default function RankingSection({ rankings, currentUserId, myRanks }: RankingSectionProps) {
-  const [activeTab, setActiveTab] = useState<keyof CategoryRankings | 'friends'>('ds');
+export default function RankingSection({ rankings, currentUserId, myRanks, contributors }: RankingSectionProps) {
+  const [activeTab, setActiveTab] = useState<keyof CategoryRankings | 'friends' | 'contributors'>('ds');
   const isFriendsTab = activeTab === 'friends';
-  const entries: RankEntry[] = isFriendsTab ? [] : (rankings[activeTab as keyof CategoryRankings] ?? []);
-  const myRank = isFriendsTab ? null : (myRanks[activeTab as keyof CategoryRankings] ?? null);
-  const isMeInTop5 = !isFriendsTab && currentUserId != null && entries.some(e => e.userId === currentUserId);
+  const isContributorsTab = activeTab === 'contributors';
+  const entries: RankEntry[] = (isFriendsTab || isContributorsTab) ? [] : (rankings[activeTab as keyof CategoryRankings] ?? []);
+  const myRank = (isFriendsTab || isContributorsTab) ? null : (myRanks[activeTab as keyof CategoryRankings] ?? null);
+  const isMeInTop5 = !isFriendsTab && !isContributorsTab && currentUserId != null && entries.some(e => e.userId === currentUserId);
 
   return (
     <section className="mt-12 border-t border-neutral-800 pt-8">
-      <h2 className="text-sm font-medium text-neutral-400 mb-4">카테고리별 TOP 5</h2>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-sm font-medium text-neutral-400">
+          {isContributorsTab ? '문제 기여자 TOP 5' : '카테고리별 TOP 5'}
+        </h2>
+        {isContributorsTab && (
+          <Link href="/leaderboard" className="text-xs text-neutral-600 hover:text-white transition-colors">전체 보기 →</Link>
+        )}
+      </div>
       <div className="flex gap-2 mb-4 flex-wrap">
         {CATEGORY_TABS.map(tab => (
           <button
@@ -118,9 +130,62 @@ export default function RankingSection({ rankings, currentUserId, myRanks }: Ran
         >
           친구
         </button>
+        <button
+          onClick={() => setActiveTab('contributors')}
+          className={`px-3 py-1 text-xs rounded border transition-colors ${
+            activeTab === 'contributors'
+              ? 'border-amber-700 text-amber-300 bg-amber-950/40'
+              : 'border-neutral-800 text-neutral-500 hover:border-neutral-600 hover:text-neutral-300'
+          }`}
+        >
+          ✍️ 기여
+        </button>
       </div>
 
-      {isFriendsTab ? (
+      {isContributorsTab ? (
+        <div>
+          {contributors.length === 0 ? (
+            <p className="text-sm text-neutral-500 py-4">아직 기여자가 없습니다</p>
+          ) : (
+            <div className="space-y-1">
+              {contributors.map((c, i) => (
+                <div
+                  key={c.userId}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
+                    i < 3 ? 'bg-[#111111] border border-neutral-800/60' : 'border-b border-neutral-800/40 last:border-0'
+                  }`}
+                >
+                  <span className="w-7 text-center flex-shrink-0">
+                    {i < 3 ? (
+                      <span className="text-base leading-none">{MEDAL[i]}</span>
+                    ) : (
+                      <span className="text-xs text-neutral-600 font-mono tabular-nums">{i + 1}</span>
+                    )}
+                  </span>
+                  <span className={`flex-1 text-sm truncate ${i < 3 ? 'text-white font-medium' : 'text-neutral-400'}`}>
+                    {c.nickname}
+                  </span>
+                  <div className="flex items-baseline gap-1">
+                    <span className={`text-sm font-bold ${i < 3 ? 'text-emerald-400' : 'text-neutral-500'}`}>
+                      {c.approved}
+                    </span>
+                    <span className="text-[11px] text-neutral-600">문제</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="pt-4">
+            <Link
+              href="/board/submit"
+              className="inline-flex items-center gap-1.5 text-xs text-neutral-600 hover:text-amber-400 transition-colors"
+            >
+              <span>문제 등록하고 기여자가 되기</span>
+              <span>→</span>
+            </Link>
+          </div>
+        </div>
+      ) : isFriendsTab ? (
         <FriendRankings currentUserId={currentUserId} />
       ) : entries.length === 0 ? (
         <p className="text-sm text-neutral-500 py-4">아직 랭킹 데이터가 없습니다</p>
