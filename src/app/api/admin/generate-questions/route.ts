@@ -48,27 +48,28 @@ export async function POST(req: NextRequest) {
 
   // GPT-4o로 문제 생성
   const systemPrompt = `당신은 CS 전공 면접 문제 출제 전문가입니다.
-주어진 주제에 대해 4지선다 객관식 문제를 JSON 배열로 생성하세요.
+주어진 주제에 대해 4지선다 객관식 문제를 JSON 형식으로 생성하세요.
 
 규칙:
 - 각 문제는 명확하고 모호하지 않아야 함
 - 보기 4개는 서로 혼동될 만큼 그럴듯해야 함
 - 설명은 왜 정답인지, 다른 보기가 왜 틀렸는지 간결하게 (100자 이내)
-- question, options, answer(0-3 인덱스), explanation 필드만 포함
-- 반드시 JSON 배열만 출력, 다른 텍스트 없음`;
+- 반드시 { "questions": [...] } 형태의 JSON 객체로만 출력`;
 
   const userPrompt = `${CATEGORY_PROMPTS[category]} 주제로 ${safeCount}개의 문제를 생성하세요.
 난이도: ${difficultyDesc}
 
-JSON 형식:
-[
-  {
-    "question": "문제 내용",
-    "options": ["보기1", "보기2", "보기3", "보기4"],
-    "answer": 0,
-    "explanation": "정답 설명"
-  }
-]`;
+반환 형식:
+{
+  "questions": [
+    {
+      "question": "문제 내용",
+      "options": ["보기1", "보기2", "보기3", "보기4"],
+      "answer": 0,
+      "explanation": "정답 설명"
+    }
+  ]
+}`;
 
   let generated: GeneratedQuestion[];
   try {
