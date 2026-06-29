@@ -2630,9 +2630,16 @@ const GENERATE_CATEGORIES = [
   { key: 'se', label: '소프트웨어공학' },
 ];
 
+const DIFFICULTY_OPTIONS = [
+  { key: 'easy', label: '쉬움', desc: '기초 개념, 핵심 용어' },
+  { key: 'medium', label: '중간', desc: '개념 응용, 비교 분석' },
+  { key: 'hard', label: '어려움', desc: '심화, 엣지케이스, 트레이드오프' },
+];
+
 function GenerateQuestionsTab() {
   const [category, setCategory] = useState('se');
   const [count, setCount] = useState(20);
+  const [difficulty, setDifficulty] = useState('medium');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<{ generated: number; saved: number; skipped: number } | null>(null);
   const [error, setError] = useState('');
@@ -2645,7 +2652,7 @@ function GenerateQuestionsTab() {
       const res = await fetch('/api/admin/generate-questions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ category, count }),
+        body: JSON.stringify({ category, count, difficulty }),
       });
       if (!res.ok) {
         const d = await res.json() as { error?: string };
@@ -2682,6 +2689,27 @@ function GenerateQuestionsTab() {
                 <option key={c.key} value={c.key}>{c.label}</option>
               ))}
             </select>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs text-neutral-400">난이도</label>
+            <div className="flex gap-1">
+              {DIFFICULTY_OPTIONS.map((d) => (
+                <button
+                  key={d.key}
+                  type="button"
+                  onClick={() => setDifficulty(d.key)}
+                  title={d.desc}
+                  className={`px-3 py-1.5 rounded-md text-sm transition-colors ${
+                    difficulty === d.key
+                      ? 'bg-white text-black font-medium'
+                      : 'bg-[#1a1a1a] border border-neutral-700 text-neutral-300 hover:border-neutral-500'
+                  }`}
+                >
+                  {d.label}
+                </button>
+              ))}
+            </div>
           </div>
 
           <div className="flex flex-col gap-1.5">

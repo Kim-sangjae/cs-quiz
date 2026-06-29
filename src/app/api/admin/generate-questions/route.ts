@@ -18,6 +18,12 @@ const CATEGORY_PROMPTS: Record<string, string> = {
 
 const SIMILARITY_THRESHOLD = 0.85;
 
+const DIFFICULTY_PROMPTS: Record<string, string> = {
+  easy: '기초 개념 확인 수준 (CS 입문자, 핵심 용어와 기본 원리 위주, 함정 없이 명확한 문제)',
+  medium: '중급 수준 (학부 전공자, 개념 응용과 비교 분석, 실무 연관 문제)',
+  hard: '고급 수준 (취업 면접·대학원 수준, 세부 동작 원리·엣지케이스·성능 트레이드오프 포함)',
+};
+
 interface GeneratedQuestion {
   question: string;
   options: [string, string, string, string];
@@ -31,13 +37,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  const body = await req.json() as { category: string; count: number };
-  const { category, count } = body;
+  const body = await req.json() as { category: string; count: number; difficulty?: string };
+  const { category, count, difficulty = 'medium' } = body;
 
   if (!CATEGORY_PROMPTS[category]) {
     return NextResponse.json({ error: 'Invalid category' }, { status: 400 });
   }
   const safeCount = Math.min(50, Math.max(1, Math.floor(count)));
+  const difficultyDesc = DIFFICULTY_PROMPTS[difficulty] ?? DIFFICULTY_PROMPTS.medium;
 
   // GPT-4o로 문제 생성
   const systemPrompt = `당신은 CS 전공 면접 문제 출제 전문가입니다.
@@ -51,6 +58,7 @@ export async function POST(req: NextRequest) {
 - 반드시 JSON 배열만 출력, 다른 텍스트 없음`;
 
   const userPrompt = `${CATEGORY_PROMPTS[category]} 주제로 ${safeCount}개의 문제를 생성하세요.
+난이도: ${difficultyDesc}
 
 JSON 형식:
 [
