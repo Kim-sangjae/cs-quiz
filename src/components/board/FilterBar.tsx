@@ -11,6 +11,7 @@ const CATEGORIES = [
   { value: 'network', label: '네트워크' },
   { value: 'db', label: 'DB' },
   { value: 'arch', label: '컴퓨터구조' },
+  { value: 'se', label: '소프트웨어공학' },
 ] as const;
 
 const SORTS = [

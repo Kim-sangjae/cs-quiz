@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerUser } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 
-const VALID_CATEGORIES = new Set(['ds', 'algo', 'os', 'network', 'db', 'arch']);
+const VALID_CATEGORIES = new Set(['ds', 'algo', 'os', 'network', 'db', 'arch', 'se']);
 
 export async function GET(req: NextRequest) {
   const user = await getServerUser();

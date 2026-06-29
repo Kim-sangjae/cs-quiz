@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 const FEATURES = [
   {
     icon: '🎯',
-    title: '6개 영역 CS 퀴즈',
+    title: '7개 영역 CS 퀴즈',
     desc: '자료구조·알고리즘·운영체제·네트워크·데이터베이스·컴퓨터 구조에서 랜덤 20문제. 틀린 문제는 즉시 해설과 함께 확인.',
   },
   {
@@ -54,6 +54,7 @@ const CATEGORIES = [
   { key: 'network', label: '네트워크', desc: 'TCP/IP, HTTP, DNS, 보안 프로토콜 등' },
   { key: 'db', label: '데이터베이스', desc: 'SQL, 인덱스, 트랜잭션, 정규화 등' },
   { key: 'arch', label: '컴퓨터 구조', desc: 'CPU, 캐시, 명령어, 파이프라인 등' },
+  { key: 'se', label: '소프트웨어공학', desc: '디자인패턴, SOLID, 애자일, TDD 등' },
 ];
 
 export default function AboutPage() {
@@ -64,7 +65,7 @@ export default function AboutPage() {
         <Link href="/" className="text-sm text-neutral-500 hover:text-white transition-colors">← 홈</Link>
         <h1 className="text-3xl font-bold text-white mt-4 mb-3">CSORA</h1>
         <p className="text-neutral-400 leading-relaxed">
-          CS 기초 지식을 <span className="text-white font-medium">6개 영역 20문제</span>로 빠르게 점검하고,
+          CS 기초 지식을 <span className="text-white font-medium">7개 영역 20문제</span>로 빠르게 점검하고,
           오답을 자동으로 복습하며, 친구와 실시간 대결할 수 있는 학습 플랫폼입니다.
         </p>
         <div className="flex gap-3 mt-5 flex-wrap">
@@ -115,7 +116,7 @@ export default function AboutPage() {
 
       {/* 출제 영역 */}
       <section className="mb-10">
-        <h2 className="text-lg font-semibold text-white mb-4">출제 영역 (6개)</h2>
+        <h2 className="text-lg font-semibold text-white mb-4">출제 영역 (7개)</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {CATEGORIES.map((c) => (
             <Link

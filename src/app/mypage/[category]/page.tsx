@@ -13,6 +13,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   network: '네트워크',
   db: '데이터베이스',
   arch: '컴퓨터 구조',
+  se: '소프트웨어공학',
 };
 
 const VALID_CATEGORIES = new Set(['ds', 'algo', 'os', 'network', 'db', 'arch', 'se']);

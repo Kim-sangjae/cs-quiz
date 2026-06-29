@@ -3,7 +3,7 @@ import { getServerUser } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 
 const PAGE_SIZE = 20;
-const VALID_CATEGORIES = ['ds', 'algo', 'os', 'network', 'db', 'arch'];
+const VALID_CATEGORIES = ['ds', 'algo', 'os', 'network', 'db', 'arch', 'se'];
 const ALL_STATUSES = ['OFFICIAL', 'PENDING', 'APPROVED', 'REJECTED', 'BLINDED'] as const;
 type QuestionStatus = typeof ALL_STATUSES[number];
 

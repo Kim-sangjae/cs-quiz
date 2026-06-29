@@ -12,6 +12,7 @@ const CATEGORY_TABS: { key: keyof CategoryRankings; label: string }[] = [
   { key: 'network', label: 'Network' },
   { key: 'db', label: 'DB' },
   { key: 'arch', label: 'Arch' },
+  { key: 'se', label: 'SE' },
 ];
 
 interface FriendRankEntry {

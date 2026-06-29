@@ -6,7 +6,7 @@ export async function GET() {
   const user = await getServerUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const CATS = ['ds', 'algo', 'os', 'network', 'db', 'arch'];
+  const CATS = ['ds', 'algo', 'os', 'network', 'db', 'arch', 'se'];
 
   const [totalSessions, dbUser, attempts, completions, questionTotals, triedByCategory] = await Promise.all([
     prisma.quizSession.count({ where: { userId: user.id } }),

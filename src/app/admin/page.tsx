@@ -343,6 +343,8 @@ function QuestionsTab({ prevSeenAt }: { prevSeenAt: string | null }) {
   const [rejectionReason, setRejectionReason] = useState(REJECTION_REASONS[0]);
   const [showSimilarId, setShowSimilarId] = useState<string | null>(null);
   const [previewQuestion, setPreviewQuestion] = useState<PendingQuestion | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkLoading, setBulkLoading] = useState(false);
 
   const { data: questions = [] } = useQuery<PendingQuestion[]>({
     queryKey: ['admin', 'questions'],
@@ -367,29 +369,105 @@ function QuestionsTab({ prevSeenAt }: { prevSeenAt: string | null }) {
     },
   });
 
+  const allSelected = questions.length > 0 && selectedIds.size === questions.length;
+
+  function toggleAll() {
+    if (allSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(questions.map((q) => q.id)));
+    }
+  }
+
+  function toggleOne(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
+
+  async function handleBulk(action: 'approve' | 'reject') {
+    if (selectedIds.size === 0) return;
+    setBulkLoading(true);
+    try {
+      await fetch('/api/admin/questions/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: [...selectedIds], action, rejectionReason: REJECTION_REASONS[0] }),
+      });
+      queryClient.invalidateQueries({ queryKey: ['admin', 'questions'] });
+      setSelectedIds(new Set());
+      toast.success(`일괄 ${action === 'approve' ? '승인' : '거절'} 완료`);
+    } finally {
+      setBulkLoading(false);
+    }
+  }
+
   if (questions.length === 0) {
     return <p className="text-neutral-500 text-sm text-center py-8">대기 중인 문제가 없습니다.</p>;
   }
 
   return (
     <div className="space-y-4">
+      {/* 일괄 처리 툴바 */}
+      <div className="flex items-center gap-3 bg-[#111111] border border-neutral-800 rounded-lg px-4 py-2.5">
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={allSelected}
+            onChange={toggleAll}
+            className="accent-white w-3.5 h-3.5"
+          />
+          <span className="text-xs text-neutral-400">
+            {selectedIds.size > 0 ? `${selectedIds.size}개 선택` : '전체 선택'}
+          </span>
+        </label>
+        {selectedIds.size > 0 && (
+          <>
+            <button
+              onClick={() => handleBulk('approve')}
+              disabled={bulkLoading}
+              className="rounded-md bg-green-500/10 border border-green-500/30 text-green-400 text-xs px-3 py-1 hover:bg-green-500/20 transition-colors disabled:opacity-40"
+            >
+              일괄 승인
+            </button>
+            <button
+              onClick={() => handleBulk('reject')}
+              disabled={bulkLoading}
+              className="rounded-md bg-red-500/10 border border-red-500/30 text-red-400 text-xs px-3 py-1 hover:bg-red-500/20 transition-colors disabled:opacity-40"
+            >
+              일괄 거절
+            </button>
+          </>
+        )}
+      </div>
+
       {questions.map((q) => (
-        <div key={q.id} className="bg-[#111111] border border-neutral-800 rounded-lg p-5">
-          <div className="flex items-center gap-2 mb-3">
-            <span className="text-xs text-neutral-500 border border-neutral-800 rounded px-2 py-0.5">
-              {CATEGORY_LABEL[q.category] ?? q.category}
-            </span>
-            <span className="text-xs text-neutral-500">
-              {q.author?.nickname ?? q.author?.email ?? '(알 수 없음)'}
-            </span>
-            <span className="text-xs text-neutral-600">
-              {new Date(q.createdAt).toLocaleDateString('ko-KR')}
-            </span>
-            {prevSeenAt && new Date(q.createdAt) > new Date(prevSeenAt) && (
-              <span className="text-[10px] font-bold text-amber-400 border border-amber-500/40 rounded px-1.5 py-0.5">NEW</span>
-            )}
+        <div key={q.id} className={`bg-[#111111] border rounded-lg p-5 transition-colors ${selectedIds.has(q.id) ? 'border-neutral-600' : 'border-neutral-800'}`}>
+          <div className="flex items-start gap-3 mb-3">
+            <input
+              type="checkbox"
+              checked={selectedIds.has(q.id)}
+              onChange={() => toggleOne(q.id)}
+              className="accent-white w-3.5 h-3.5 mt-0.5 flex-shrink-0"
+            />
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs text-neutral-500 border border-neutral-800 rounded px-2 py-0.5">
+                {CATEGORY_LABEL[q.category] ?? q.category}
+              </span>
+              <span className="text-xs text-neutral-500">
+                {q.author?.nickname ?? q.author?.email ?? '(알 수 없음)'}
+              </span>
+              <span className="text-xs text-neutral-600">
+                {new Date(q.createdAt).toLocaleDateString('ko-KR')}
+              </span>
+              {prevSeenAt && new Date(q.createdAt) > new Date(prevSeenAt) && (
+                <span className="text-[10px] font-bold text-amber-400 border border-amber-500/40 rounded px-1.5 py-0.5">NEW</span>
+              )}
+            </div>
           </div>
-          <p className="text-sm text-neutral-200 mb-4 leading-relaxed">
+          <p className="text-sm text-neutral-200 mb-4 leading-relaxed pl-6">
             {q.question.length > 120 ? q.question.slice(0, 120) + '…' : q.question}
           </p>
           {showSimilarId === q.id && <SimilarQuestionsPanel questionText={q.question} />}
@@ -430,7 +508,7 @@ function QuestionsTab({ prevSeenAt }: { prevSeenAt: string | null }) {
               </div>
             </div>
           ) : (
-            <div className="flex gap-2 mt-4">
+            <div className="flex gap-2 mt-4 pl-6">
               <button
                 onClick={() => mutation.mutate({ id: q.id, action: 'approve' })}
                 disabled={mutation.isPending}

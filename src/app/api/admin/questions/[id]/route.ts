@@ -5,7 +5,7 @@ import { generateEmbedding, toVectorString } from '@/lib/embedding';
 import { writeLog } from '@/lib/audit';
 import { checkQuestionBadges } from '@/lib/award-badges';
 
-const VALID_CATEGORIES = ['ds', 'algo', 'os', 'network', 'db', 'arch'];
+const VALID_CATEGORIES = ['ds', 'algo', 'os', 'network', 'db', 'arch', 'se'];
 
 export async function PATCH(
   req: NextRequest,

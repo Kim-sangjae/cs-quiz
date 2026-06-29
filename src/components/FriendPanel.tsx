@@ -54,6 +54,7 @@ const CATEGORIES = [
   { key: 'network', label: '네트워크' },
   { key: 'db', label: '데이터베이스' },
   { key: 'arch', label: '컴퓨터 구조' },
+  { key: 'se', label: '소프트웨어공학' },
 ] as const;
 
 function ProfileModal({
