@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/prisma";
+import { getServerUser } from "@/lib/auth";
 import { sample } from "@/lib/sample";
+import { QuestionStatus } from "@prisma/client";
 import type { Question, Category } from "@/types";
 import QuizPlayClient from "./QuizPlayClient";
 
@@ -10,6 +12,7 @@ export default async function QuizPlayPage({
 }) {
   const { category, reviewIds, timed } = await searchParams;
 
+  const user = await getServerUser();
   let questions: Question[];
 
   if (reviewIds) {
@@ -32,14 +35,17 @@ export default async function QuizPlayPage({
         authorNickname: q.author?.nickname ?? null,
       }));
   } else {
+    const where = {
+      status: { in: [QuestionStatus.OFFICIAL, QuestionStatus.APPROVED] },
+      ...(category && category !== "all" ? { category } : {}),
+    };
+
     const dbQuestions = await prisma.question.findMany({
-      where: {
-        status: { in: ["OFFICIAL", "APPROVED"] },
-        ...(category && category !== "all" ? { category } : {}),
-      },
+      where,
       include: { author: { select: { nickname: true } } },
     });
-    questions = dbQuestions.map((q) => ({
+
+    const allQuestions: Question[] = dbQuestions.map((q) => ({
       id: q.id,
       category: q.category as Category,
       question: q.question,
@@ -48,7 +54,35 @@ export default async function QuizPlayPage({
       explanation: q.explanation,
       authorNickname: q.author?.nickname ?? null,
     }));
-    questions = sample(questions, 20);
+
+    // 최근 3세션 문제 제외 (로그인 시)
+    if (user) {
+      const recentSessions = await prisma.quizSession.findMany({
+        where: { userId: user.id, ...(category && category !== "all" ? { category } : {}) },
+        orderBy: { submittedAt: "desc" },
+        take: 3,
+        select: { questionIds: true },
+      });
+      const recentIds = new Set(
+        recentSessions.flatMap((s) => s.questionIds as string[])
+      );
+      const freshPool = allQuestions.filter((q) => !recentIds.has(q.id));
+      questions = sample(freshPool.length >= 20 ? freshPool : allQuestions, 20);
+    } else {
+      questions = sample(allQuestions, 20);
+    }
+  }
+
+  // 북마크 초기 상태 로드 (로그인 시)
+  const initialBookmarks: Record<string, boolean> = {};
+  if (user && questions.length > 0) {
+    const liked = await prisma.like.findMany({
+      where: { userId: user.id, questionId: { in: questions.map((q) => q.id) } },
+      select: { questionId: true },
+    });
+    for (const { questionId } of liked) {
+      initialBookmarks[questionId] = true;
+    }
   }
 
   return (
@@ -57,6 +91,7 @@ export default async function QuizPlayPage({
       category={category ?? "all"}
       isReview={!!reviewIds}
       isTimed={timed === 'true'}
+      initialBookmarks={initialBookmarks}
     />
   );
 }

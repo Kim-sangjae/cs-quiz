@@ -1055,11 +1055,12 @@ function ReportsTab({ prevSeenAt }: { prevSeenAt: string | null }) {
   );
 }
 
-const USERS_PAGE_SIZE = 20;
+interface UsersResponse { users: AdminUser[]; total: number; pageCount: number; }
 
 function UsersTab({ currentUserId, requestConfirm }: { currentUserId: string; requestConfirm: (msg: string, fn: () => void) => void }) {
   const queryClient = useQueryClient();
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState<'all' | 'ADMIN' | 'USER'>('all');
   const [statusFilter, setUserStatusFilter] = useState<'all' | 'active' | 'deactivated'>('all');
@@ -1067,22 +1068,23 @@ function UsersTab({ currentUserId, requestConfirm }: { currentUserId: string; re
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkPending, setBulkPending] = useState(false);
 
-  const { data: users = [] } = useQuery<AdminUser[]>({
-    queryKey: ['admin', 'users'],
-    queryFn: async () => { const r = await fetch('/api/admin/users'); if (!r.ok) return []; return r.json(); },
+  useEffect(() => {
+    const t = setTimeout(() => { setSearch(searchInput); setPage(1); setSelectedIds(new Set()); }, 300);
+    return () => clearTimeout(t);
+  }, [searchInput]);
+
+  const { data } = useQuery<UsersResponse>({
+    queryKey: ['admin', 'users', search, roleFilter, statusFilter, page],
+    queryFn: async () => {
+      const params = new URLSearchParams({ search, role: roleFilter, status: statusFilter, page: String(page) });
+      const r = await fetch(`/api/admin/users?${params}`);
+      if (!r.ok) return { users: [], total: 0, pageCount: 1 };
+      return r.json();
+    },
   });
 
-  const filteredUsers = users.filter((u) => {
-    const q = search.trim().toLowerCase();
-    if (q && !u.nickname?.toLowerCase().includes(q) && !u.email.toLowerCase().includes(q)) return false;
-    if (roleFilter !== 'all' && u.role !== roleFilter) return false;
-    if (statusFilter === 'active' && u.deletedAt !== null) return false;
-    if (statusFilter === 'deactivated' && u.deletedAt === null) return false;
-    return true;
-  });
-
-  const pageCount = Math.max(1, Math.ceil(filteredUsers.length / USERS_PAGE_SIZE));
-  const pagedUsers = filteredUsers.slice((page - 1) * USERS_PAGE_SIZE, page * USERS_PAGE_SIZE);
+  const pagedUsers = data?.users ?? [];
+  const pageCount = data?.pageCount ?? 1;
 
   async function doAction(userId: string, action: 'set-admin' | 'set-user' | 'deactivate' | 'reactivate') {
     setActionLoading(userId + ':' + action);
@@ -1139,7 +1141,7 @@ function UsersTab({ currentUserId, requestConfirm }: { currentUserId: string; re
   return (
     <div>
       <div className="flex flex-wrap gap-2 mb-4">
-        <input type="text" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); setSelectedIds(new Set()); }}
+        <input type="text" value={searchInput} onChange={(e) => setSearchInput(e.target.value)}
           placeholder="닉네임 또는 이메일 검색..."
           className="flex-1 min-w-40 bg-[#1a1a1a] border border-neutral-700 rounded-md px-3 py-1.5 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-neutral-500"
         />
@@ -1176,16 +1178,16 @@ function UsersTab({ currentUserId, requestConfirm }: { currentUserId: string; re
         </div>
       )}
 
-      {filteredUsers.length === 0 ? (
+      {pagedUsers.length === 0 ? (
         <p className="text-neutral-500 text-sm text-center py-8">
-          {users.length === 0 ? '유저가 없습니다.' : '검색 결과가 없습니다.'}
+          {search || roleFilter !== 'all' || statusFilter !== 'all' ? '검색 결과가 없습니다.' : '유저가 없습니다.'}
         </p>
       ) : (
         <>
           <div className="flex items-center gap-2 px-1 mb-2">
             <input type="checkbox" checked={allPageSelected} onChange={toggleAll} className="w-3.5 h-3.5 rounded accent-white cursor-pointer" />
             <span className="text-xs text-neutral-600">현재 페이지 전체 선택</span>
-            <span className="ml-auto text-xs text-neutral-600">{filteredUsers.length}명</span>
+            <span className="ml-auto text-xs text-neutral-600">{data?.total ?? 0}명</span>
           </div>
           <div className="space-y-3">
             {pagedUsers.map((u) => {
@@ -1282,8 +1284,6 @@ interface AdminInquiry {
   user: { id: string; nickname: string | null; email: string };
 }
 
-const INQUIRIES_PAGE_SIZE = 10;
-
 function InquiriesTab({ prevSeenAt }: { prevSeenAt: string | null }) {
   const queryClient = useQueryClient();
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -1297,20 +1297,20 @@ function InquiriesTab({ prevSeenAt }: { prevSeenAt: string | null }) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkPending, setBulkPending] = useState(false);
 
-  const { data: inquiries = [], isLoading } = useQuery<AdminInquiry[]>({
-    queryKey: ['admin', 'inquiries'],
-    queryFn: async () => { const r = await fetch('/api/admin/inquiries'); if (!r.ok) return []; return r.json(); },
+  interface InquiriesResponse { inquiries: AdminInquiry[]; total: number; pageCount: number; }
+
+  const { data: inqData, isLoading } = useQuery<InquiriesResponse>({
+    queryKey: ['admin', 'inquiries', statusFilter, typeFilter, sortOrder, page],
+    queryFn: async () => {
+      const params = new URLSearchParams({ status: statusFilter, type: typeFilter, sort: sortOrder, page: String(page) });
+      const r = await fetch(`/api/admin/inquiries?${params}`);
+      if (!r.ok) return { inquiries: [], total: 0, pageCount: 1 };
+      return r.json();
+    },
   });
 
-  const filtered = inquiries
-    .filter((i) => (!statusFilter || i.status === statusFilter) && (!typeFilter || i.type === typeFilter))
-    .sort((a, b) => {
-      const diff = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-      return sortOrder === 'newest' ? -diff : diff;
-    });
-
-  const pageCount = Math.max(1, Math.ceil(filtered.length / INQUIRIES_PAGE_SIZE));
-  const paged = filtered.slice((page - 1) * INQUIRIES_PAGE_SIZE, page * INQUIRIES_PAGE_SIZE);
+  const paged = inqData?.inquiries ?? [];
+  const pageCount = inqData?.pageCount ?? 1;
 
   async function handleSave(inq: AdminInquiry) {
     setSaving(inq.id);
@@ -1380,7 +1380,7 @@ function InquiriesTab({ prevSeenAt }: { prevSeenAt: string | null }) {
           <option value="newest">최신순</option>
           <option value="oldest">오래된순</option>
         </select>
-        <span className="text-xs text-neutral-500">{filtered.length}건</span>
+        <span className="text-xs text-neutral-500">{inqData?.total ?? 0}건</span>
       </div>
 
       {selectedIds.size > 0 && (
@@ -1398,7 +1398,7 @@ function InquiriesTab({ prevSeenAt }: { prevSeenAt: string | null }) {
         </div>
       )}
 
-      {filtered.length === 0 ? (
+      {paged.length === 0 ? (
         <p className="text-neutral-500 text-sm text-center py-8">접수된 문의가 없습니다.</p>
       ) : (
         <>
@@ -1963,8 +1963,6 @@ interface AnalyticsData {
 }
 
 type Period = 'day' | 'month' | 'year';
-
-const PERIOD_LABEL: Record<Period, string> = { day: '일', month: '월', year: '년' };
 
 function formatChartLabel(label: string, period: Period): string {
   if (period === 'year') return `${parseInt(label.slice(5))}`;

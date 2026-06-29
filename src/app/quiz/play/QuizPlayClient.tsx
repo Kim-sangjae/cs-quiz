@@ -13,10 +13,11 @@ interface Props {
   category: string;
   isReview?: boolean;
   isTimed?: boolean;
+  initialBookmarks?: Record<string, boolean>;
 }
 
 
-export default function QuizPlayClient({ questions, category, isReview, isTimed }: Props) {
+export default function QuizPlayClient({ questions, category, isReview, isTimed, initialBookmarks = {} }: Props) {
   const router = useRouter();
   const [answers, setAnswers] = useState<UserAnswer[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -29,7 +30,7 @@ export default function QuizPlayClient({ questions, category, isReview, isTimed 
   const quizUrlRef = useRef('');
 
   const [autoAdvance, setAutoAdvance] = useState(true);
-  const [bookmarks, setBookmarks] = useState<Record<string, boolean>>({});
+  const [bookmarks, setBookmarks] = useState<Record<string, boolean>>(initialBookmarks);
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const [timeExpired, setTimeExpired] = useState(false);
 

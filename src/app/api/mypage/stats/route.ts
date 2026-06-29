@@ -66,7 +66,11 @@ export async function GET() {
   }
 
   const categoryAttemptCounts: Record<string, number> = {};
-  for (const [cat, { total }] of catMap) categoryAttemptCounts[cat] = total;
+  const categoryAccuracy: Record<string, number> = {};
+  for (const [cat, { total, correct }] of catMap) {
+    categoryAttemptCounts[cat] = total;
+    categoryAccuracy[cat] = total > 0 ? Math.round((correct / total) * 100) : 0;
+  }
 
   const categoryProgress: Record<string, { total: number; tried: number }> = {};
   for (const cat of CATS) {
@@ -84,6 +88,7 @@ export async function GET() {
     weakestCategory,
     streakCount: dbUser?.streakCount ?? 0,
     categoryAttemptCounts,
+    categoryAccuracy,
     dailyCompletions: completions.map((c) => ({ date: c.date, correct: c.correct })),
     categoryProgress,
   });

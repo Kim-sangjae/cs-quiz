@@ -55,6 +55,8 @@ type ApiSession = {
   questions: ApiQuestion[];
 };
 
+type ChartSession = { id: string; score: number; category: string; submittedAt: string };
+
 type DailyCompletion = { date: string; correct: boolean };
 
 type CategoryProgress = { total: number; tried: number };
@@ -130,32 +132,20 @@ function BadgePill({ tier }: { tier: BadgeTier }) {
   );
 }
 
-function computeProfileStats(sessions: ApiSession[], dbCounts: Record<string, number> = {}) {
-  const map = new Map<Category, { total: number; correct: number }>();
-
-  for (const session of sessions) {
-    for (const q of session.questions) {
-      const cat = q.category as Category;
-      const entry = map.get(cat) ?? { total: 0, correct: 0 };
-      entry.total++;
-      const ans = session.answers.find((a) => a.questionId === q.id);
-      if (ans?.selected === q.answer) entry.correct++;
-      map.set(cat, entry);
-    }
-  }
-
+function computeProfileStats(
+  dbCounts: Record<string, number> = {},
+  dbAccuracy: Record<string, number> = {}
+) {
   return CATEGORY_ORDER.map((cat) => {
-    const { total, correct } = map.get(cat) ?? { total: 0, correct: 0 };
-    const accuracy = total > 0 ? Math.round((correct / total) * 100) : 0;
-    const dbTotal = dbCounts[cat] ?? total;
+    const total = dbCounts[cat] ?? 0;
+    const accuracy = dbAccuracy[cat] ?? 0;
     return {
       cat,
       label: CATEGORY_LABELS[cat],
-      total: dbTotal,
-      correct,
+      total,
       accuracy,
-      level: getLevel(dbTotal),
-      badge: getBadge(accuracy, dbTotal),
+      level: getLevel(total),
+      badge: getBadge(accuracy, total),
     };
   });
 }
@@ -210,17 +200,6 @@ const SORT_LABELS: Record<HistorySort, string> = {
   wrong_asc: "오답 적은순",
 };
 
-function sortSessions(sessions: ApiSession[], sort: HistorySort): ApiSession[] {
-  const arr = [...sessions];
-  if (sort === "oldest") {
-    arr.sort((a, b) => new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime());
-  } else if (sort === "wrong_desc") {
-    arr.sort((a, b) => a.score - b.score);
-  } else if (sort === "wrong_asc") {
-    arr.sort((a, b) => b.score - a.score);
-  }
-  return arr;
-}
 
 type MyQSort = "newest" | "oldest" | "likes";
 const MY_Q_SORT_LABELS: Record<MyQSort, string> = {
@@ -251,7 +230,7 @@ function filterLiked(questions: LikedQuestion[], search: string, cat: string): L
   return result;
 }
 
-function WeeklyReport({ sessions }: { sessions: ApiSession[] }) {
+function WeeklyReport({ sessions }: { sessions: ChartSession[] }) {
   const now = new Date();
   const startOfThisWeek = new Date(now);
   startOfThisWeek.setDate(now.getDate() - now.getDay());
@@ -303,7 +282,7 @@ function WeeklyReport({ sessions }: { sessions: ApiSession[] }) {
   );
 }
 
-function ScoreTrend({ sessions }: { sessions: ApiSession[] }) {
+function ScoreTrend({ sessions }: { sessions: ChartSession[] }) {
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
   const recent = [...sessions]
     .sort((a, b) => new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime())
@@ -458,10 +437,14 @@ export default function MyPage() {
     }
   }
 
-  const [sessions, setSessions] = useState<ApiSession[]>([]);
+  const [chartSessions, setChartSessions] = useState<ChartSession[]>([]);
   const [categoryAttemptCounts, setCategoryAttemptCounts] = useState<Record<string, number>>({});
+  const [categoryAccuracy, setCategoryAccuracy] = useState<Record<string, number>>({});
   const [stats, setStats] = useState<StatsData | null>(null);
   const [dailyCompletions, setDailyCompletions] = useState<DailyCompletion[]>([]);
+  const [historyTotal, setHistoryTotal] = useState(0);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [currentPageSessions, setCurrentPageSessions] = useState<ApiSession[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [activeTab, setActiveTab] = useState<ActiveTab>("history");
@@ -514,20 +497,24 @@ export default function MyPage() {
   const [battleSort, setBattleSort] = useState<BattleSort>('newest');
   const [battlePage, setBattlePage] = useState(0);
   const BATTLE_PAGE_SIZE = 10;
+  const [battleStats, setBattleStats] = useState({ wins: 0, losses: 0, draws: 0 });
 
   useEffect(() => {
     Promise.all([
       fetch("/api/mypage/stats").then((r) => r.json()),
-      fetch("/api/mypage/sessions").then((r) => r.json()),
+      fetch("/api/mypage/sessions/summary").then((r) => r.json()),
       fetch("/api/mypage/liked-questions").then((r) => r.json()),
       fetch("/api/mypage/reviews").then((r) => r.json()).catch(() => ({ due: [], total: 0 })),
     ])
-      .then(([statsData, sessionsData, likedData, reviewData]) => {
-        const sd = statsData as StatsData & { categoryAttemptCounts?: Record<string, number> };
+      .then(([statsData, summaryData, likedData, reviewData]) => {
+        const sd = statsData as StatsData & { categoryAttemptCounts?: Record<string, number>; categoryAccuracy?: Record<string, number> };
         setStats(sd);
         if (sd.categoryAttemptCounts) setCategoryAttemptCounts(sd.categoryAttemptCounts);
+        if (sd.categoryAccuracy) setCategoryAccuracy(sd.categoryAccuracy);
         setDailyCompletions(sd.dailyCompletions ?? []);
-        setSessions((sessionsData as { sessions: ApiSession[] }).sessions ?? []);
+        const summary = summaryData as { sessions: ChartSession[]; total: number };
+        setChartSessions(summary.sessions ?? []);
+        setHistoryTotal(summary.total ?? 0);
         setLikedQuestions((likedData as { questions: LikedQuestion[] }).questions ?? []);
         const rd = reviewData as { due: { questionId: string }[]; total: number };
         setReviewInfo({ dueIds: (rd.due ?? []).map((d) => d.questionId), total: rd.total ?? 0 });
@@ -564,23 +551,48 @@ export default function MyPage() {
       .catch(() => setEarnedBadges([]));
   }, [activeTab, earnedBadges]);
 
+  const [battleTotal, setBattleTotal] = useState(0);
+
   useEffect(() => {
     if (activeTab !== "battle") return;
     setBattleLoading(true);
-    const url = battleOpponentId !== 'all'
-      ? `/api/mypage/battle-history?opponentId=${battleOpponentId}`
-      : '/api/mypage/battle-history';
-    fetch(url)
+    const params = new URLSearchParams({ page: String(battlePage), sort: battleSort, result: battleResult });
+    if (battleOpponentId !== 'all') params.set('opponentId', battleOpponentId);
+    fetch(`/api/mypage/battle-history?${params}`)
       .then((r) => r.json())
-      .then((data) => setBattleRecords((data as { records: BattleRecord[] }).records ?? []))
-      .catch(() => setBattleRecords([]))
+      .then((data) => {
+        const d = data as { records: BattleRecord[]; total: number; pageCount: number; totalWins: number; totalLosses: number; totalDraws: number };
+        setBattleRecords(d.records ?? []);
+        setBattleTotal(d.total ?? 0);
+        setBattleStats({ wins: d.totalWins ?? 0, losses: d.totalLosses ?? 0, draws: d.totalDraws ?? 0 });
+      })
+      .catch(() => { setBattleRecords([]); setBattleTotal(0); setBattleStats({ wins: 0, losses: 0, draws: 0 }); })
       .finally(() => setBattleLoading(false));
-  }, [activeTab, battleOpponentId]);
+  }, [activeTab, battleOpponentId, battleResult, battleSort, battlePage]);
 
   // 대전 기록 필터/정렬 변경 시 페이지 리셋
   useEffect(() => { setBattlePage(0); }, [battleResult, battleSort, battleOpponentId]);
 
-  const profileStats = computeProfileStats(sessions, categoryAttemptCounts);
+  // 풀이 기록 탭 — 서버 페이지네이션
+  useEffect(() => {
+    if (activeTab !== "history") return;
+    setHistoryLoading(true);
+    const params = new URLSearchParams({
+      page: String(historyPage),
+      pageSize: String(HISTORY_PAGE_SIZE),
+      sort: historySort,
+    });
+    fetch(`/api/mypage/sessions?${params}`)
+      .then((r) => r.json())
+      .then((data: { sessions: ApiSession[]; total: number }) => {
+        setCurrentPageSessions(data.sessions ?? []);
+        setHistoryTotal(data.total ?? 0);
+      })
+      .catch(() => setCurrentPageSessions([]))
+      .finally(() => setHistoryLoading(false));
+  }, [activeTab, historyPage, historySort]);
+
+  const profileStats = computeProfileStats(categoryAttemptCounts, categoryAccuracy);
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
@@ -677,8 +689,8 @@ export default function MyPage() {
             </div>
           )}
           <AttendanceCalendar completions={dailyCompletions} />
-          {sessions.length >= 2 && <ScoreTrend sessions={sessions} />}
-          <WeeklyReport sessions={sessions} />
+          {chartSessions.length >= 2 && <ScoreTrend sessions={chartSessions} />}
+          <WeeklyReport sessions={chartSessions} />
         </div>
       )}
 
@@ -831,11 +843,11 @@ export default function MyPage() {
       {/* 탭 1: 풀이 기록 */}
       {activeTab === "history" && (
         <>
-          {loading ? (
+          {loading || historyLoading ? (
             <div className="py-12 text-center">
               <p className="text-neutral-500 text-sm">불러오는 중...</p>
             </div>
-          ) : sessions.length === 0 ? (
+          ) : historyTotal === 0 ? (
             <div className="text-center py-12">
               <p className="text-neutral-500 text-sm mb-4">
                 아직 풀이 기록이 없습니다.
@@ -849,7 +861,7 @@ export default function MyPage() {
             </div>
           ) : (
             <>
-              <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
+              <div className="flex items-center mb-3 gap-2 flex-wrap">
                 <div className="flex gap-1 flex-wrap">
                   {(Object.keys(SORT_LABELS) as HistorySort[]).map((s) => (
                     <button
@@ -865,30 +877,10 @@ export default function MyPage() {
                     </button>
                   ))}
                 </div>
-                {sessions.length > HISTORY_PAGE_SIZE && (
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => { setHistoryPage((p) => Math.max(0, p - 1)); setExpandedId(null); setDrawerState(null); }}
-                      disabled={historyPage === 0}
-                      className="text-xs text-neutral-400 border border-neutral-800 rounded px-2 py-1 hover:border-neutral-600 hover:text-white disabled:opacity-30 transition-colors"
-                    >
-                      ←
-                    </button>
-                    <span className="text-xs text-neutral-500">
-                      {historyPage + 1} / {Math.ceil(sessions.length / HISTORY_PAGE_SIZE)}
-                    </span>
-                    <button
-                      onClick={() => { setHistoryPage((p) => Math.min(Math.ceil(sessions.length / HISTORY_PAGE_SIZE) - 1, p + 1)); setExpandedId(null); setDrawerState(null); }}
-                      disabled={historyPage >= Math.ceil(sessions.length / HISTORY_PAGE_SIZE) - 1}
-                      className="text-xs text-neutral-400 border border-neutral-800 rounded px-2 py-1 hover:border-neutral-600 hover:text-white disabled:opacity-30 transition-colors"
-                    >
-                      →
-                    </button>
-                  </div>
-                )}
+                <span className="ml-auto text-xs text-neutral-500">총 {historyTotal}회</span>
               </div>
               <div className="space-y-3">
-                {sortSessions(sessions, historySort).slice(historyPage * HISTORY_PAGE_SIZE, (historyPage + 1) * HISTORY_PAGE_SIZE).map((session, idx) => {
+                {currentPageSessions.map((session, idx) => {
                   const sessionIdx = historyPage * HISTORY_PAGE_SIZE + idx;
                   const isExpanded = expandedId === session.submittedAt;
                   const scoreColor =
@@ -922,7 +914,7 @@ export default function MyPage() {
                       >
                         <div className="flex items-start justify-between">
                           <span className="text-xs text-neutral-500">
-                            #{sessions.length - sessionIdx}회 · {formatDate(session.submittedAt)}
+                            #{historySort === 'oldest' ? sessionIdx + 1 : historyTotal - sessionIdx}회 · {formatDate(session.submittedAt)}
                           </span>
                           <div className="flex items-center gap-3 flex-shrink-0 ml-4">
                             <span className={`text-xl font-bold ${scoreColor}`}>
@@ -1011,6 +1003,21 @@ export default function MyPage() {
                   );
                 })}
               </div>
+              {Math.ceil(historyTotal / HISTORY_PAGE_SIZE) > 1 && (
+                <div className="flex items-center justify-center gap-3 mt-4">
+                  <button
+                    onClick={() => { setHistoryPage((p) => Math.max(0, p - 1)); setExpandedId(null); setDrawerState(null); }}
+                    disabled={historyPage === 0}
+                    className="text-xs text-neutral-400 border border-neutral-800 rounded px-2.5 py-1 hover:border-neutral-600 hover:text-white disabled:opacity-30 transition-colors"
+                  >←</button>
+                  <span className="text-xs text-neutral-500">{historyPage + 1} / {Math.ceil(historyTotal / HISTORY_PAGE_SIZE)}</span>
+                  <button
+                    onClick={() => { setHistoryPage((p) => Math.min(Math.ceil(historyTotal / HISTORY_PAGE_SIZE) - 1, p + 1)); setExpandedId(null); setDrawerState(null); }}
+                    disabled={historyPage >= Math.ceil(historyTotal / HISTORY_PAGE_SIZE) - 1}
+                    className="text-xs text-neutral-400 border border-neutral-800 rounded px-2.5 py-1 hover:border-neutral-600 hover:text-white disabled:opacity-30 transition-colors"
+                  >→</button>
+                </div>
+              )}
             </>
           )}
         </>
@@ -1178,28 +1185,9 @@ export default function MyPage() {
           new Map(allRecords.map((r) => [r.opponent.id, r.opponent.nickname])).entries()
         );
 
-        // 상대 필터
-        let filtered = battleOpponentId !== 'all'
-          ? allRecords.filter((r) => r.opponent.id === battleOpponentId)
-          : allRecords;
-
-        // 결과 필터
-        if (battleResult !== 'all') filtered = filtered.filter((r) => r.result === battleResult);
-
-        // 정렬
-        const sorted = [...filtered].sort((a, b) => {
-          const ta = new Date(a.playedAt).getTime();
-          const tb = new Date(b.playedAt).getTime();
-          return battleSort === 'newest' ? tb - ta : ta - tb;
-        });
-
-        const totalBattle = filtered.length;
-        const wins = allRecords.filter((r) => (battleOpponentId !== 'all' ? r.opponent.id === battleOpponentId : true) && r.result === 'win').length;
-        const losses = allRecords.filter((r) => (battleOpponentId !== 'all' ? r.opponent.id === battleOpponentId : true) && r.result === 'loss').length;
-        const draws = allRecords.filter((r) => (battleOpponentId !== 'all' ? r.opponent.id === battleOpponentId : true) && r.result === 'draw').length;
-
-        const pageCount = Math.ceil(sorted.length / BATTLE_PAGE_SIZE);
-        const paged = sorted.slice(battlePage * BATTLE_PAGE_SIZE, (battlePage + 1) * BATTLE_PAGE_SIZE);
+        const paged = allRecords;
+        const pageCount = Math.ceil(battleTotal / BATTLE_PAGE_SIZE);
+        const { wins, losses, draws } = battleStats;
 
         return (
           <>
@@ -1293,13 +1281,13 @@ export default function MyPage() {
                   </div>
                 </div>
 
-                {sorted.length === 0 ? (
+                {paged.length === 0 ? (
                   <div className="py-8 text-center">
                     <p className="text-neutral-500 text-sm">해당 조건의 대전 기록이 없습니다.</p>
                   </div>
                 ) : (
                   <>
-                    <p className="text-xs text-neutral-500 mb-3">총 {totalBattle}경기</p>
+                    <p className="text-xs text-neutral-500 mb-3">총 {battleTotal}경기</p>
                     <div className="space-y-2">
                       {paged.map((r) => {
                         const res = RESULT_LABELS[r.result];

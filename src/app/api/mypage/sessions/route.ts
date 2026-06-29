@@ -1,18 +1,33 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getServerUser } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const user = await getServerUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const sessions = await prisma.quizSession.findMany({
-    where: { userId: user.id },
-    orderBy: { submittedAt: 'desc' },
-    take: 20,
-  });
+  const { searchParams } = new URL(req.url);
+  const page = Math.max(0, parseInt(searchParams.get('page') ?? '0'));
+  const pageSize = Math.min(20, Math.max(1, parseInt(searchParams.get('pageSize') ?? '5')));
+  const sort = searchParams.get('sort') ?? 'newest';
 
-  if (sessions.length === 0) return NextResponse.json({ sessions: [] });
+  const orderBy =
+    sort === 'oldest'     ? { submittedAt: 'asc'  as const } :
+    sort === 'wrong_desc' ? { score:       'asc'  as const } :
+    sort === 'wrong_asc'  ? { score:       'desc' as const } :
+                            { submittedAt: 'desc' as const };
+
+  const [total, sessions] = await Promise.all([
+    prisma.quizSession.count({ where: { userId: user.id } }),
+    prisma.quizSession.findMany({
+      where: { userId: user.id },
+      orderBy,
+      take: pageSize,
+      skip: page * pageSize,
+    }),
+  ]);
+
+  if (sessions.length === 0) return NextResponse.json({ sessions: [], total });
 
   const allIds = new Set<string>();
   for (const s of sessions) {
@@ -44,5 +59,5 @@ export async function GET() {
       .filter((q): q is NonNullable<typeof q> => q !== undefined),
   }));
 
-  return NextResponse.json({ sessions: result });
+  return NextResponse.json({ sessions: result, total });
 }
