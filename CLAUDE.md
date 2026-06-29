@@ -66,6 +66,8 @@ phases 0~6 + UX 개선 전부 완료. 아래 기능이 모두 구현된 상태�
 | 7-ux | 오답 신고 버튼(ResultCard), 자동이동 토글, 카테고리 오답 상세(`/mypage/[category]`), 거절 문제 재요청(`/board/submit?resubmit=`), 결과 전체 리뷰 탭, Web Share API, 키보드 단축키(←/→/1~4), 퀴즈 진행 상태 localStorage 저장 |
 | 8-share | 북마크(좋아요 통합, 퀴즈·대결·결과·게시판 전반), PWA 설치 버튼(Header), 결과 공유 개편(Web Share+카카오SDK 통합 모달), OG 메타태그(result 서버/클라이언트 분리+generateMetadata), OG 이미지(`public/og-image-dark.png`), 관리자 일괄처리 API(bulk) |
 | 9-battle | 대결 초대/수락/거절(BattleInviteAlert), GameRoom DB(consecutiveAllSkip/questionStartedAt), 연속 쌍방 스킵 시 5초 단축 타이머, 2회 연속 쌍방 스킵 무효(void) 처리, 자동진행(auto-mode) 블러+타이머 동기화, 문제 제한 시간 20초, Supabase Realtime Broadcast로 양쪽 클라이언트 실시간 동기화(`src/lib/battle-broadcast.ts`), 폴링 1s(일반)/500ms(5초모드) fallback |
+| 10-infra | 서비스명 CSORA, 카카오 로그인(NextAuth), 오답 복습 스케줄링(1/3/7/30일 간격반복, `src/lib/review-schedule.ts`), 뱃지/업적 시스템, Supabase Realtime 알림, 관리자 애널리틱스 대시보드, 친구 패널 대결 실시간 반영, 서비스 소개·기여도 순위 페이지, 접속자 슬라이드 패널, 감사 로그 확장, 모바일 헤더 친구 메뉴 |
+| 11-scale | 서버사이드 페이지네이션 전면 적용(mypage sessions/battle-history, admin users/inquiries), sessions/summary 경량 엔드포인트 분리, 퀴즈 진입 시 북마크 초기 상태 서버 로드, 최근 3세션 문제 제외 샘플링(다양성), 대전 누적 승무패 서버 집계, admin 서버사이드 검색 debounce |
 
 ---
 
