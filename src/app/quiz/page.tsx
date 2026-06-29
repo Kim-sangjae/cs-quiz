@@ -192,9 +192,9 @@ function QuizCard({
       <div className="px-5 pb-3 flex justify-end border-t border-neutral-800/30">
         <Link
           href={`/quiz/play?category=${cat}&timed=true`}
-          className="text-[10px] text-neutral-600 hover:text-amber-400 transition-colors duration-200 flex items-center gap-1 pt-2"
+          className="text-xs text-amber-600/80 hover:text-amber-400 transition-colors duration-200 flex items-center gap-1.5 pt-2.5 font-medium"
         >
-          <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+          <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
             <circle cx="12" cy="12" r="10" />
             <polyline points="12 6 12 12 16 14" />
           </svg>
