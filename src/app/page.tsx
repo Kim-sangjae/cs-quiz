@@ -10,7 +10,7 @@ import OnlineCountBadge from "@/components/OnlineCountBadge";
 const total = questions.length;
 
 const EMPTY_RANKINGS: CategoryRankings = {
-  ds: [], algo: [], os: [], network: [], db: [], arch: [],
+  ds: [], algo: [], os: [], network: [], db: [], arch: [], se: [],
 };
 
 const getCachedRankings = unstable_cache(buildRankings, ['rankings'], { revalidate: 60 });
@@ -23,6 +23,7 @@ const CATEGORIES = [
   { key: 'network', label: '네트워크',    sub: 'TCP/IP·HTTP·DNS' },
   { key: 'db',      label: '데이터베이스', sub: 'SQL·인덱스·트랜잭션' },
   { key: 'arch',    label: '컴퓨터 구조', sub: 'CPU·캐시·파이프라인' },
+  { key: 'se',      label: '소프트웨어공학', sub: '디자인패턴·애자일·테스트' },
 ];
 
 export default async function Home() {

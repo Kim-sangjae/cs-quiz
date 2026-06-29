@@ -15,6 +15,7 @@ export type CategoryRankings = {
   network: RankEntry[];
   db: RankEntry[];
   arch: RankEntry[];
+  se: RankEntry[];
 };
 
 type RawRow = {
@@ -25,7 +26,7 @@ type RawRow = {
   nickname: string | null;
 };
 
-const CATEGORIES = ['ds', 'algo', 'os', 'network', 'db', 'arch'] as const;
+const CATEGORIES = ['ds', 'algo', 'os', 'network', 'db', 'arch', 'se'] as const;
 
 export type MyRankEntry = {
   rank: number;

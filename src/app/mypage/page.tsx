@@ -16,9 +16,10 @@ const CATEGORY_LABELS: Record<Category, string> = {
   network: "네트워크",
   db: "데이터베이스",
   arch: "컴퓨터 구조",
+  se: "소프트웨어공학",
 };
 
-const CATEGORY_ORDER: Category[] = ["ds", "algo", "os", "network", "db", "arch"];
+const CATEGORY_ORDER: Category[] = ["ds", "algo", "os", "network", "db", "arch", "se"];
 
 type BadgeTier = "bronze" | "silver" | "gold";
 
@@ -1169,7 +1170,7 @@ export default function MyPage() {
       {activeTab === "battle" && (() => {
         const BATTLE_CAT_LABELS: Record<string, string> = {
           all: '전체', ds: '자료구조', algo: '알고리즘', os: '운영체제',
-          network: '네트워크', db: '데이터베이스', arch: '컴퓨터 구조',
+          network: '네트워크', db: '데이터베이스', arch: '컴퓨터 구조', se: '소프트웨어공학',
         };
         const RESULT_LABELS: Record<string, { text: string; cls: string }> = {
           win:  { text: '승', cls: 'text-emerald-400 border-emerald-800/60' },

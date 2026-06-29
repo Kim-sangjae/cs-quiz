@@ -1,4 +1,4 @@
-export type Category = 'ds' | 'algo' | 'os' | 'network' | 'db' | 'arch';
+export type Category = 'ds' | 'algo' | 'os' | 'network' | 'db' | 'arch' | 'se';
 
 export interface Question {
   id: string;

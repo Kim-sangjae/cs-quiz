@@ -9,9 +9,10 @@ const CATEGORY_LABELS: Record<string, string> = {
   network: "네트워크",
   db: "데이터베이스",
   arch: "컴퓨터 구조",
+  se: "소프트웨어공학",
 };
 
-const CATEGORIES = ["ds", "algo", "os", "network", "db", "arch"] as const;
+const CATEGORIES = ["ds", "algo", "os", "network", "db", "arch", "se"] as const;
 
 async function getCounts(): Promise<Record<string, number>> {
   const rows = await prisma.question.groupBy({
@@ -28,6 +29,7 @@ async function getCounts(): Promise<Record<string, number>> {
     network: 0,
     db: 0,
     arch: 0,
+    se: 0,
   };
 
   for (const row of rows) {

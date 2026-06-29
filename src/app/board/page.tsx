@@ -8,7 +8,7 @@ import FilterBar from '@/components/board/FilterBar';
 import BoardListClient from '@/components/board/BoardListClient';
 import Pagination from '@/components/board/Pagination';
 
-const VALID_CATEGORIES = ['ds', 'algo', 'os', 'network', 'db', 'arch'];
+const VALID_CATEGORIES = ['ds', 'algo', 'os', 'network', 'db', 'arch', 'se'];
 const PAGE_SIZE = 20;
 
 const questionSelect = {

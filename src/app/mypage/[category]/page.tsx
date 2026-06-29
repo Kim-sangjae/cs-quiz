@@ -15,7 +15,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   arch: '컴퓨터 구조',
 };
 
-const VALID_CATEGORIES = new Set(['ds', 'algo', 'os', 'network', 'db', 'arch']);
+const VALID_CATEGORIES = new Set(['ds', 'algo', 'os', 'network', 'db', 'arch', 'se']);
 
 interface WrongItem {
   question: Question & { id: string };

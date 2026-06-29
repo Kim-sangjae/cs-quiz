@@ -7,13 +7,13 @@ import { useSession } from 'next-auth/react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
-type Tab = 'questions' | 'board' | 'reports' | 'users' | 'inquiries' | 'logs' | 'analytics' | 'errors';
+type Tab = 'questions' | 'board' | 'reports' | 'users' | 'inquiries' | 'logs' | 'analytics' | 'errors' | 'generate';
 
 const CATEGORY_LABEL: Record<string, string> = {
   ds: '자료구조', algo: '알고리즘', os: '운영체제',
-  network: '네트워크', db: '데이터베이스', arch: '컴퓨터 구조',
+  network: '네트워크', db: '데이터베이스', arch: '컴퓨터 구조', se: '소프트웨어공학',
 };
-const CATEGORIES = ['ds', 'algo', 'os', 'network', 'db', 'arch'];
+const CATEGORIES = ['ds', 'algo', 'os', 'network', 'db', 'arch', 'se'];
 const REASON_LABEL: Record<string, string> = {
   INAPPROPRIATE: '부적절한 내용', ERROR: '오류 있음',
   DUPLICATE: '중복 문제', OTHER: '기타',
@@ -123,6 +123,7 @@ export default function AdminPage() {
     { key: 'inquiries', label: '문의 관리', count: badge?.inquiries },
     { key: 'logs', label: '감사 로그' },
     { key: 'errors', label: '오류 로그' },
+    { key: 'generate', label: 'AI 문제 생성' },
   ];
 
   return (
@@ -175,6 +176,7 @@ export default function AdminPage() {
       {activeTab === 'inquiries' && <InquiriesTab prevSeenAt={prevSeenAt} />}
       {activeTab === 'logs' && <LogsTab />}
       {activeTab === 'errors' && <ErrorLogsTab />}
+      {activeTab === 'generate' && <GenerateQuestionsTab />}
       {confirm && (
         <ConfirmDialog
           message={confirm.message}
@@ -2612,6 +2614,118 @@ function ErrorLogsTab() {
           </button>
         </div>
       )}
+    </div>
+  );
+}
+
+// ───────── AI 문제 생성 탭 ─────────
+
+const GENERATE_CATEGORIES = [
+  { key: 'ds', label: '자료구조' },
+  { key: 'algo', label: '알고리즘' },
+  { key: 'os', label: '운영체제' },
+  { key: 'network', label: '네트워크' },
+  { key: 'db', label: '데이터베이스' },
+  { key: 'arch', label: '컴퓨터 구조' },
+  { key: 'se', label: '소프트웨어공학' },
+];
+
+function GenerateQuestionsTab() {
+  const [category, setCategory] = useState('se');
+  const [count, setCount] = useState(20);
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<{ generated: number; saved: number; skipped: number } | null>(null);
+  const [error, setError] = useState('');
+
+  async function handleGenerate() {
+    setLoading(true);
+    setResult(null);
+    setError('');
+    try {
+      const res = await fetch('/api/admin/generate-questions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ category, count }),
+      });
+      if (!res.ok) {
+        const d = await res.json() as { error?: string };
+        setError(d.error ?? '생성 실패');
+        return;
+      }
+      const d = await res.json() as { generated: number; saved: number; skipped: number };
+      setResult(d);
+    } catch {
+      setError('요청 중 오류가 발생했습니다.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="bg-[#111111] border border-neutral-800 rounded-xl p-5 space-y-4">
+        <h2 className="text-sm font-medium text-white">AI 문제 자동 생성</h2>
+        <p className="text-xs text-neutral-500">
+          GPT-4o로 문제를 생성하고 기존 문제와 유사도를 검사합니다.
+          중복이 없는 문제만 PENDING 상태로 저장되며 검토 후 승인할 수 있습니다.
+        </p>
+
+        <div className="flex flex-wrap gap-3">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs text-neutral-400">카테고리</label>
+            <select
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              className="bg-[#1a1a1a] border border-neutral-700 rounded-md px-3 py-1.5 text-sm text-white focus:outline-none focus:border-neutral-500"
+            >
+              {GENERATE_CATEGORIES.map((c) => (
+                <option key={c.key} value={c.key}>{c.label}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs text-neutral-400">생성 개수 (최대 50)</label>
+            <input
+              type="number"
+              min={1}
+              max={50}
+              value={count}
+              onChange={(e) => setCount(Math.min(50, Math.max(1, parseInt(e.target.value) || 1)))}
+              className="w-24 bg-[#1a1a1a] border border-neutral-700 rounded-md px-3 py-1.5 text-sm text-white focus:outline-none focus:border-neutral-500"
+            />
+          </div>
+        </div>
+
+        <button
+          onClick={handleGenerate}
+          disabled={loading}
+          className="flex items-center gap-2 rounded-lg bg-white text-black text-sm font-medium px-5 py-2 hover:bg-neutral-200 transition-colors disabled:opacity-40"
+        >
+          {loading ? (
+            <>
+              <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="32" strokeDashoffset="12" />
+              </svg>
+              생성 중... (최대 1-2분 소요)
+            </>
+          ) : '생성 시작'}
+        </button>
+
+        {error && (
+          <p className="text-sm text-red-400">{error}</p>
+        )}
+
+        {result && (
+          <div className="bg-neutral-900 border border-neutral-700 rounded-lg p-4 space-y-1">
+            <p className="text-sm text-white font-medium">생성 완료</p>
+            <p className="text-xs text-neutral-400">GPT 생성: <span className="text-white">{result.generated}개</span></p>
+            <p className="text-xs text-neutral-400">중복 제외: <span className="text-amber-400">{result.skipped}개</span></p>
+            <p className="text-xs text-neutral-400">저장됨 (PENDING): <span className="text-emerald-400">{result.saved}개</span></p>
+            <p className="text-xs text-neutral-500 pt-1">승인 대기 탭에서 검토 후 승인하세요.</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

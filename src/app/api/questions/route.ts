@@ -5,7 +5,7 @@ import { prisma } from '@/lib/prisma';
 import { awardBadges } from '@/lib/award-badges';
 import { writeLog } from '@/lib/audit';
 
-const VALID_CATEGORIES = ['ds', 'algo', 'os', 'network', 'db', 'arch'] as const;
+const VALID_CATEGORIES = ['ds', 'algo', 'os', 'network', 'db', 'arch', 'se'] as const;
 const PAGE_SIZE = 20;
 
 const questionListSelect = {
