@@ -1,23 +1,32 @@
 import { NextResponse } from 'next/server';
-import { questions } from '@/data/questions';
 import { prisma } from '@/lib/prisma';
 import { auth } from '@/lib/auth';
-
-function getDailyQuestion() {
-  const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-  const seed = today.split('-').reduce((acc, part) => acc * 31 + parseInt(part), 0);
-  const index = Math.abs(seed) % questions.length;
-  return questions[index];
-}
 
 function getToday() {
   return new Date().toISOString().slice(0, 10);
 }
 
-export async function GET() {
-  const q = getDailyQuestion();
-  const today = getToday();
+function dateSeed(dateStr: string): number {
+  return Math.abs(dateStr.split('-').reduce((acc, part) => acc * 31 + parseInt(part), 0));
+}
 
+async function getDailyQuestion() {
+  const questions = await prisma.question.findMany({
+    where: { status: { in: ['OFFICIAL', 'APPROVED'] } },
+    select: { id: true, category: true, question: true, options: true, answer: true, explanation: true },
+    orderBy: { id: 'asc' },
+  });
+  if (questions.length === 0) return null;
+  const today = getToday();
+  const index = dateSeed(today) % questions.length;
+  return questions[index];
+}
+
+export async function GET() {
+  const q = await getDailyQuestion();
+  if (!q) return NextResponse.json({ error: 'No questions' }, { status: 404 });
+
+  const today = getToday();
   const stat = await prisma.dailyChallengeStat.findUnique({ where: { date: today } });
   const attemptCount = stat?.attemptCount ?? 0;
   const correctRate = attemptCount > 0
@@ -42,15 +51,11 @@ export async function POST(req: Request) {
   }
 
   const { selected } = await req.json() as { selected: number };
-  const q = getDailyQuestion();
+  const q = await getDailyQuestion();
+  if (!q) return NextResponse.json({ error: 'No questions' }, { status: 404 });
+
   const today = getToday();
   const correct = selected === q.answer;
-
-  const dbQ = await prisma.question.findFirst({
-    where: { question: q.question },
-    select: { id: true },
-  });
-
   const userId = session.user.id;
 
   const [updated, existing] = await Promise.all([
@@ -58,7 +63,7 @@ export async function POST(req: Request) {
       where: { date: today },
       create: {
         date: today,
-        questionId: dbQ?.id ?? '',
+        questionId: q.id,
         attemptCount: 1,
         correctCount: correct ? 1 : 0,
       },
@@ -72,7 +77,6 @@ export async function POST(req: Request) {
     }),
   ]);
 
-  // 오늘 처음 푸는 경우에만 출석 기록 + streak 갱신
   if (!existing) {
     await prisma.dailyChallengeCompletion.create({
       data: { userId, date: today, correct },

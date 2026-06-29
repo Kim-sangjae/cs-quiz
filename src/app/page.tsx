@@ -1,13 +1,17 @@
 import Link from "next/link";
 import { unstable_cache } from "next/cache";
-import { questions } from "@/data/questions";
+import { prisma } from "@/lib/prisma";
 import { getServerUser } from "@/lib/auth";
 import { buildRankings, getMyRanks, getHomepagePersonalization, getTopContributors, type CategoryRankings, type MyRankEntry, type HomepagePersonalization, type ContributorEntry } from "@/lib/rankings";
 import RankingSection from "@/components/RankingSection";
 import DailyChallenge from "@/components/DailyChallenge";
 import OnlineCountBadge from "@/components/OnlineCountBadge";
 
-const total = questions.length;
+const getCachedTotal = unstable_cache(
+  () => prisma.question.count({ where: { status: { in: ['OFFICIAL', 'APPROVED'] } } }),
+  ['question-total'],
+  { revalidate: 300 }
+);
 
 const EMPTY_RANKINGS: CategoryRankings = {
   ds: [], algo: [], os: [], network: [], db: [], arch: [], se: [],
@@ -27,10 +31,11 @@ const CATEGORIES = [
 ];
 
 export default async function Home() {
-  const [user, rankings, contributors] = await Promise.all([
+  const [user, rankings, contributors, total] = await Promise.all([
     getServerUser(),
     getCachedRankings().catch(() => EMPTY_RANKINGS),
     getCachedContributors().catch(() => [] as ContributorEntry[]),
+    getCachedTotal().catch(() => 0),
   ]);
   const [myRanks, personalization] = user
     ? await Promise.all([
@@ -49,7 +54,7 @@ export default async function Home() {
           <div className="flex items-center gap-2 mb-5 flex-wrap">
             <div className="inline-flex items-center gap-1.5 text-xs text-neutral-500 border border-neutral-800 rounded-full px-3 py-1">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              {total}문제 · 6개 카테고리
+              {total}문제 · 7개 카테고리
             </div>
             <OnlineCountBadge />
           </div>
