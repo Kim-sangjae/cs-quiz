@@ -441,9 +441,8 @@ export default function QuizPlayClient({ questions, category, mode = 'normal', i
             total={questions.length}
             currentIndex={currentIndex}
             answeredIndices={answeredIndices}
+            lockedBefore={isTimed ? currentIndex : 0}
             onJump={(i) => {
-              // timed 모드: 이전 문제로 돌아갈 수 없음
-              if (isTimed && i < currentIndex) return;
               if (autoAdvanceTimer.current) clearTimeout(autoAdvanceTimer.current);
               setCurrentIndex(i);
             }}
