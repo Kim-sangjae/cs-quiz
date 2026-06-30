@@ -306,7 +306,7 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
               <ResultCard
                 questionNumber={wrongItems[wrongIdx].questionNumber}
                 question={wrongItems[wrongIdx].question}
-                userSelected={wrongItems[wrongIdx].userAnswer!.selected}
+                userSelected={wrongItems[wrongIdx].userAnswer?.selected ?? null}
                 questionId={wrongItems[wrongIdx].question.id}
                 initialBookmarked={bookmarkedIds.has(wrongItems[wrongIdx].question.id)}
               />
@@ -367,15 +367,13 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
                   </button>
                   {isExpanded && (
                     <div className="border-t border-neutral-800">
-                      {ua != null && (
-                        <ResultCard
-                          questionNumber={i + 1}
-                          question={q}
-                          userSelected={ua.selected as 0 | 1 | 2 | 3}
-                          questionId={q.id}
-                          initialBookmarked={bookmarkedIds.has(q.id)}
-                        />
-                      )}
+                      <ResultCard
+                        questionNumber={i + 1}
+                        question={q}
+                        userSelected={ua != null ? (ua.selected as 0 | 1 | 2 | 3) : null}
+                        questionId={q.id}
+                        initialBookmarked={bookmarkedIds.has(q.id)}
+                      />
                     </div>
                   )}
                 </div>

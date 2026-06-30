@@ -7,7 +7,7 @@ import ReportModal from '@/components/board/ReportModal';
 interface ResultCardProps {
   questionNumber: number;
   question: Question;
-  userSelected: 0 | 1 | 2 | 3;
+  userSelected: 0 | 1 | 2 | 3 | null;
   questionId?: string;
   initialBookmarked?: boolean;
 }
@@ -67,6 +67,11 @@ export default function ResultCard({
         )}
       </div>
 
+      {userSelected === null && (
+        <span className="inline-block text-[10px] text-red-400 border border-red-900/50 rounded px-1.5 py-0.5 mb-3">
+          시간 초과 (미답변)
+        </span>
+      )}
       <p className="text-base font-medium text-white leading-relaxed mb-6">
         {question.question}
       </p>
@@ -75,7 +80,7 @@ export default function ResultCard({
         {question.options.map((option, i) => {
           const idx = i as 0 | 1 | 2 | 3;
           const isCorrect = idx === question.answer;
-          const isUserWrong = idx === userSelected && !isCorrect;
+          const isUserWrong = userSelected !== null && idx === userSelected && !isCorrect;
 
           let cls =
             'w-full text-left rounded-md border px-4 py-3 text-sm flex items-start cursor-default ';
