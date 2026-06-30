@@ -33,17 +33,20 @@ export default function QuizPlayClient({ questions, category, mode = 'normal', i
   const [autoAdvance, setAutoAdvance] = useState(true);
   const [bookmarks, setBookmarks] = useState<Record<string, boolean>>(initialBookmarks);
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
-  const [timeExpired, setTimeExpired] = useState(false);
 
-  const QUESTION_SECONDS = 20;
+  const QUESTION_SECONDS = 15;
   const isDirty = answers.length > 0 && !isSubmitting;
+
+  // handleSubmit ref — interval/timer 내부에서 항상 최신 버전 호출하기 위함
+  const handleSubmitRef = useRef<() => Promise<void>>(async () => {});
 
   // 키보드 단축키
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (showLoginPrompt || exitModal) return;
       if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'TEXTAREA') return;
-      if (e.key === 'ArrowLeft' && currentIndex > 0) {
+      // timed 모드: 이전 이동 불가
+      if (e.key === 'ArrowLeft' && !isTimed && currentIndex > 0) {
         if (autoAdvanceTimer.current) clearTimeout(autoAdvanceTimer.current);
         setCurrentIndex((i) => i - 1);
       } else if (e.key === 'ArrowRight' && currentIndex < questions.length - 1) {
@@ -62,14 +65,16 @@ export default function QuizPlayClient({ questions, category, mode = 'normal', i
           return [...prev, { questionId, selected: idx }];
         });
         if (autoAdvanceTimer.current) clearTimeout(autoAdvanceTimer.current);
-        if (autoAdvance && currentIndex < questions.length - 1) {
+        if (isTimed && currentIndex === questions.length - 1) {
+          autoAdvanceTimer.current = setTimeout(() => void handleSubmitRef.current(), 600);
+        } else if (autoAdvance && currentIndex < questions.length - 1) {
           autoAdvanceTimer.current = setTimeout(() => setCurrentIndex((i) => i + 1), 500);
         }
       }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [showLoginPrompt, exitModal, currentIndex, questions, autoAdvance]);
+  }, [showLoginPrompt, exitModal, currentIndex, questions, autoAdvance, isTimed]);
 
   // 퀴즈 URL 저장
   useEffect(() => {
@@ -78,34 +83,31 @@ export default function QuizPlayClient({ questions, category, mode = 'normal', i
 
   const progressKey = `quiz-progress-${category}-${questions[0]?.id ?? ''}`;
 
-  // 문제별 타이머 초기화 (timed 모드)
+  // 문제별 타이머 (단일 effect — race condition 방지)
   useEffect(() => {
     if (!isTimed) return;
-    setTimeLeft(QUESTION_SECONDS);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentIndex, isTimed]);
 
-  // 문제별 카운트다운
-  useEffect(() => {
-    if (!isTimed) return;
-    const interval = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev === null || prev <= 1) return 0;
-        return prev - 1;
-      });
+    let remaining = QUESTION_SECONDS;
+    setTimeLeft(remaining);
+
+    const id = setInterval(() => {
+      remaining--;
+      setTimeLeft(remaining);
+      if (remaining <= 0) {
+        clearInterval(id);
+        setCurrentIndex((prev) => {
+          if (prev < questions.length - 1) return prev + 1;
+          // 마지막 문제 시간 만료 → 자동 제출
+          setTimeout(() => void handleSubmitRef.current(), 0);
+          return prev;
+        });
+      }
     }, 1000);
-    return () => clearInterval(interval);
-  }, [currentIndex, isTimed]);
 
-  // 시간 만료 시 자동 이동 또는 제출
-  useEffect(() => {
-    if (!isTimed || timeLeft === null || timeLeft > 0) return;
-    if (currentIndex < questions.length - 1) {
-      setCurrentIndex((i) => i + 1);
-    } else {
-      setTimeExpired(true);
-    }
-  }, [timeLeft, isTimed, currentIndex, questions.length]);
+    return () => clearInterval(id);
+  // currentIndex 변경 시 타이머 리셋
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentIndex, isTimed, questions.length]);
 
   // 자동 이동 설정 복원
   useEffect(() => {
@@ -115,6 +117,8 @@ export default function QuizPlayClient({ questions, category, mode = 'normal', i
 
   // 진행 상태 복원
   useEffect(() => {
+    // timed 모드에서는 로컬 저장 복원 안 함
+    if (isTimed) return;
     const raw = localStorage.getItem(progressKey);
     if (!raw) return;
     try {
@@ -134,13 +138,13 @@ export default function QuizPlayClient({ questions, category, mode = 'normal', i
 
   // 진행 상태 저장
   useEffect(() => {
-    if (answers.length === 0 || timeExpired) return;
+    if (isTimed || answers.length === 0) return;
     localStorage.setItem(progressKey, JSON.stringify({
       questionIds: questions.map((q) => q.id),
       answers,
       currentIndex,
     }));
-  }, [answers, currentIndex, progressKey, questions, timeExpired]);
+  }, [answers, currentIndex, progressKey, questions, isTimed]);
 
   // 브라우저 닫기/새로고침
   useEffect(() => {
@@ -169,7 +173,7 @@ export default function QuizPlayClient({ questions, category, mode = 'normal', i
     return () => document.removeEventListener("click", handleLinkClick, true);
   }, [isDirty]);
 
-  // 첫 답변 시 guard 엔트리 push (URL 유지, 뒤로가기 1회 흡수용)
+  // 첫 답변 시 guard 엔트리 push
   useEffect(() => {
     if (answers.length === 1 && !guardPushedRef.current) {
       guardPushedRef.current = true;
@@ -177,7 +181,7 @@ export default function QuizPlayClient({ questions, category, mode = 'normal', i
     }
   }, [answers.length]);
 
-  // 브라우저 뒤로가기 — guard 엔트리 소비 시 모달 표시
+  // 브라우저 뒤로가기 guard
   useEffect(() => {
     const handlePopState = (e: PopStateEvent) => {
       if (allowNavRef.current) {
@@ -186,7 +190,6 @@ export default function QuizPlayClient({ questions, category, mode = 'normal', i
       }
       if (!isDirty) return;
       if (!(e.state as Record<string, unknown> | null)?.__quizGuard) {
-        // guard가 없는 엔트리로 이동 → guard 재push 후 모달
         history.pushState({ ...history.state, __quizGuard: true }, '', quizUrlRef.current);
         setExitModal({ url: null, isBack: true });
       }
@@ -199,7 +202,7 @@ export default function QuizPlayClient({ questions, category, mode = 'normal', i
     setExitModal(null);
     if (exitModal?.isBack) {
       allowNavRef.current = true;
-      history.go(-2); // guard 엔트리 + 퀴즈 엔트리 2개 뒤로
+      history.go(-2);
     } else if (exitModal?.url) {
       router.push(exitModal.url);
     }
@@ -217,7 +220,11 @@ export default function QuizPlayClient({ questions, category, mode = 'normal', i
     });
 
     if (autoAdvanceTimer.current) clearTimeout(autoAdvanceTimer.current);
-    if (autoAdvance && currentIndex < questions.length - 1) {
+
+    if (isTimed && currentIndex === questions.length - 1) {
+      // 마지막 문제 선택 → 600ms 후 자동 제출
+      autoAdvanceTimer.current = setTimeout(() => void handleSubmitRef.current(), 600);
+    } else if (autoAdvance && currentIndex < questions.length - 1) {
       autoAdvanceTimer.current = setTimeout(() => {
         setCurrentIndex((i) => i + 1);
       }, 500);
@@ -241,6 +248,7 @@ export default function QuizPlayClient({ questions, category, mode = 'normal', i
   }
 
   async function handleSubmit(): Promise<void> {
+    if (isSubmitting) return;
     setIsSubmitting(true);
     try {
       const res = await fetch("/api/quiz/sessions", {
@@ -273,6 +281,9 @@ export default function QuizPlayClient({ questions, category, mode = 'normal', i
     }
   }
 
+  // ref 항상 최신으로 유지
+  handleSubmitRef.current = handleSubmit;
+
   if (questions.length === 0) return null;
 
   const current = questions[currentIndex];
@@ -288,29 +299,11 @@ export default function QuizPlayClient({ questions, category, mode = 'normal', i
   const timerColor =
     timeLeft === null ? '' :
     timeLeft <= 5 ? 'text-red-400 border-red-800/60 bg-red-950/20 animate-pulse' :
-    timeLeft <= 10 ? 'text-yellow-400 border-yellow-800/60 bg-yellow-950/20' :
+    timeLeft <= 8 ? 'text-yellow-400 border-yellow-800/60 bg-yellow-950/20' :
     'text-neutral-400 border-neutral-800';
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-6">
-      {/* 시간 초과 모달 */}
-      {timeExpired && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 px-4">
-          <div className="bg-[#111] border border-neutral-800 rounded-xl p-6 max-w-sm w-full">
-            <h2 className="text-white font-semibold text-base mb-2">마지막 문제 시간 초과</h2>
-            <p className="text-neutral-400 text-sm mb-6 leading-relaxed">
-              문제 제한 시간이 끝났습니다. 현재까지 답변한 {answers.length}개를 제출합니다.
-            </p>
-            <button
-              onClick={handleSubmit}
-              disabled={isSubmitting}
-              className="w-full rounded-lg bg-white text-black text-sm font-semibold py-2.5 hover:bg-neutral-200 disabled:opacity-50 transition-colors"
-            >
-              {isSubmitting ? '제출 중...' : '확인 후 제출'}
-            </button>
-          </div>
-        </div>
-      )}
       {/* 로그인 유도 모달 */}
       {showLoginPrompt && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 px-4">
@@ -383,23 +376,25 @@ export default function QuizPlayClient({ questions, category, mode = 'normal', i
             <span className="text-xs text-neutral-500 bg-neutral-900 border border-neutral-800 rounded px-1.5 py-0.5">
               {pct}%
             </span>
-            <button
-              onClick={() => {
-                const next = !autoAdvance;
-                setAutoAdvance(next);
-                localStorage.setItem('quiz-auto-advance', String(next));
-              }}
-              title={autoAdvance ? '자동 이동 켜짐 (클릭하면 끔)' : '자동 이동 꺼짐 (클릭하면 켬)'}
-              className={`text-[10px] border rounded px-1.5 py-0.5 transition-colors ${
-                autoAdvance
-                  ? 'border-emerald-800/60 text-emerald-500 bg-emerald-950/30'
-                  : 'border-neutral-800 text-neutral-600 hover:border-neutral-600 hover:text-neutral-400'
-              }`}
-            >
-              자동이동
-            </button>
+            {!isTimed && (
+              <button
+                onClick={() => {
+                  const next = !autoAdvance;
+                  setAutoAdvance(next);
+                  localStorage.setItem('quiz-auto-advance', String(next));
+                }}
+                title={autoAdvance ? '자동 이동 켜짐 (클릭하면 끔)' : '자동 이동 꺼짐 (클릭하면 켬)'}
+                className={`text-[10px] border rounded px-1.5 py-0.5 transition-colors ${
+                  autoAdvance
+                    ? 'border-emerald-800/60 text-emerald-500 bg-emerald-950/30'
+                    : 'border-neutral-800 text-neutral-600 hover:border-neutral-600 hover:text-neutral-400'
+                }`}
+              >
+                자동이동
+              </button>
+            )}
             {isTimed && timeLeft !== null && (
-              <span className={`text-[10px] border rounded px-1.5 py-0.5 font-mono tabular-nums ${timerColor}`}>
+              <span className={`text-[10px] border rounded px-1.5 py-0.5 font-mono tabular-nums min-w-[42px] text-center ${timerColor}`}>
                 ⏱ {timeLeft}s
               </span>
             )}
@@ -447,6 +442,8 @@ export default function QuizPlayClient({ questions, category, mode = 'normal', i
             currentIndex={currentIndex}
             answeredIndices={answeredIndices}
             onJump={(i) => {
+              // timed 모드: 이전 문제로 돌아갈 수 없음
+              if (isTimed && i < currentIndex) return;
               if (autoAdvanceTimer.current) clearTimeout(autoAdvanceTimer.current);
               setCurrentIndex(i);
             }}
@@ -460,7 +457,7 @@ export default function QuizPlayClient({ questions, category, mode = 'normal', i
               if (autoAdvanceTimer.current) clearTimeout(autoAdvanceTimer.current);
               setCurrentIndex((i) => i - 1);
             }}
-            disabled={currentIndex === 0}
+            disabled={currentIndex === 0 || isTimed}
             className="rounded-lg border border-neutral-800 text-sm text-neutral-400 px-4 py-2 hover:border-neutral-600 hover:text-white disabled:opacity-25 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
           >
             <svg width={14} height={14} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
@@ -483,13 +480,24 @@ export default function QuizPlayClient({ questions, category, mode = 'normal', i
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
               </svg>
             </button>
-            <button
-              onClick={handleSubmit}
-              disabled={!allAnswered || isSubmitting}
-              className="rounded-lg bg-white text-black text-sm font-semibold px-5 py-2 hover:bg-neutral-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-            >
-              {isSubmitting ? '제출 중...' : allAnswered ? '제출' : `${unanswered}개 남음`}
-            </button>
+            {!isTimed && (
+              <button
+                onClick={handleSubmit}
+                disabled={!allAnswered || isSubmitting}
+                className="rounded-lg bg-white text-black text-sm font-semibold px-5 py-2 hover:bg-neutral-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              >
+                {isSubmitting ? '제출 중...' : allAnswered ? '제출' : `${unanswered}개 남음`}
+              </button>
+            )}
+            {isTimed && (
+              <button
+                onClick={handleSubmit}
+                disabled={isSubmitting}
+                className="rounded-lg bg-white text-black text-sm font-semibold px-5 py-2 hover:bg-neutral-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              >
+                {isSubmitting ? '제출 중...' : '지금 제출'}
+              </button>
+            )}
           </div>
         </div>
       </div>

@@ -209,7 +209,7 @@ function QuizCard({
               <path d="M12 16v-4M12 8h.01" />
             </svg>
             <div className="absolute bottom-6 right-0 w-52 bg-neutral-900 border border-neutral-700 rounded-lg px-3 py-2.5 text-[11px] text-neutral-300 leading-relaxed hidden group-hover:block z-50 shadow-xl pointer-events-none">
-              문제당 <span className="text-white font-medium">20초</span> 제한.<br />
+              문제당 <span className="text-white font-medium">15초</span> 제한.<br />
               시간 초과 시 자동으로 다음 문제로 넘어갑니다.<br />
               <span className="text-amber-400">자동 진행 모드</span>가 활성화되어 있어야 동작합니다.
             </div>
