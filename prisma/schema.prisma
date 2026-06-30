@@ -121,6 +121,7 @@ model QuizSession {
   questionIds Json
   answers     Json
   score       Int
+  mode        String   @default("normal")
   submittedAt DateTime @default(now())
 
   user     User              @relation(fields: [userId], references: [id])

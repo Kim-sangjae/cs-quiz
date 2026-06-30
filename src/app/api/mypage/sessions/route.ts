@@ -52,6 +52,7 @@ export async function GET(req: NextRequest) {
     id: s.id,
     category: s.category,
     score: s.score,
+    mode: s.mode,
     submittedAt: s.submittedAt.toISOString(),
     answers: s.answers as { questionId: string; selected: number }[],
     questions: (s.questionIds as string[])

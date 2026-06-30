@@ -11,13 +11,14 @@ import ProgressBar from "@/components/ProgressBar";
 interface Props {
   questions: Question[];
   category: string;
+  mode?: 'normal' | 'review' | 'timed';
   isReview?: boolean;
   isTimed?: boolean;
   initialBookmarks?: Record<string, boolean>;
 }
 
 
-export default function QuizPlayClient({ questions, category, isReview, isTimed, initialBookmarks = {} }: Props) {
+export default function QuizPlayClient({ questions, category, mode = 'normal', isReview, isTimed, initialBookmarks = {} }: Props) {
   const router = useRouter();
   const [answers, setAnswers] = useState<UserAnswer[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -249,6 +250,7 @@ export default function QuizPlayClient({ questions, category, isReview, isTimed,
           category,
           questionIds: questions.map((q) => q.id),
           answers,
+          mode,
         }),
       });
       if (res.status === 401) {

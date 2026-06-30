@@ -56,6 +56,7 @@ export async function getMyRanks(
         COUNT(*) OVER (PARTITION BY q.category) AS "totalParticipants"
       FROM "QuestionAttempt" qa
       JOIN "Question" q ON qa."questionId" = q.id
+      JOIN "QuizSession" qs ON qa."sessionId" = qs.id AND qs.mode != 'review'
       GROUP BY qa."userId", q.category
       HAVING COUNT(*) >= 10
     )
@@ -179,6 +180,7 @@ export async function buildRankings(): Promise<CategoryRankings> {
       FROM "QuestionAttempt" qa
       JOIN "Question" q ON qa."questionId" = q.id
       JOIN "User" u ON qa."userId" = u.id
+      JOIN "QuizSession" qs ON qa."sessionId" = qs.id AND qs.mode != 'review'
       GROUP BY qa."userId", q.category, u.nickname
       HAVING COUNT(*) >= 10
     )

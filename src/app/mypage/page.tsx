@@ -51,6 +51,7 @@ type ApiSession = {
   id: string;
   category: string;
   score: number;
+  mode: string;
   submittedAt: string;
   answers: { questionId: string; selected: number }[];
   questions: ApiQuestion[];
@@ -914,8 +915,14 @@ export default function MyPage() {
                         }
                       >
                         <div className="flex items-start justify-between">
-                          <span className="text-xs text-neutral-500">
+                          <span className="text-xs text-neutral-500 flex items-center gap-1.5 flex-wrap">
                             #{historySort === 'oldest' ? sessionIdx + 1 : historyTotal - sessionIdx}회 · {formatDate(session.submittedAt)}
+                            {session.mode === 'review' && (
+                              <span className="text-[10px] bg-blue-950/50 text-blue-400 border border-blue-900/50 rounded px-1.5 py-0.5">오답복습</span>
+                            )}
+                            {session.mode === 'timed' && (
+                              <span className="text-[10px] bg-amber-950/50 text-amber-400 border border-amber-900/50 rounded px-1.5 py-0.5">시간제한</span>
+                            )}
                           </span>
                           <div className="flex items-center gap-3 flex-shrink-0 ml-4">
                             <span className={`text-xl font-bold ${scoreColor}`}>

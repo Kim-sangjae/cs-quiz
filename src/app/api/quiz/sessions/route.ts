@@ -15,12 +15,15 @@ export async function POST(req: NextRequest) {
     category: string;
     questionIds: string[];
     answers: UserAnswer[];
+    mode?: string;
   };
-  const { category, questionIds, answers } = body;
+  const { category, questionIds, answers, mode = 'normal' } = body;
+  const safeMode = ['normal', 'review', 'timed'].includes(mode) ? mode : 'normal';
+  const isRanked = safeMode !== 'review'; // review 모드는 뱃지/레벨업/출석 제외
 
-  const prevAttemptCount = await prisma.questionAttempt.count({
-    where: { userId: user.id, question: { category } },
-  });
+  const prevAttemptCount = isRanked
+    ? await prisma.questionAttempt.count({ where: { userId: user.id, question: { category } } })
+    : 0;
 
   const dbQuestions = await prisma.question.findMany({
     where: { id: { in: questionIds } },
@@ -46,6 +49,7 @@ export async function POST(req: NextRequest) {
         questionIds: questionIds as unknown as Prisma.InputJsonValue,
         answers: answers as unknown as Prisma.InputJsonValue,
         score,
+        mode: safeMode,
       },
     });
 
@@ -72,115 +76,114 @@ export async function POST(req: NextRequest) {
     return created;
   });
 
-  // Level-up detection — outside transaction; failure must not block response
-  const KNOWN_CATEGORIES = new Set(['ds', 'algo', 'os', 'network', 'db', 'arch']);
-  if (KNOWN_CATEGORIES.has(category)) {
+  if (isRanked) {
+    // Level-up detection
+    const KNOWN_CATEGORIES = new Set(['ds', 'algo', 'os', 'network', 'db', 'arch', 'se']);
+    if (KNOWN_CATEGORIES.has(category)) {
+      try {
+        function getLevel(total: number): number {
+          if (total >= 300) return 4;
+          if (total >= 150) return 3;
+          if (total >= 50) return 2;
+          return 1;
+        }
+        const LEVEL_NAMES: Record<number, string> = { 1: '입문', 2: '학습', 3: '숙련', 4: '마스터' };
+        const newAttemptCount = prevAttemptCount + answers.length;
+        const prevLevel = getLevel(prevAttemptCount);
+        const newLevel = getLevel(newAttemptCount);
+        if (newLevel > prevLevel) {
+          await prisma.notification.create({
+            data: {
+              userId: user.id,
+              type: 'LEVEL_UP',
+              payload: { category, prevLevel, newLevel, levelName: LEVEL_NAMES[newLevel] },
+              actionUrl: '/mypage',
+            },
+          });
+        }
+      } catch (e) {
+        console.error('[sessions/POST] level-up check failed:', e);
+      }
+    }
+
+    // Badge checks
     try {
-      function getLevel(total: number): number {
-        if (total >= 300) return 4;
-        if (total >= 150) return 3;
-        if (total >= 50) return 2;
-        return 1;
-      }
-      const LEVEL_NAMES: Record<number, string> = { 1: '입문', 2: '학습', 3: '숙련', 4: '마스터' };
-      const newAttemptCount = prevAttemptCount + answers.length;
-      const prevLevel = getLevel(prevAttemptCount);
-      const newLevel = getLevel(newAttemptCount);
-      if (newLevel > prevLevel) {
-        await prisma.notification.create({
-          data: {
-            userId: user.id,
-            type: 'LEVEL_UP',
-            payload: { category, prevLevel, newLevel, levelName: LEVEL_NAMES[newLevel] },
-            actionUrl: '/mypage',
-          },
-        });
-      }
-    } catch (e) {
-      console.error('[sessions/POST] level-up check failed:', e);
-    }
-  }
-
-  // Badge checks — outside transaction; failure must not block response
-  try {
-    // Streak update
-    const todayStr = new Date().toISOString().slice(0, 10);
-    const yesterdayStr = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
-    const userProfile = await prisma.user.findUnique({
-      where: { id: user.id },
-      select: { streakCount: true, lastQuizDate: true },
-    });
-    let newStreak = 1;
-    if (userProfile?.lastQuizDate) {
-      const lastStr = new Date(userProfile.lastQuizDate).toISOString().slice(0, 10);
-      if (lastStr === todayStr) {
-        newStreak = userProfile.streakCount;
-      } else if (lastStr === yesterdayStr) {
-        newStreak = userProfile.streakCount + 1;
-      }
-    }
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { streakCount: newStreak, lastQuizDate: new Date() },
-    });
-
-    // Candidate badges
-    const totalSessions = await prisma.quizSession.count({ where: { userId: user.id } });
-    const candidates: BadgeType[] = [];
-
-    if (totalSessions >= 1) candidates.push('FIRST_QUIZ');
-    if (totalSessions >= 10) candidates.push('QUIZ_10');
-    if (totalSessions >= 50) candidates.push('QUIZ_50');
-    if (score === questionIds.length && questionIds.length > 0) candidates.push('PERFECT_SCORE');
-    if (newStreak >= 3) candidates.push('STREAK_3');
-    if (newStreak >= 7) candidates.push('STREAK_7');
-
-    // Category mastery (해당 카테고리 10회 이상 + 평균 정답률 80% 이상)
-    if (category !== 'all') {
-      const catSessions = await prisma.quizSession.findMany({
-        where: { userId: user.id, category },
-        select: { score: true, questionIds: true },
+      const todayStr = new Date().toISOString().slice(0, 10);
+      const yesterdayStr = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+      const userProfile = await prisma.user.findUnique({
+        where: { id: user.id },
+        select: { streakCount: true, lastQuizDate: true },
       });
-      if (catSessions.length >= 15) {
-        const avgAccuracy =
-          catSessions.reduce((sum, s) => sum + s.score / (s.questionIds as string[]).length, 0) /
-          catSessions.length;
-        if (avgAccuracy >= 0.8) {
-          candidates.push(`CAT_${category.toUpperCase()}` as BadgeType);
+      let newStreak = 1;
+      if (userProfile?.lastQuizDate) {
+        const lastStr = new Date(userProfile.lastQuizDate).toISOString().slice(0, 10);
+        if (lastStr === todayStr) {
+          newStreak = userProfile.streakCount;
+        } else if (lastStr === yesterdayStr) {
+          newStreak = userProfile.streakCount + 1;
         }
       }
-    }
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { streakCount: newStreak, lastQuizDate: new Date() },
+      });
 
-    // 오답 극복: 누적으로 틀렸던 문제 중 10개 이상을 이후에 정답 처리 (중복x)
-    const everWrong = await prisma.questionAttempt.findMany({
-      where: { userId: user.id, isCorrect: false },
-      select: { questionId: true },
-      distinct: ['questionId'],
-    });
-    if (everWrong.length >= 10) {
-      const overcame = await prisma.questionAttempt.findMany({
-        where: { userId: user.id, questionId: { in: everWrong.map((e) => e.questionId) }, isCorrect: true },
+      const totalSessions = await prisma.quizSession.count({
+        where: { userId: user.id, mode: { in: ['normal', 'timed'] } },
+      });
+      const candidates: BadgeType[] = [];
+
+      if (totalSessions >= 1) candidates.push('FIRST_QUIZ');
+      if (totalSessions >= 10) candidates.push('QUIZ_10');
+      if (totalSessions >= 50) candidates.push('QUIZ_50');
+      if (score === questionIds.length && questionIds.length > 0) candidates.push('PERFECT_SCORE');
+      if (newStreak >= 3) candidates.push('STREAK_3');
+      if (newStreak >= 7) candidates.push('STREAK_7');
+
+      if (category !== 'all') {
+        const catSessions = await prisma.quizSession.findMany({
+          where: { userId: user.id, category, mode: { in: ['normal', 'timed'] } },
+          select: { score: true, questionIds: true },
+        });
+        if (catSessions.length >= 15) {
+          const avgAccuracy =
+            catSessions.reduce((sum, s) => sum + s.score / (s.questionIds as string[]).length, 0) /
+            catSessions.length;
+          if (avgAccuracy >= 0.8) {
+            candidates.push(`CAT_${category.toUpperCase()}` as BadgeType);
+          }
+        }
+      }
+
+      const everWrong = await prisma.questionAttempt.findMany({
+        where: { userId: user.id, isCorrect: false },
         select: { questionId: true },
         distinct: ['questionId'],
       });
-      if (overcame.length >= 10) candidates.push('COMEBACK');
+      if (everWrong.length >= 10) {
+        const overcame = await prisma.questionAttempt.findMany({
+          where: { userId: user.id, questionId: { in: everWrong.map((e) => e.questionId) }, isCorrect: true },
+          select: { questionId: true },
+          distinct: ['questionId'],
+        });
+        if (overcame.length >= 10) candidates.push('COMEBACK');
+      }
+
+      const REQUIRED_CATS = ['ds', 'algo', 'os', 'network', 'db', 'arch'];
+      const catCounts = await prisma.quizSession.groupBy({
+        by: ['category'],
+        where: { userId: user.id, category: { in: REQUIRED_CATS }, mode: { in: ['normal', 'timed'] } },
+        _count: { _all: true },
+      });
+      const allCatsCompleted = REQUIRED_CATS.every(
+        (cat) => (catCounts.find((c) => c.category === cat)?._count._all ?? 0) >= 5,
+      );
+      if (allCatsCompleted) candidates.push('COMPLETIONIST');
+
+      await awardBadges(user.id, candidates);
+    } catch (e) {
+      console.error('[sessions/POST] badge check failed:', e);
     }
-
-    // 완주: 6개 카테고리 모두 5회 이상 플레이
-    const REQUIRED_CATS = ['ds', 'algo', 'os', 'network', 'db', 'arch'];
-    const catCounts = await prisma.quizSession.groupBy({
-      by: ['category'],
-      where: { userId: user.id, category: { in: REQUIRED_CATS } },
-      _count: { _all: true },
-    });
-    const allCatsCompleted = REQUIRED_CATS.every(
-      (cat) => (catCounts.find((c) => c.category === cat)?._count._all ?? 0) >= 5,
-    );
-    if (allCatsCompleted) candidates.push('COMPLETIONIST');
-
-    await awardBadges(user.id, candidates);
-  } catch (e) {
-    console.error('[sessions/POST] badge check failed:', e);
   }
 
   updateReviewSchedules(

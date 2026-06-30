@@ -85,10 +85,17 @@ export default async function QuizPlayPage({
     }
   }
 
+  const quizMode: 'normal' | 'review' | 'timed' = reviewIds
+    ? 'review'
+    : timed === 'true'
+    ? 'timed'
+    : 'normal';
+
   return (
     <QuizPlayClient
       questions={questions}
       category={category ?? "all"}
+      mode={quizMode}
       isReview={!!reviewIds}
       isTimed={timed === 'true'}
       initialBookmarks={initialBookmarks}
