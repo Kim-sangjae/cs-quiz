@@ -129,10 +129,36 @@ transition-colors
 ```
 w-8 h-8 rounded text-xs font-medium transition-colors
 
-미선택:  bg-neutral-900 text-neutral-500 hover:bg-neutral-800
-선택됨:  bg-neutral-700 text-white
-현재:    bg-white text-black
+미선택:  bg-neutral-900 text-neutral-500 border border-neutral-800 hover:bg-neutral-800 hover:text-neutral-300
+선택됨:  bg-emerald-600 text-white hover:bg-emerald-500
+현재:    bg-white text-black ring-2 ring-white/30
+잠김(lockedBefore):  bg-neutral-900/40 text-neutral-700 border border-neutral-800/40 cursor-not-allowed opacity-40
 ```
+
+`lockedBefore?: number` prop — 이 인덱스 미만의 버튼은 잠김 처리 (시간제한 모드에서 현재 인덱스 미만 버튼 잠금). 일반 모드에서는 `lockedBefore=0`으로 모든 버튼 활성화.
+
+### 모드 배지 (마이페이지 세션 목록)
+```
+오답복습:  text-xs font-medium text-blue-400 bg-blue-400/10 border border-blue-400/20 rounded-full px-2 py-0.5
+시간제한:  text-xs font-medium text-amber-400 bg-amber-400/10 border border-amber-400/20 rounded-full px-2 py-0.5
+```
+`mode === 'review'` → "오답복습", `mode === 'timed'` → "시간제한", `mode === 'normal'` → 배지 없음.
+
+### 타이머 표시 (시간제한 모드)
+```
+타이머 숫자:  text-sm font-mono font-medium (초록→노랑→빨강 색상 전환)
+  timeLeft > 8:   text-emerald-400
+  timeLeft > 4:   text-yellow-400
+  timeLeft <= 4:  text-red-400
+진행바:  w-full h-0.5 bg-neutral-800 rounded → 채움 bg-red-500, transition-all duration-1000 linear
+```
+
+### 미답변(시간 초과) ResultCard 배지
+```
+inline-block text-[10px] text-red-400 border border-red-900/50 rounded px-1.5 py-0.5 mb-3
+텍스트: "시간 초과 (미답변)"
+```
+`userSelected === null`일 때 표시. 보기는 모두 미선택 스타일(정답만 초록 하이라이트).
 
 ### 진행률 바
 ```

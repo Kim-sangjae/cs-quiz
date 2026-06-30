@@ -9,7 +9,9 @@ src/
 │   ├── page.tsx                          # 홈 (시작 화면 + 랭킹)
 │   ├── quiz/
 │   │   ├── page.tsx                      # 카테고리 선택
-│   │   └── play/page.tsx                 # 퀴즈 진행
+│   │   └── play/
+│   │       ├── page.tsx                  # 퀴즈 진행 (searchParams → mode 결정)
+│   │       └── QuizPlayClient.tsx        # 퀴즈 진행 UI (normal/review/timed 모드 처리)
 │   ├── result/[sessionId]/
 │   │   ├── page.tsx                      # 결과 (서버 컴포넌트 — generateMetadata + OG 태그)
 │   │   └── ResultClient.tsx              # 결과 UI (Client 컴포넌트)
@@ -62,6 +64,7 @@ src/
 │       └── admin/
 │           ├── badge/route.ts            # GET — 미처리 건수 + newTotal(방문 후 초기화)
 │           ├── badge/seen/route.ts       # POST — adminLastSeenAt 갱신
+│           ├── generate-questions/route.ts # POST — GPT-4o 배치 문제 자동생성 (BATCH_SIZE=10)
 │           ├── questions/route.ts
 │           ├── questions/[id]/route.ts
 │           ├── questions/bulk/route.ts   # POST — 일괄 승인/거절/블라인드
@@ -107,6 +110,8 @@ src/
 │   ├── battle-broadcast.ts   # broadcastBattleUpdate() — 대결방 변경 시 Broadcast 발화
 │   ├── audit.ts              # writeLog() — fire-and-forget 감사 로그 기록
 │   ├── embedding.ts          # OpenAI text-embedding-3-small 호출 유틸
+│   ├── review-schedule.ts    # 오답 복습 스케줄링 (1/3/7/30일 간격)
+│   ├── rankings.ts           # 랭킹 집계 SQL (review 모드 세션 제외)
 │   ├── sample.ts             # Fisher-Yates 랜덤 샘플링
 │   ├── grade.ts              # 채점 (순수 함수)
 │   └── guard.ts              # QuizResult 타입 가드
@@ -160,11 +165,12 @@ src/
 
 ```
 questions.ts (OFFICIAL 120개) + DB 승인 문제
-  └─ /quiz: 카테고리 선택
+  └─ /quiz: 카테고리 선택 (normal / timed 모드 분기)
        └─ /quiz/play: 30문제 샘플링
             └─ 제출 → POST /api/quiz/sessions ($transaction)
-                 ├─ QuizSession 저장
+                 ├─ QuizSession 저장 (mode: normal|review|timed)
                  ├─ QuestionAttempt N개 저장
-                 └─ Question.attemptCount / correctCount 업데이트
+                 ├─ Question.attemptCount / correctCount 업데이트
+                 └─ 랭킹/뱃지/스트릭 업데이트 (review 모드 제외)
                       └─ /result/[sessionId] 결과 표시
 ```

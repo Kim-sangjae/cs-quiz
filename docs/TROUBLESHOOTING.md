@@ -36,6 +36,8 @@
 |------|------|------|
 | `Unknown argument 'name'` (createUser) | PrismaAdapter가 `name`, `emailVerified`, `image`를 넘기는데 User 스키마에 없음 | `name String?`, `emailVerified DateTime?` 스키마 추가 + 마이그레이션. `image` → `avatarUrl` 매핑은 `createUser` 오버라이드로 처리 |
 | 마이그레이션 후에도 같은 에러 | Prisma Client가 구버전 캐시 사용 중 | `npx prisma generate` 후 서버 재시작 |
+| `Property 'mode' does not exist on type 'QuizSession'` (빌드 오류) | 스키마에 `mode` 필드를 추가했지만 `npx prisma generate`를 빠뜨림 | `npx prisma generate` 실행 |
+| `Property 'APPROVED_20' does not exist on type 'typeof BadgeType'` (빌드 오류) | `BadgeType`은 Prisma enum — 스키마에 추가 후 반드시 마이그레이션 + generate 필요 | `npx prisma migrate dev && npx prisma generate` |
 | `[Error [PageNotFoundError]: Cannot find module for page: /api/...]` (빌드 오류) | `.next` 캐시가 삭제된 API 라우트를 여전히 참조함 | `Remove-Item -Recurse -Force .next` 후 재빌드 |
 
 ### Windows / OneDrive
@@ -97,3 +99,38 @@ pg_trgm은 문자 수준 비교 → 동의어·역방향 표현 처리 불가.
 
 **결론**: 짧은 자연어 질문만으로는 임베딩 맥락이 부족하다. 정답 텍스트를 결합해야 의미 정확도가 확보된다.
 → 설계 결정은 [ADR-021](./ADR.md#adr-021-유사-문제-감지에-pgvector--openai-임베딩-사용) 참조.
+
+---
+
+### TS-002: GPT-4o json_object 모드 배열 10개 제한
+
+**문제**: 관리자 AI 문제생성에서 20개를 요청해도 항상 10개만 반환됨. `max_tokens`를 늘려도 동일.
+
+**원인 분석**:
+- GPT-4o `response_format: { type: "json_object" }` 모드에서 배열 크기를 모델이 자체적으로 약 10개로 제한함 — `max_tokens` 파라미터와 무관한 모델 내부 제약
+- 처음에는 `max_tokens` 부족으로 잘린 것으로 오진단 → `max_tokens: 8000` 으로 올려도 동일
+
+**해결**:
+- `BATCH_SIZE = 10`으로 고정, `Math.ceil(count / BATCH_SIZE)`번 순차 호출
+- 각 배치에 이전 배치 결과를 `excludedTitles`로 전달해 중복 억제
+- 프롬프트 포맷: 최상위 배열 금지 → `{ "questions": [...] }` wrapper 형식 사용
+
+→ 설계 결정은 [ADR-028](./ADR.md#adr-028-ai-문제생성-배치-방식-gpt-json_object-10개-제한-우회) 참조.
+
+---
+
+### TS-003: 시간제한 타이머 race condition
+
+**문제**: 시간제한 모드에서 타이머가 다 지나면 문제가 2개씩 건너뛰거나 의도치 않게 제출됨.
+
+**원인 분석**:
+- 기존 구현이 3개의 `useEffect`로 분리: (1) 타이머 카운트다운, (2) timeLeft === 0 감지, (3) currentIndex 변경 시 리셋
+- `currentIndex`가 변경될 때 effect 1·3이 동시 재실행 → 새 interval 2개가 생성되어 1초에 2번 감소
+- `setCurrentIndex(prev => prev + 1)` 안에서 `setTimeout(() => handleSubmit(), 0)` 호출 → stale closure로 구버전 `handleSubmit` 참조
+
+**해결**:
+- 단일 `useEffect([currentIndex, isTimed])`로 통합
+- 지역 변수 `let remaining = QUESTION_SECONDS` — setState를 거치지 않고 직접 감소 → React 배칭 영향 없음
+- `handleSubmitRef.current = handleSubmit` — effect 바깥에서 항상 최신 참조 유지
+
+→ 설계 결정은 [ADR-027](./ADR.md#adr-027-시간제한-타이머--단일-useeffect--로컬-변수-패턴) 참조.

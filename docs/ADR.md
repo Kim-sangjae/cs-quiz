@@ -290,3 +290,65 @@ MVP 속도 최우선. 외부 의존성 최소화. 작동하는 최소 구현을 
 **트레이드오프**:
 - Broadcast가 100% 신뢰 보장은 아님 → 폴링 fallback 필수
 - `supabaseServer.channel().send()` 미구독 상태 HTTP fallback은 내부 구현에 의존적 → supabase-js 메이저 버전 업 시 재검증 필요
+
+---
+
+### ADR-026: 퀴즈 모드(normal/review/timed) — review 모드 랭킹 제외
+
+**결정**: 오답복습·북마크 재풀이는 `mode: 'review'`로 저장하고 랭킹·뱃지·레벨업·스트릭에서 제외한다. 시간제한 모드(`timed`)는 일반과 동일하게 반영한다.
+
+**이유**:
+- review 모드는 이미 틀렸거나 저장해둔 문제만 풀므로 정답률이 인위적으로 낮음 → 랭킹에 반영 시 공정하지 않음
+- timed 모드는 동일한 문제 풀에서 랜덤 출제 → 시간 압박만 다르므로 랭킹 반영이 타당
+- `isRanked = mode !== 'review'` 한 줄로 판단 가능 → 구현 복잡도 낮음
+
+**구현**:
+- `POST /api/quiz/sessions`: `isRanked = safeMode !== 'review'`로 판단, if 블록으로 뱃지/스트릭 갱신 감쌈
+- 뱃지 카운트 쿼리: `mode: { in: ['normal', 'timed'] }` 필터
+- `src/lib/rankings.ts`: `JOIN "QuizSession" qs ON qa."sessionId" = qs.id AND qs.mode != 'review'`
+
+**트레이드오프**: review 세션이 마이페이지 히스토리에는 기록되지만 통계에서 제외되어 "실제 실력과 다른" 문제 개수로 혼동 가능. 현재는 모드 배지로 구분해 명확히 표시.
+
+---
+
+### ADR-027: 시간제한 타이머 — 단일 useEffect + 로컬 변수 패턴
+
+**결정**: 타이머를 3개의 분리된 `useEffect`가 아닌 단일 `useEffect`에서 `setInterval` + 로컬 `remaining` 변수로 구현한다.
+
+**이유**:
+- React는 동일 이벤트 루프 내 여러 setState를 배칭할 수 있어, 기존의 `setTimeLeft` + `currentIndex` 변경 감지를 여러 effect로 나누면 `currentIndex` 변경 시 두 effect가 동시에 fire → 2문제씩 건너뛰는 버그 발생
+- 단일 effect에서 `remaining` 지역 변수를 쓰면 setState를 거치지 않고 즉시 감소 → 단일 interval에서 정확히 1초에 1 감소 보장
+- `handleSubmitRef.current = handleSubmit` 패턴으로 stale closure 문제 없이 최신 `handleSubmit` 참조 유지
+
+**트레이드오프**: `setTimeLeft`는 UI 표시용으로만 사용, 실제 제어 흐름은 지역 변수로 관리 — 두 값의 역할이 분리되어 코드 읽기가 처음엔 직관적이지 않을 수 있음.
+
+→ 시행착오 기록: [TROUBLESHOOTING.md#TS-003](./TROUBLESHOOTING.md#ts-003-시간제한-타이머-race-condition)
+
+---
+
+### ADR-028: AI 문제생성 배치 방식 (GPT json_object 10개 제한 우회)
+
+**결정**: `POST /api/admin/generate-questions`에서 GPT-4o `json_object` 모드로 한 번에 N개를 요청하지 않고 `BATCH_SIZE = 10`씩 나눠 순차 호출한다.
+
+**이유**:
+- GPT-4o `json_object` 모드는 `max_tokens`와 무관하게 배열 크기를 자체적으로 약 10개로 제한함 — 20개 요청 시에도 10개만 반환
+- `json_object`를 유지해야 파싱 실패 없이 안정적으로 구조화 데이터를 받을 수 있음
+- 배치당 이전 결과를 `excludedTitles`로 전달해 중복 생성 억제
+- 이후 pgvector 코사인 유사도(임계값 0.85) 검사로 DB 기존 문제와 중복 최종 필터링
+
+**트레이드오프**: N/10번의 순차 API 호출 → 30개 요청 시 최대 ~15-20초 소요. 어드민 전용 기능이므로 latency 허용.
+
+→ 시행착오 기록: [TROUBLESHOOTING.md#TS-002](./TROUBLESHOOTING.md#ts-002-gpt-4o-json_object-모드-배열-10개-제한)
+
+---
+
+### ADR-029: Navigator lockedBefore — 시간제한 모드 이전 문제 잠금
+
+**결정**: `Navigator` 컴포넌트에 `lockedBefore?: number` prop을 추가한다. 이 인덱스 미만의 번호는 클릭 불가 + 비활성 스타일로 표시한다.
+
+**이유**:
+- 시간제한 모드에서는 이전 문제로 돌아가면 타이머가 리셋되어 무한 시간 확보 가능 → 반드시 차단 필요
+- `lockedBefore={isTimed ? currentIndex : 0}`로 일반 모드에서는 동작 변화 없음 — 기존 사용처 수정 불필요
+- disabled + pointer-events-none이 아닌 `onClick` 내 가드 처리를 병행해 접근성 속성 충돌 방지
+
+**트레이드오프**: 시간제한 모드에서 지나간 문제가 "선택 완료(초록)" 상태로 보여도 클릭이 안 되어 혼란스러울 수 있음 → `opacity-40` 처리로 비활성임을 명시.

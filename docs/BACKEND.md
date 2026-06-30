@@ -24,7 +24,7 @@
 |------|------|
 | `User` | email, nickname, role(USER/ADMIN), tokenVersion, deletedAt(소프트딜리트), adminLastSeenAt(관리자 패널 마지막 방문), streakCount, lastQuizDate |
 | `Question` | category, options(Json), answer(0-3), status(OFFICIAL/PENDING/APPROVED/REJECTED/BLINDED), rejectionReason, attemptCount/correctCount(역정규화), embedding(vector(1536)) |
-| `QuizSession` | userId, category, questionIds(Json), answers(Json), score |
+| `QuizSession` | userId, category, questionIds(Json), answers(Json), score, mode(`normal\|review\|timed`, default `normal`) |
 | `QuestionAttempt` | userId, questionId, sessionId, selected, isCorrect |
 | `Like` | @@id([userId, questionId]) |
 | `Report` | reason(INAPPROPRIATE/ERROR/DUPLICATE/OTHER), status(PENDING/REVIEWED) |
@@ -35,6 +35,16 @@
 | `Account`, `Session`, `VerificationToken` | NextAuth PrismaAdapter 전용 |
 
 **역정규화**: `Question.attemptCount`, `correctCount`는 퀴즈 제출 $transaction에서 원자적 업데이트.
+
+**퀴즈 모드 정책**:
+
+| mode | 랭킹 반영 | 뱃지/레벨업 | 스트릭 |
+|------|----------|-----------|--------|
+| `normal` | O | O | O |
+| `timed` | O | O | O |
+| `review` | X | X | X |
+
+`isRanked = mode !== 'review'`로 판단. 뱃지 카운트 쿼리도 `mode: { in: ['normal', 'timed'] }` 필터 적용.
 
 ## JWT / 세션 무효화
 
@@ -59,7 +69,7 @@ NEXTAUTH_SECRET=            # openssl rand -base64 32
 NEXTAUTH_URL=               # http://localhost:3000 (dev) | 배포 시 실제 도메인 필수 (OG 이미지 URL 기준)
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
-OPENAI_API_KEY=             # 보기 자동 생성(gpt-4o-mini) + 유사 문제 임베딩(text-embedding-3-small)
+OPENAI_API_KEY=             # 보기 자동 생성(gpt-4o-mini) + 유사 문제 임베딩(text-embedding-3-small) + 관리자 AI 문제생성(gpt-4o, 배치)
 NEXT_PUBLIC_KAKAO_APP_KEY=  # Kakao Developers JavaScript 앱 키 (공유 SDK, 무료)
 NEXT_PUBLIC_SUPABASE_URL=   # Supabase 프로젝트 URL (브라우저 Realtime 구독용)
 NEXT_PUBLIC_SUPABASE_ANON_KEY= # Supabase anon 키 (브라우저용, 공개 가능)
@@ -85,6 +95,8 @@ SUPABASE_SERVICE_ROLE_KEY=  # Supabase service role 키 (서버 전용, 절대 �
 | `GET /api/battle/rooms/[id]` | 추가 | 방 상태 폴링 + 서버사이드 타임아웃 자동제출 |
 | `POST /api/battle/rooms/[id]/answer` | 추가 | 답변 제출 + broadcast 발화 |
 | `POST /api/battle/rooms/[id]/quit` | 추가 | 대결 중단 요청/확정 |
+| `POST /api/admin/generate-questions` | 추가 | GPT-4o 배치 문제 자동생성 (BATCH_SIZE=10, pgvector 중복 검사, `{ "questions": [...] }` wrapper 포맷) |
+| `POST /api/quiz/sessions` | 수정 | `mode` 파라미터 추가 (normal\|review\|timed). review 모드 시 랭킹·뱃지·스트릭 업데이트 건너뜀 |
 
 ## Supabase Realtime Broadcast (대결 실시간 동기화)
 

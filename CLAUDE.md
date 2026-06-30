@@ -68,6 +68,7 @@ phases 0~6 + UX 개선 전부 완료. 아래 기능이 모두 구현된 상태�
 | 9-battle | 대결 초대/수락/거절(BattleInviteAlert), GameRoom DB(consecutiveAllSkip/questionStartedAt), 연속 쌍방 스킵 시 5초 단축 타이머, 2회 연속 쌍방 스킵 무효(void) 처리, 자동진행(auto-mode) 블러+타이머 동기화, 문제 제한 시간 20초, Supabase Realtime Broadcast로 양쪽 클라이언트 실시간 동기화(`src/lib/battle-broadcast.ts`), 폴링 1s(일반)/500ms(5초모드) fallback |
 | 10-infra | 서비스명 CSORA, 카카오 로그인(NextAuth), 오답 복습 스케줄링(1/3/7/30일 간격반복, `src/lib/review-schedule.ts`), 뱃지/업적 시스템, Supabase Realtime 알림, 관리자 애널리틱스 대시보드, 친구 패널 대결 실시간 반영, 서비스 소개·기여도 순위 페이지, 접속자 슬라이드 패널, 감사 로그 확장, 모바일 헤더 친구 메뉴 |
 | 11-scale | 서버사이드 페이지네이션 전면 적용(mypage sessions/battle-history, admin users/inquiries), sessions/summary 경량 엔드포인트 분리, 퀴즈 진입 시 북마크 초기 상태 서버 로드, 최근 3세션 문제 제외 샘플링(다양성), 대전 누적 승무패 서버 집계, admin 서버사이드 검색 debounce |
+| 12-modes | 퀴즈 모드 구분(normal/review/timed), QuizSession.mode DB 필드, 오답복습·북마크 퀴즈는 랭킹/뱃지/레벨업/스트릭 제외(review 모드), 시간제한 모드(15초/문제, 타이머 단일 effect로 race condition 수정, 이전 문제 잠금), Navigator lockedBefore prop, ResultCard null 선택 처리(미답변 시간 초과), 마이페이지 모드 배지(오답복습/시간제한), AI 문제생성 배치 방식(GPT json_object 10개 제한 우회, BATCH_SIZE=10), se(소프트웨어공학) 카테고리 추가 |
 
 ---
 
