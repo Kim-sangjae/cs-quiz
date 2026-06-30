@@ -2,7 +2,7 @@ export type BadgeType =
   | 'FIRST_QUIZ' | 'QUIZ_10' | 'QUIZ_50' | 'PERFECT_SCORE'
   | 'STREAK_3' | 'STREAK_7'
   | 'CAT_DS' | 'CAT_ALGO' | 'CAT_OS' | 'CAT_NETWORK' | 'CAT_DB' | 'CAT_ARCH'
-  | 'FIRST_SUBMIT' | 'APPROVED_1' | 'APPROVED_5' | 'APPROVED_10'
+  | 'FIRST_SUBMIT' | 'APPROVED_1' | 'APPROVED_5' | 'APPROVED_10' | 'APPROVED_20'
   | 'COMEBACK' | 'COMPLETIONIST' | 'LIKED_QUESTION'
   | 'BATTLE_FIRST' | 'BATTLE_WIN_1' | 'BATTLE_WIN_10' | 'BATTLE_WIN_30';
 
@@ -28,7 +28,8 @@ export const BADGE_META: Record<BadgeType, BadgeMeta> = {
   FIRST_SUBMIT:  { label: '첫 기여',          description: '첫 문제 등록',                 icon: '✏️' },
   APPROVED_1:    { label: '문제 기여자',       description: '문제 1개 채택',                icon: '✅' },
   APPROVED_5:    { label: '활동 기여자',       description: '문제 5개 채택',                icon: '🌟' },
-  APPROVED_10:   { label: '핵심 기여자',       description: '문제 10개 채택',               icon: '🏆' },
+  APPROVED_10:   { label: '활동 기여자+',      description: '문제 10개 채택',               icon: '🌠' },
+  APPROVED_20:   { label: '핵심 기여자',       description: '문제 20개 채택',               icon: '🏆' },
   COMEBACK:      { label: '오답 극복',         description: '틀렸던 문제 10개 이상 극복 (누적)',  icon: '💪' },
   COMPLETIONIST: { label: '완주',             description: '6개 카테고리 모두 5회 이상 완료',    icon: '🎖️' },
   LIKED_QUESTION:{ label: '인기 출제자',       description: '내 문제가 북마크 10개 달성',    icon: '🔖' },

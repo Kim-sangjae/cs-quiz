@@ -192,16 +192,29 @@ function QuizCard({
         </div>
       </Link>
       <div className="px-5 pb-3 flex justify-end border-t border-neutral-800/30">
-        <Link
-          href={`/quiz/play?category=${cat}&timed=true`}
-          className="text-xs text-amber-600/80 hover:text-amber-400 transition-colors duration-200 flex items-center gap-1.5 pt-2.5 font-medium"
-        >
-          <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-            <circle cx="12" cy="12" r="10" />
-            <polyline points="12 6 12 12 16 14" />
-          </svg>
-          시간 제한 모드
-        </Link>
+        <div className="flex items-center gap-1.5 pt-2.5">
+          <Link
+            href={`/quiz/play?category=${cat}&timed=true`}
+            className="text-xs text-amber-600/80 hover:text-amber-400 transition-colors duration-200 flex items-center gap-1.5 font-medium"
+          >
+            <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+              <circle cx="12" cy="12" r="10" />
+              <polyline points="12 6 12 12 16 14" />
+            </svg>
+            시간 제한 모드
+          </Link>
+          <div className="relative group">
+            <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="text-neutral-600 cursor-help">
+              <circle cx="12" cy="12" r="10" />
+              <path d="M12 16v-4M12 8h.01" />
+            </svg>
+            <div className="absolute bottom-full right-0 mb-2 w-56 bg-neutral-900 border border-neutral-700 rounded-lg px-3 py-2.5 text-[11px] text-neutral-300 leading-relaxed hidden group-hover:block z-10 shadow-xl">
+              문제당 <span className="text-white font-medium">20초</span> 제한.<br />
+              시간 초과 시 자동으로 다음 문제로 넘어갑니다.<br />
+              <span className="text-amber-400">자동 진행 모드</span>가 활성화되어 있어야 동작합니다.
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

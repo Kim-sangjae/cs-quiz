@@ -10,7 +10,7 @@ import OnlineCountBadge from "@/components/OnlineCountBadge";
 const getCachedTotal = unstable_cache(
   () => prisma.question.count({ where: { status: { in: ['OFFICIAL', 'APPROVED'] } } }),
   ['question-total'],
-  { revalidate: 300 }
+  { revalidate: 30 }
 );
 
 const EMPTY_RANKINGS: CategoryRankings = {

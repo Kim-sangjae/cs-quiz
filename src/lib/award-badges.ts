@@ -49,5 +49,6 @@ export async function checkQuestionBadges(authorId: string): Promise<void> {
   if (approvedCount >= 1) candidates.push('APPROVED_1');
   if (approvedCount >= 5) candidates.push('APPROVED_5');
   if (approvedCount >= 10) candidates.push('APPROVED_10');
+  if (approvedCount >= 20) candidates.push('APPROVED_20');
   await awardBadges(authorId, candidates);
 }
