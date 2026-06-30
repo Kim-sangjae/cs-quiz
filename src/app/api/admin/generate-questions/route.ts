@@ -16,19 +16,69 @@ const CATEGORY_PROMPTS: Record<string, string> = {
   se: '소프트웨어공학 (디자인패턴, SOLID, 애자일/스크럼, TDD, 리팩토링, CI/CD, 클린코드, UML, 소프트웨어 아키텍처)',
 };
 
-const SIMILARITY_THRESHOLD = 0.85;
-
 const DIFFICULTY_PROMPTS: Record<string, string> = {
   easy: '기초 개념 확인 수준 (CS 입문자, 핵심 용어와 기본 원리 위주, 함정 없이 명확한 문제)',
   medium: '중급 수준 (학부 전공자, 개념 응용과 비교 분석, 실무 연관 문제)',
   hard: '고급 수준 (취업 면접·대학원 수준, 세부 동작 원리·엣지케이스·성능 트레이드오프 포함)',
 };
 
+const SIMILARITY_THRESHOLD = 0.85;
+const BATCH_SIZE = 10;
+
 interface GeneratedQuestion {
   question: string;
   options: [string, string, string, string];
   answer: 0 | 1 | 2 | 3;
   explanation: string;
+}
+
+async function generateBatch(
+  categoryPrompt: string,
+  difficultyDesc: string,
+  batchSize: number,
+  exclude: string[],
+): Promise<GeneratedQuestion[]> {
+  const systemPrompt = `당신은 CS 전공 면접 문제 출제 전문가입니다.
+4지선다 객관식 문제를 JSON 형식으로 생성하세요.
+규칙:
+- 각 문제는 명확하고 모호하지 않아야 함
+- 보기 4개는 서로 혼동될 만큼 그럴듯해야 함
+- 설명은 왜 정답인지 간결하게 (100자 이내)
+- 반드시 { "questions": [...] } 형태의 JSON 객체로만 출력`;
+
+  const excludeNote = exclude.length > 0
+    ? `\n\n다음 문제들과 중복되지 않게 하세요:\n${exclude.slice(-20).map((q, i) => `${i + 1}. ${q}`).join('\n')}`
+    : '';
+
+  const userPrompt = `${categoryPrompt} 주제로 정확히 ${batchSize}개의 문제를 생성하세요.
+난이도: ${difficultyDesc}${excludeNote}
+
+반환 형식:
+{
+  "questions": [
+    {
+      "question": "문제 내용",
+      "options": ["보기1", "보기2", "보기3", "보기4"],
+      "answer": 0,
+      "explanation": "정답 설명"
+    }
+  ]
+}`;
+
+  const completion = await openai.chat.completions.create({
+    model: 'gpt-4o',
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt },
+    ],
+    response_format: { type: 'json_object' },
+    temperature: 0.85,
+    max_tokens: 4096,
+  });
+
+  const raw = completion.choices[0].message.content ?? '{"questions":[]}';
+  const parsed = JSON.parse(raw) as { questions?: GeneratedQuestion[] } | GeneratedQuestion[];
+  return Array.isArray(parsed) ? parsed : (parsed.questions ?? []);
 }
 
 export async function POST(req: NextRequest) {
@@ -43,50 +93,32 @@ export async function POST(req: NextRequest) {
   if (!CATEGORY_PROMPTS[category]) {
     return NextResponse.json({ error: 'Invalid category' }, { status: 400 });
   }
+
   const safeCount = Math.min(50, Math.max(1, Math.floor(count)));
   const difficultyDesc = DIFFICULTY_PROMPTS[difficulty] ?? DIFFICULTY_PROMPTS.medium;
+  const categoryPrompt = CATEGORY_PROMPTS[category];
 
-  // GPT-4o로 문제 생성
-  const systemPrompt = `당신은 CS 전공 면접 문제 출제 전문가입니다.
-주어진 주제에 대해 4지선다 객관식 문제를 JSON 형식으로 생성하세요.
+  // 배치 단위로 생성 (BATCH_SIZE=10씩 순차 호출)
+  const allGenerated: GeneratedQuestion[] = [];
+  const excludedTitles: string[] = [];
+  const batches = Math.ceil(safeCount / BATCH_SIZE);
 
-규칙:
-- 각 문제는 명확하고 모호하지 않아야 함
-- 보기 4개는 서로 혼동될 만큼 그럴듯해야 함
-- 설명은 왜 정답인지, 다른 보기가 왜 틀렸는지 간결하게 (100자 이내)
-- 반드시 { "questions": [...] } 형태의 JSON 객체로만 출력`;
-
-  const userPrompt = `${CATEGORY_PROMPTS[category]} 주제로 ${safeCount}개의 문제를 생성하세요.
-난이도: ${difficultyDesc}
-
-반환 형식:
-{
-  "questions": [
-    {
-      "question": "문제 내용",
-      "options": ["보기1", "보기2", "보기3", "보기4"],
-      "answer": 0,
-      "explanation": "정답 설명"
-    }
-  ]
-}`;
-
-  let generated: GeneratedQuestion[];
   try {
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-      response_format: { type: 'json_object' },
-      temperature: 0.8,
-      max_tokens: 8192,
-    });
-
-    const raw = completion.choices[0].message.content ?? '{"questions":[]}';
-    const parsed = JSON.parse(raw) as { questions?: GeneratedQuestion[] } | GeneratedQuestion[];
-    generated = Array.isArray(parsed) ? parsed : (parsed.questions ?? []);
+    for (let i = 0; i < batches; i++) {
+      const batchSize = Math.min(BATCH_SIZE, safeCount - allGenerated.length);
+      const batch = await generateBatch(categoryPrompt, difficultyDesc, batchSize, excludedTitles);
+      for (const q of batch) {
+        if (
+          typeof q.question === 'string' &&
+          Array.isArray(q.options) && q.options.length === 4 &&
+          [0, 1, 2, 3].includes(q.answer) &&
+          typeof q.explanation === 'string'
+        ) {
+          allGenerated.push(q);
+          excludedTitles.push(q.question);
+        }
+      }
+    }
   } catch (e) {
     console.error('[generate-questions] GPT error:', e);
     return NextResponse.json({ error: 'AI 생성 실패' }, { status: 500 });
@@ -96,19 +128,11 @@ export async function POST(req: NextRequest) {
   let saved = 0;
   let skipped = 0;
 
-  for (const q of generated) {
-    if (
-      typeof q.question !== 'string' ||
-      !Array.isArray(q.options) || q.options.length !== 4 ||
-      ![0, 1, 2, 3].includes(q.answer) ||
-      typeof q.explanation !== 'string'
-    ) continue;
-
+  for (const q of allGenerated) {
     try {
       const embedding = await generateEmbedding(q.question);
       const vectorStr = toVectorString(embedding);
 
-      // 유사도 0.85 이상 기존 문제 있으면 중복으로 판단
       const similar = await prisma.$queryRaw<{ id: string }[]>`
         SELECT id FROM "Question"
         WHERE embedding IS NOT NULL
@@ -121,7 +145,6 @@ export async function POST(req: NextRequest) {
         continue;
       }
 
-      // 저장 — embedding은 $executeRaw로 별도 업데이트
       const created = await prisma.question.create({
         data: {
           authorId: user.id,
@@ -144,5 +167,5 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({ generated: generated.length, saved, skipped });
+  return NextResponse.json({ generated: allGenerated.length, saved, skipped });
 }
