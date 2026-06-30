@@ -331,6 +331,18 @@ function SimilarQuestionsPanel({ questionText }: { questionText: string }) {
   );
 }
 
+const Q_CAT_LABELS: Record<string, string> = {
+  all: '전체', ds: '자료구조', algo: '알고리즘', os: '운영체제',
+  network: '네트워크', db: '데이터베이스', arch: '컴퓨터구조', se: '소프트웨어공학',
+};
+
+interface QuestionsResponse {
+  questions: PendingQuestion[];
+  total: number;
+  pageCount: number;
+  categoryCounts: { category: string; count: number }[];
+}
+
 function QuestionsTab({ prevSeenAt }: { prevSeenAt: string | null }) {
   const queryClient = useQueryClient();
   const REJECTION_REASONS = [
@@ -345,15 +357,23 @@ function QuestionsTab({ prevSeenAt }: { prevSeenAt: string | null }) {
   const [previewQuestion, setPreviewQuestion] = useState<PendingQuestion | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkLoading, setBulkLoading] = useState(false);
+  const [catFilter, setCatFilter] = useState('all');
+  const [page, setPage] = useState(1);
 
-  const { data: questions = [] } = useQuery<PendingQuestion[]>({
-    queryKey: ['admin', 'questions'],
+  const { data } = useQuery<QuestionsResponse>({
+    queryKey: ['admin', 'questions', catFilter, page],
     queryFn: async () => {
-      const r = await fetch('/api/admin/questions');
-      if (!r.ok) return [];
+      const params = new URLSearchParams({ category: catFilter, page: String(page) });
+      const r = await fetch(`/api/admin/questions?${params}`);
+      if (!r.ok) return { questions: [], total: 0, pageCount: 1, categoryCounts: [] };
       return r.json();
     },
   });
+
+  const questions = data?.questions ?? [];
+  const pageCount = data?.pageCount ?? 1;
+  const total = data?.total ?? 0;
+  const categoryCounts = data?.categoryCounts ?? [];
 
   const mutation = useMutation({
     mutationFn: ({ id, action, reason }: { id: string; action: 'approve' | 'reject'; reason?: string }) =>
@@ -363,7 +383,7 @@ function QuestionsTab({ prevSeenAt }: { prevSeenAt: string | null }) {
         body: JSON.stringify({ action, rejectionReason: reason }),
       }).then((r) => r.json()),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin', 'questions'] });
+      queryClient.invalidateQueries({ queryKey: ['admin', 'questions', catFilter, page] });
       setRejectingId(null);
       setRejectionReason(REJECTION_REASONS[0]);
     },
@@ -396,7 +416,7 @@ function QuestionsTab({ prevSeenAt }: { prevSeenAt: string | null }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ids: [...selectedIds], action, rejectionReason: REJECTION_REASONS[0] }),
       });
-      queryClient.invalidateQueries({ queryKey: ['admin', 'questions'] });
+      queryClient.invalidateQueries({ queryKey: ['admin', 'questions', catFilter, page] });
       setSelectedIds(new Set());
       toast.success(`일괄 ${action === 'approve' ? '승인' : '거절'} 완료`);
     } finally {
@@ -404,12 +424,37 @@ function QuestionsTab({ prevSeenAt }: { prevSeenAt: string | null }) {
     }
   }
 
-  if (questions.length === 0) {
-    return <p className="text-neutral-500 text-sm text-center py-8">대기 중인 문제가 없습니다.</p>;
-  }
+  const catTabs = ['all', 'ds', 'algo', 'os', 'network', 'db', 'arch', 'se'];
+  const countMap = Object.fromEntries(categoryCounts.map((c) => [c.category, c.count]));
+  const totalPending = Object.values(countMap).reduce((a, b) => a + b, 0);
 
   return (
     <div className="space-y-4">
+      {/* 카테고리 필터 탭 */}
+      <div className="flex flex-wrap gap-1.5">
+        {catTabs.map((cat) => {
+          const cnt = cat === 'all' ? totalPending : (countMap[cat] ?? 0);
+          return (
+            <button
+              key={cat}
+              onClick={() => { setCatFilter(cat); setPage(1); setSelectedIds(new Set()); }}
+              className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
+                catFilter === cat
+                  ? 'bg-white text-black border-white font-medium'
+                  : 'border-neutral-700 text-neutral-400 hover:text-white hover:border-neutral-500'
+              }`}
+            >
+              {Q_CAT_LABELS[cat]}
+              {cnt > 0 && <span className={`ml-1.5 ${catFilter === cat ? 'text-neutral-500' : 'text-amber-400'}`}>{cnt}</span>}
+            </button>
+          );
+        })}
+      </div>
+
+      {questions.length === 0 ? (
+        <p className="text-neutral-500 text-sm text-center py-8">대기 중인 문제가 없습니다.</p>
+      ) : (<>
+
       {/* 일괄 처리 툴바 */}
       <div className="flex items-center gap-3 bg-[#111111] border border-neutral-800 rounded-lg px-4 py-2.5">
         <label className="flex items-center gap-2 cursor-pointer">
@@ -549,6 +594,28 @@ function QuestionsTab({ prevSeenAt }: { prevSeenAt: string | null }) {
           onClose={() => setPreviewQuestion(null)}
         />
       )}
+
+      {/* 페이징 */}
+      {pageCount > 1 && (
+        <div className="flex items-center justify-center gap-2 pt-2">
+          <button
+            onClick={() => { setPage((p) => Math.max(1, p - 1)); setSelectedIds(new Set()); }}
+            disabled={page === 1}
+            className="text-xs px-3 py-1.5 rounded-md border border-neutral-700 text-neutral-400 hover:text-white disabled:opacity-30 transition-colors"
+          >
+            이전
+          </button>
+          <span className="text-xs text-neutral-500">{page} / {pageCount} ({total}건)</span>
+          <button
+            onClick={() => { setPage((p) => Math.min(pageCount, p + 1)); setSelectedIds(new Set()); }}
+            disabled={page === pageCount}
+            className="text-xs px-3 py-1.5 rounded-md border border-neutral-700 text-neutral-400 hover:text-white disabled:opacity-30 transition-colors"
+          >
+            다음
+          </button>
+        </div>
+      )}
+      </>)}
     </div>
   );
 }
@@ -669,6 +736,7 @@ function BoardTab({ requestConfirm }: { requestConfirm: (msg: string, fn: () => 
 
   return (
     <>
+      <CategoryQuestionStats />
       <div>
         <div className="flex flex-wrap gap-2 mb-4">
           <div className="flex w-full gap-2 mb-1">
@@ -2137,6 +2205,38 @@ function StatusBar({ items, total, loading }: {
   );
 }
 
+const CAT_LABEL_MAP: Record<string, string> = {
+  ds: '자료구조', algo: '알고리즘', os: '운영체제', network: '네트워크',
+  db: '데이터베이스', arch: '컴퓨터구조', se: '소프트웨어공학',
+};
+
+function CategoryQuestionStats() {
+  const { data } = useQuery<{ category: string; count: number }[]>({
+    queryKey: ['admin', 'category-question-stats'],
+    queryFn: () => fetch('/api/admin/category-stats').then((r) => r.json()),
+    staleTime: 60_000,
+  });
+  if (!data) return null;
+  const total = data.reduce((a, b) => a + b.count, 0);
+  return (
+    <div className="bg-[#111111] border border-neutral-800 rounded-xl p-4">
+      <p className="text-xs font-medium text-neutral-400 mb-3">카테고리별 문제 수</p>
+      <div className="grid grid-cols-4 gap-2">
+        {data.map(({ category, count }) => (
+          <div key={category} className="bg-neutral-900 rounded-lg px-3 py-2">
+            <p className="text-[10px] text-neutral-500 mb-0.5">{CAT_LABEL_MAP[category] ?? category}</p>
+            <p className="text-sm font-semibold text-white">{count.toLocaleString()}</p>
+          </div>
+        ))}
+        <div className="bg-neutral-900 rounded-lg px-3 py-2">
+          <p className="text-[10px] text-neutral-500 mb-0.5">전체</p>
+          <p className="text-sm font-semibold text-emerald-400">{total.toLocaleString()}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function AnalyticsTab() {
   const [chartPeriod, setChartPeriod] = useState<'month' | 'year'>('month');
   const [targetYear, setTargetYear] = useState(String(new Date().getFullYear()));
@@ -2189,6 +2289,7 @@ function AnalyticsTab() {
 
   return (
     <div className="space-y-6">
+      <CategoryQuestionStats />
 
       {/* ── 슬라이드 패널 ── */}
       <div
