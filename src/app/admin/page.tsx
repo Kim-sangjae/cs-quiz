@@ -384,6 +384,7 @@ function QuestionsTab({ prevSeenAt }: { prevSeenAt: string | null }) {
       }).then((r) => r.json()),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin', 'questions', catFilter, page] });
+      queryClient.invalidateQueries({ queryKey: ['admin', 'badge'] });
       setRejectingId(null);
       setRejectionReason(REJECTION_REASONS[0]);
     },
@@ -417,6 +418,7 @@ function QuestionsTab({ prevSeenAt }: { prevSeenAt: string | null }) {
         body: JSON.stringify({ ids: [...selectedIds], action, rejectionReason: REJECTION_REASONS[0] }),
       });
       queryClient.invalidateQueries({ queryKey: ['admin', 'questions', catFilter, page] });
+      queryClient.invalidateQueries({ queryKey: ['admin', 'badge'] });
       setSelectedIds(new Set());
       toast.success(`일괄 ${action === 'approve' ? '승인' : '거절'} 완료`);
     } finally {
@@ -2816,12 +2818,21 @@ const DIFFICULTY_OPTIONS = [
 ];
 
 function GenerateQuestionsTab() {
+  const queryClient = useQueryClient();
   const [category, setCategory] = useState('se');
   const [count, setCount] = useState(20);
   const [difficulty, setDifficulty] = useState('medium');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<{ generated: number; saved: number; skipped: number } | null>(null);
   const [error, setError] = useState('');
+
+  const { data: catStats } = useQuery<{ category: string; count: number }[]>({
+    queryKey: ['admin', 'category-question-stats'],
+    queryFn: () => fetch('/api/admin/category-stats').then((r) => r.json()),
+    staleTime: 30_000,
+  });
+  const totalQuestions = catStats?.reduce((a, b) => a + b.count, 0) ?? 0;
+  const catStatsMap = Object.fromEntries((catStats ?? []).map((c) => [c.category, c.count]));
 
   async function handleGenerate() {
     setLoading(true);
@@ -2840,6 +2851,7 @@ function GenerateQuestionsTab() {
       }
       const d = await res.json() as { generated: number; saved: number; skipped: number };
       setResult(d);
+      queryClient.invalidateQueries({ queryKey: ['admin', 'category-question-stats'] });
     } catch {
       setError('요청 중 오류가 발생했습니다.');
     } finally {
@@ -2849,6 +2861,22 @@ function GenerateQuestionsTab() {
 
   return (
     <div className="space-y-6">
+      {/* 현재 문제 현황 */}
+      <div className="bg-[#111111] border border-neutral-800 rounded-xl p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <p className="text-xs font-medium text-neutral-400">현재 문제 현황 (OFFICIAL + APPROVED)</p>
+          <p className="text-sm font-bold text-emerald-400">총 {totalQuestions.toLocaleString()}문제</p>
+        </div>
+        <div className="grid grid-cols-4 gap-2">
+          {GENERATE_CATEGORIES.map((c) => (
+            <div key={c.key} className={`rounded-lg px-3 py-2 border transition-colors ${category === c.key ? 'bg-neutral-700 border-neutral-500' : 'bg-neutral-900 border-neutral-800'}`}>
+              <p className="text-[10px] text-neutral-500 mb-0.5">{c.label}</p>
+              <p className="text-sm font-semibold text-white">{(catStatsMap[c.key] ?? 0).toLocaleString()}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
       <div className="bg-[#111111] border border-neutral-800 rounded-xl p-5 space-y-4">
         <h2 className="text-sm font-medium text-white">AI 문제 자동 생성</h2>
         <p className="text-xs text-neutral-500">
