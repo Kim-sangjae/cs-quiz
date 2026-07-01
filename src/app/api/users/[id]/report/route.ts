@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 
@@ -28,9 +29,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     await prisma.userReport.create({
       data: { reporterId: session.user.id, reportedId, reason, description },
     });
-  } catch {
-    // @@unique([reporterId, reportedId]) 중복 — 이미 신고함
-    return NextResponse.json({ error: 'Already reported' }, { status: 409 });
+  } catch (e) {
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+      return NextResponse.json({ error: 'Already reported' }, { status: 409 });
+    }
+    throw e;
   }
 
   return NextResponse.json({ ok: true });
