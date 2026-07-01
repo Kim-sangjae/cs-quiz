@@ -57,6 +57,13 @@ const CATEGORIES = [
   { key: 'se', label: '소프트웨어공학' },
 ] as const;
 
+const USER_REPORT_REASONS: { value: string; label: string }[] = [
+  { value: 'INAPPROPRIATE_NICKNAME', label: '부적절한 닉네임' },
+  { value: 'HARASSMENT', label: '괴롭힘/욕설' },
+  { value: 'SPAM', label: '도배/스팸' },
+  { value: 'OTHER', label: '기타' },
+];
+
 function ProfileModal({
   friend,
   onClose,
@@ -70,6 +77,11 @@ function ProfileModal({
 }) {
   const [step, setStep] = useState<'profile' | 'battle'>('profile');
   const [confirmingRemove, setConfirmingRemove] = useState(false);
+  const [reporting, setReporting] = useState(false);
+  const [reportReason, setReportReason] = useState('INAPPROPRIATE_NICKNAME');
+  const [reportDesc, setReportDesc] = useState('');
+  const [reportDone, setReportDone] = useState(false);
+  const [reportLoading, setReportLoading] = useState(false);
   const [category, setCategory] = useState('ds');
   const [hoveredBadge, setHoveredBadge] = useState<string | null>(null);
   const [badgeTooltipPos, setBadgeTooltipPos] = useState<{ x: number; y: number } | null>(null);
@@ -277,6 +289,80 @@ function ProfileModal({
                   친구 삭제
                 </button>
               </div>
+            )}
+
+            {/* 신고 영역 */}
+            {!confirmingRemove && (
+              reporting ? (
+                <div className="border-t border-neutral-800 px-4 py-3 space-y-2.5">
+                  {reportDone ? (
+                    <p className="text-xs text-neutral-400 text-center py-1">신고가 접수되었습니다.</p>
+                  ) : (
+                    <>
+                      <p className="text-xs text-neutral-400 font-medium">신고 사유</p>
+                      <div className="space-y-1.5">
+                        {USER_REPORT_REASONS.map((r) => (
+                          <label key={r.value} className="flex items-center gap-2 cursor-pointer">
+                            <input
+                              type="radio"
+                              name="reportReason"
+                              value={r.value}
+                              checked={reportReason === r.value}
+                              onChange={() => setReportReason(r.value)}
+                              className="accent-neutral-400"
+                            />
+                            <span className="text-xs text-neutral-300">{r.label}</span>
+                          </label>
+                        ))}
+                      </div>
+                      <textarea
+                        value={reportDesc}
+                        onChange={(e) => setReportDesc(e.target.value)}
+                        placeholder="추가 설명 (선택)"
+                        maxLength={200}
+                        rows={2}
+                        className="w-full bg-[#1a1a1a] border border-neutral-800 rounded-md px-2.5 py-1.5 text-xs text-white placeholder-neutral-600 focus:outline-none focus:border-neutral-600 resize-none"
+                      />
+                      <div className="flex gap-2">
+                        <button
+                          disabled={reportLoading}
+                          onClick={async () => {
+                            setReportLoading(true);
+                            try {
+                              const res = await fetch(`/api/users/${friend.userId}/report`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ reason: reportReason, description: reportDesc || undefined }),
+                              });
+                              if (res.ok || res.status === 409) setReportDone(true);
+                            } finally {
+                              setReportLoading(false);
+                            }
+                          }}
+                          className="flex-1 rounded-lg bg-red-500/10 border border-red-500/30 text-xs text-red-400 py-1.5 hover:bg-red-500/20 transition-colors disabled:opacity-40"
+                        >
+                          {reportLoading ? '제출 중...' : '신고 제출'}
+                        </button>
+                        <button
+                          onClick={() => { setReporting(false); setReportDesc(''); setReportReason('INAPPROPRIATE_NICKNAME'); }}
+                          className="rounded-lg border border-neutral-800 text-xs text-neutral-500 py-1.5 px-3 hover:text-white transition-colors"
+                        >
+                          취소
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              ) : (
+                <div className="px-4 pb-3 flex justify-center">
+                  <button
+                    onClick={() => setReporting(true)}
+                    className="text-[11px] text-neutral-700 hover:text-neutral-500 transition-colors"
+                  >
+                    신고하기
+                  </button>
+                </div>
+              )
             )}
           </>
         )}

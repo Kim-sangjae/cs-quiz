@@ -41,6 +41,8 @@ model User {
   reviewSchedules            ReviewSchedule[]
   hostedRooms                GameRoom[]    @relation("GameRoomHost")
   guestRooms                 GameRoom[]    @relation("GameRoomGuest")
+  sentUserReports            UserReport[]  @relation("UserReportReporter")
+  receivedUserReports        UserReport[]  @relation("UserReportReported")
 }
 
 model Account {
@@ -407,4 +409,27 @@ model BlockedWord {
   word      String   @unique
   createdAt DateTime @default(now())
   createdBy String
+}
+
+model UserReport {
+  id           String           @id @default(cuid())
+  reporterId   String
+  reportedId   String
+  reason       UserReportReason
+  description  String?
+  status       ReportStatus     @default(PENDING)
+  createdAt    DateTime         @default(now())
+
+  reporter User @relation("UserReportReporter", fields: [reporterId], references: [id], onDelete: Cascade)
+  reported User @relation("UserReportReported", fields: [reportedId], references: [id], onDelete: Cascade)
+
+  @@unique([reporterId, reportedId])
+  @@index([status, createdAt])
+}
+
+enum UserReportReason {
+  INAPPROPRIATE_NICKNAME
+  HARASSMENT
+  SPAM
+  OTHER
 }

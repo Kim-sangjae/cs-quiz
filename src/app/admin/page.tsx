@@ -7,7 +7,7 @@ import { useSession } from 'next-auth/react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
-type Tab = 'questions' | 'board' | 'reports' | 'users' | 'inquiries' | 'logs' | 'analytics' | 'errors' | 'generate' | 'blocked-words';
+type Tab = 'questions' | 'board' | 'reports' | 'users' | 'inquiries' | 'logs' | 'analytics' | 'errors' | 'generate' | 'blocked-words' | 'user-reports';
 
 const CATEGORY_LABEL: Record<string, string> = {
   ds: '자료구조', algo: '알고리즘', os: '운영체제',
@@ -125,6 +125,7 @@ export default function AdminPage() {
     { key: 'errors', label: '오류 로그' },
     { key: 'generate', label: 'AI 문제 생성' },
     { key: 'blocked-words', label: '금칙어 관리' },
+    { key: 'user-reports', label: '유저 신고' },
   ];
 
   return (
@@ -179,6 +180,7 @@ export default function AdminPage() {
       {activeTab === 'errors' && <ErrorLogsTab />}
       {activeTab === 'generate' && <GenerateQuestionsTab />}
       {activeTab === 'blocked-words' && <BlockedWordsTab />}
+      {activeTab === 'user-reports' && <UserReportsTab />}
       {confirm && (
         <ConfirmDialog
           message={confirm.message}
@@ -3103,6 +3105,122 @@ function BlockedWordsTab() {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+const USER_REPORT_REASON_LABEL: Record<string, string> = {
+  INAPPROPRIATE_NICKNAME: '부적절한 닉네임',
+  HARASSMENT: '괴롭힘/욕설',
+  SPAM: '도배/스팸',
+  OTHER: '기타',
+};
+
+interface UserReportItem {
+  id: string;
+  reason: string;
+  description: string | null;
+  status: string;
+  createdAt: string;
+  reporter: { id: string; nickname: string | null; email: string };
+  reported: { id: string; nickname: string | null; email: string };
+}
+
+function UserReportsTab() {
+  const queryClient = useQueryClient();
+  const [statusFilter, setStatusFilter] = useState<'PENDING' | 'REVIEWED' | 'all'>('PENDING');
+
+  const { data: reports = [], isLoading } = useQuery<UserReportItem[]>({
+    queryKey: ['admin', 'user-reports'],
+    queryFn: () => fetch('/api/admin/user-reports').then((r) => r.json()),
+  });
+
+  const dismissMutation = useMutation({
+    mutationFn: (id: string) =>
+      fetch('/api/admin/user-reports', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, action: 'dismiss' }),
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['admin', 'user-reports'] });
+      toast.success('처리되었습니다.');
+    },
+  });
+
+  const filtered = reports.filter((r) => statusFilter === 'all' || r.status === statusFilter);
+  const pendingCount = reports.filter((r) => r.status === 'PENDING').length;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex gap-1.5">
+        {([
+          { key: 'PENDING', label: `대기 중 ${pendingCount}` },
+          { key: 'REVIEWED', label: '처리됨' },
+          { key: 'all', label: '전체' },
+        ] as const).map(({ key, label }) => (
+          <button
+            key={key}
+            onClick={() => setStatusFilter(key)}
+            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+              statusFilter === key
+                ? 'bg-white text-black'
+                : 'text-neutral-400 hover:text-white border border-neutral-800 hover:border-neutral-600'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {isLoading ? (
+        <p className="text-neutral-500 text-sm text-center py-8">로딩 중...</p>
+      ) : filtered.length === 0 ? (
+        <p className="text-neutral-500 text-sm text-center py-8">신고가 없습니다.</p>
+      ) : (
+        <div className="space-y-3">
+          {filtered.map((report) => (
+            <div
+              key={report.id}
+              className={`bg-[#111111] border rounded-lg p-4 ${report.status === 'REVIEWED' ? 'border-neutral-800/50 opacity-60' : 'border-neutral-800'}`}
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs font-medium text-neutral-200">
+                      {report.reported.nickname ?? report.reported.email}
+                    </span>
+                    <span className="text-xs text-neutral-600">이(가) 신고됨</span>
+                    <span className="text-xs bg-neutral-900 border border-neutral-700 rounded px-2 py-0.5 text-neutral-400">
+                      {USER_REPORT_REASON_LABEL[report.reason] ?? report.reason}
+                    </span>
+                    {report.status === 'REVIEWED' && (
+                      <span className="text-xs text-neutral-600 border border-neutral-800 rounded px-1.5 py-0.5">처리됨</span>
+                    )}
+                  </div>
+                  {report.description && (
+                    <p className="text-xs text-neutral-500">{report.description}</p>
+                  )}
+                  <p className="text-xs text-neutral-700">
+                    신고자: {report.reporter.nickname ?? report.reporter.email}
+                    {' · '}
+                    {new Date(report.createdAt).toLocaleDateString('ko-KR')}
+                  </p>
+                </div>
+                {report.status === 'PENDING' && (
+                  <button
+                    onClick={() => dismissMutation.mutate(report.id)}
+                    disabled={dismissMutation.isPending}
+                    className="flex-shrink-0 rounded-md border border-neutral-700 text-xs text-neutral-400 px-3 py-1.5 hover:text-white transition-colors disabled:opacity-40"
+                  >
+                    무시
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
