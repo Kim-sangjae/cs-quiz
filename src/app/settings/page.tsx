@@ -23,6 +23,15 @@ export default function SettingsPage() {
   const isValid = NICKNAME_REGEX.test(nickname);
   const canSave = isChanged && isValid;
 
+  const formatError = () => {
+    if (!isChanged || nickname.length === 0) return null;
+    if (/[\s!@#$%^&*()\-_=+\[\]{};:'",.<>?/\\|`~]/.test(nickname)) return '공백이나 특수문자를 사용할 수 없습니다';
+    if (nickname.length < 2) return '2자 이상 입력하세요';
+    if (nickname.length > 12) return '12자 이하로 입력하세요';
+    if (!NICKNAME_REGEX.test(nickname)) return '영문, 숫자, 한글만 사용할 수 있습니다';
+    return null;
+  };
+
   async function handleSave() {
     setStatus('loading');
     setErrorMsg('');
@@ -40,6 +49,10 @@ export default function SettingsPage() {
         setStatus('success');
       } else if (res.status === 409) {
         setErrorMsg('이미 사용 중인 닉네임입니다');
+        setStatus('error');
+      } else if (res.status === 400) {
+        const data = await res.json().catch(() => ({}));
+        setErrorMsg(data.error === 'Inappropriate nickname' ? '부적절한 닉네임입니다' : '닉네임 형식이 올바르지 않습니다');
         setStatus('error');
       } else {
         setErrorMsg('저장에 실패했습니다');
@@ -79,7 +92,11 @@ export default function SettingsPage() {
               placeholder="2~12자, 영문/숫자/한글"
               className="w-full bg-[#1a1a1a] border border-neutral-800 rounded-md px-3 py-2.5 text-sm text-white placeholder-neutral-600 focus:outline-none focus:border-neutral-600"
             />
-            <p className="text-xs text-neutral-600 mt-1">2~12자, 영문/숫자/한글만 사용 가능합니다</p>
+            {formatError() ? (
+              <p className="text-xs text-red-400 mt-1">{formatError()}</p>
+            ) : (
+              <p className="text-xs text-neutral-600 mt-1">2~12자, 영문/숫자/한글만 사용 가능합니다</p>
+            )}
           </div>
 
           {status === 'success' && (

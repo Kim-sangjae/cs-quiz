@@ -44,6 +44,15 @@ function SetupNicknameForm() {
         setError('이미 사용 중인 닉네임입니다.');
         return;
       }
+      if (res.status === 400) {
+        const data = await res.json().catch(() => ({}));
+        if (data.error === 'Inappropriate nickname') {
+          setError('부적절한 닉네임입니다.');
+        } else {
+          setError('닉네임 형식이 올바르지 않습니다.');
+        }
+        return;
+      }
       if (!res.ok) {
         setError('오류가 발생했습니다. 다시 시도해주세요.');
         return;
@@ -58,6 +67,7 @@ function SetupNicknameForm() {
 
   const validationMessage = () => {
     if (nickname.length === 0) return null;
+    if (/[\s!@#$%^&*()\-_=+\[\]{};:'",.<>?/\\|`~]/.test(nickname)) return '공백이나 특수문자를 사용할 수 없습니다.';
     if (nickname.length < 2) return '2자 이상 입력하세요.';
     if (nickname.length > 12) return '12자 이하로 입력하세요.';
     if (!NICKNAME_REGEX.test(nickname)) return '영문, 숫자, 한글만 사용할 수 있습니다.';
