@@ -2971,7 +2971,9 @@ const BASE_BLOCKED_WORDS_DISPLAY = [
   'admin', 'administrator', 'root', 'system', 'mod', 'moderator',
   'csora', '운영자', '관리자', '개발자', '시스템', '공식',
   'staff', 'official', 'support', 'help',
-  '씨발', '존나', '존내', 'ㅈㄴ', '미친',
+  '씨발', '씨빨', '쌍년', '쌍놈', '존나', '존내', '졸라', 'ㅈㄴ',
+  '미친', '미칠', 'ㅁㅊ', '애미', '애비', '에미', '에비',
+  '씹', '자지', '보지',
 ];
 
 function BlockedWordsTab() {

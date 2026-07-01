@@ -8,8 +8,13 @@ export const BASE_BLOCKED_WORDS = [
   'csora', '운영자', '관리자', '개발자', '시스템', '공식',
   // 사칭 유도
   'staff', 'official', 'support', 'help',
-  // korcen 미탐지 보충
-  '씨발', '존나', '존내', 'ㅈㄴ', '미친',
+  // korcen 미탐지 보충 — 일반 욕설
+  '씨발', '씨빨', '쌍년', '쌍놈', '존나', '존내', '졸라', 'ㅈㄴ',
+  '미친', '미칠', 'ㅁㅊ',
+  // korcen 미탐지 보충 — 부모 관련
+  '애미', '애비', '에미', '에비',
+  // korcen 미탐지 보충 — 성적
+  '씹', '자지', '보지',
 ];
 
 function normalize(nickname: string): string {
