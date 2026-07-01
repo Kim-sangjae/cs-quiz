@@ -1,4 +1,4 @@
-import { check } from 'korcen';
+import { check } from '@/lib/korcen-check';
 import { prisma } from '@/lib/prisma';
 
 // 코드에 고정된 기본 금칙어 (관리자 페이지에서 읽기 전용으로 표시됨)
