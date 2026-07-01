@@ -7,7 +7,7 @@ import { useSession } from 'next-auth/react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
-type Tab = 'questions' | 'board' | 'reports' | 'users' | 'inquiries' | 'logs' | 'analytics' | 'errors' | 'generate';
+type Tab = 'questions' | 'board' | 'reports' | 'users' | 'inquiries' | 'logs' | 'analytics' | 'errors' | 'generate' | 'blocked-words';
 
 const CATEGORY_LABEL: Record<string, string> = {
   ds: '자료구조', algo: '알고리즘', os: '운영체제',
@@ -124,6 +124,7 @@ export default function AdminPage() {
     { key: 'logs', label: '감사 로그' },
     { key: 'errors', label: '오류 로그' },
     { key: 'generate', label: 'AI 문제 생성' },
+    { key: 'blocked-words', label: '금칙어 관리' },
   ];
 
   return (
@@ -177,6 +178,7 @@ export default function AdminPage() {
       {activeTab === 'logs' && <LogsTab />}
       {activeTab === 'errors' && <ErrorLogsTab />}
       {activeTab === 'generate' && <GenerateQuestionsTab />}
+      {activeTab === 'blocked-words' && <BlockedWordsTab />}
       {confirm && (
         <ConfirmDialog
           message={confirm.message}
@@ -2960,6 +2962,133 @@ function GenerateQuestionsTab() {
             <p className="text-xs text-neutral-500 pt-1">승인 대기 탭에서 검토 후 승인하세요.</p>
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+const BASE_BLOCKED_WORDS_DISPLAY = [
+  'admin', 'administrator', 'root', 'system', 'mod', 'moderator',
+  'csora', '운영자', '관리자', '개발자', '시스템', '공식',
+  'staff', 'official', 'support', 'help',
+  '씨발', '존나', '존내', 'ㅈㄴ', '미친',
+];
+
+function BlockedWordsTab() {
+  const queryClient = useQueryClient();
+  const [input, setInput] = useState('');
+
+  const { data: customWords = [], isLoading } = useQuery<{ id: string; word: string; createdAt: string }[]>({
+    queryKey: ['admin-blocked-words'],
+    queryFn: () => fetch('/api/admin/blocked-words').then((r) => r.json()),
+  });
+
+  const addMutation = useMutation({
+    mutationFn: (word: string) =>
+      fetch('/api/admin/blocked-words', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ word }),
+      }).then(async (r) => {
+        if (!r.ok) throw new Error((await r.json()).error);
+        return r.json();
+      }),
+    onSuccess: () => {
+      setInput('');
+      void queryClient.invalidateQueries({ queryKey: ['admin-blocked-words'] });
+      toast.success('금칙어가 추가되었습니다.');
+    },
+    onError: (e: Error) => {
+      toast.error(e.message === 'Already exists' ? '이미 등록된 단어입니다.' : '추가에 실패했습니다.');
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) =>
+      fetch('/api/admin/blocked-words', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['admin-blocked-words'] });
+      toast.success('삭제되었습니다.');
+    },
+  });
+
+  return (
+    <div className="space-y-6">
+      <div className="bg-[#111111] border border-neutral-800 rounded-lg p-5">
+        <h2 className="text-sm font-medium text-white mb-1">금칙어 추가</h2>
+        <p className="text-xs text-neutral-500 mb-4">
+          닉네임에 사용할 수 없는 단어를 추가합니다. 소문자로 저장되며 부분 일치로 검사합니다.
+        </p>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (input.trim()) addMutation.mutate(input.trim());
+          }}
+          className="flex gap-2"
+        >
+          <input
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder="추가할 단어 입력"
+            className="flex-1 bg-[#1a1a1a] border border-neutral-800 rounded-md px-3 py-2 text-sm text-white placeholder-neutral-600 focus:outline-none focus:border-neutral-600"
+          />
+          <button
+            type="submit"
+            disabled={!input.trim() || addMutation.isPending}
+            className="rounded-md bg-white text-black text-sm font-medium px-4 py-2 hover:bg-neutral-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            추가
+          </button>
+        </form>
+      </div>
+
+      <div className="bg-[#111111] border border-neutral-800 rounded-lg p-5">
+        <h2 className="text-sm font-medium text-white mb-1">관리자 추가 금칙어</h2>
+        <p className="text-xs text-neutral-500 mb-4">삭제 시 즉시 적용됩니다.</p>
+        {isLoading ? (
+          <p className="text-xs text-neutral-500">불러오는 중...</p>
+        ) : customWords.length === 0 ? (
+          <p className="text-xs text-neutral-600">등록된 금칙어가 없습니다.</p>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {customWords.map((w) => (
+              <span key={w.id} className="inline-flex items-center gap-1.5 text-xs bg-neutral-900 border border-neutral-700 rounded px-2.5 py-1 text-neutral-300">
+                {w.word}
+                <button
+                  onClick={() => deleteMutation.mutate(w.id)}
+                  className="text-neutral-600 hover:text-red-400 transition-colors"
+                  title="삭제"
+                >
+                  ✕
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="bg-[#111111] border border-neutral-800 rounded-lg p-5">
+        <h2 className="text-sm font-medium text-white mb-1">기본 금칙어 (읽기 전용)</h2>
+        <p className="text-xs text-neutral-500 mb-4">
+          코드에 고정된 목록입니다. 수정하려면{' '}
+          <code className="text-neutral-400 bg-neutral-900 rounded px-1">src/lib/nickname-filter.ts</code>를 직접 수정하세요.
+          korcen 라이브러리 단어 목록은{' '}
+          <a href="https://github.com/KR-korcen/korcen.ts/tree/stable/src" target="_blank" rel="noreferrer" className="text-blue-400 hover:underline">
+            여기
+          </a>에서 확인하세요.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {BASE_BLOCKED_WORDS_DISPLAY.map((w) => (
+            <span key={w} className="text-xs bg-neutral-900/50 border border-neutral-800 rounded px-2.5 py-1 text-neutral-500">
+              {w}
+            </span>
+          ))}
+        </div>
       </div>
     </div>
   );

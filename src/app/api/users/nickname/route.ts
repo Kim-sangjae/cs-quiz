@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid nickname' }, { status: 400 });
   }
 
-  const filter = isNicknameAllowed(nickname);
+  const filter = await isNicknameAllowed(nickname);
   if (!filter.ok) {
     return NextResponse.json({ error: 'Inappropriate nickname' }, { status: 400 });
   }
@@ -50,7 +50,7 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid nickname' }, { status: 400 });
   }
 
-  const filter = isNicknameAllowed(nickname);
+  const filter = await isNicknameAllowed(nickname);
   if (!filter.ok) {
     return NextResponse.json({ error: 'Inappropriate nickname' }, { status: 400 });
   }

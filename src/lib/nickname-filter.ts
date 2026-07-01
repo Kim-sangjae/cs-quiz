@@ -1,6 +1,8 @@
 import { check } from 'korcen';
+import { prisma } from '@/lib/prisma';
 
-const BLOCKED_WORDS = [
+// 코드에 고정된 기본 금칙어 (관리자 페이지에서 읽기 전용으로 표시됨)
+export const BASE_BLOCKED_WORDS = [
   // 서비스 예약어
   'admin', 'administrator', 'root', 'system', 'mod', 'moderator',
   'csora', '운영자', '관리자', '개발자', '시스템', '공식',
@@ -16,10 +18,13 @@ function normalize(nickname: string): string {
     .replace(/[\s\.\-_,!@#$%^&*()+=\[\]{}<>?/\\|~`'"]/g, '');
 }
 
-export function isNicknameAllowed(nickname: string): { ok: boolean; reason?: string } {
+export async function isNicknameAllowed(nickname: string): Promise<{ ok: boolean; reason?: string }> {
   const normalized = normalize(nickname);
 
-  for (const word of BLOCKED_WORDS) {
+  const dbWords = await prisma.blockedWord.findMany({ select: { word: true } });
+  const allBlocked = [...BASE_BLOCKED_WORDS, ...dbWords.map((w) => w.word)];
+
+  for (const word of allBlocked) {
     if (normalized.includes(word.toLowerCase())) {
       return { ok: false, reason: 'blocked' };
     }

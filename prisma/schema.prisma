@@ -401,3 +401,10 @@ model ReviewSchedule {
   @@unique([userId, questionId])
   @@index([userId, nextReviewAt])
 }
+
+model BlockedWord {
+  id        String   @id @default(cuid())
+  word      String   @unique
+  createdAt DateTime @default(now())
+  createdBy String
+}
