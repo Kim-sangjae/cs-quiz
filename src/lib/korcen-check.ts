@@ -139,6 +139,7 @@ const FALSE_POSITIVE_PATTERNS_POLITICS: string[] = [
     '카카오톡', '카톡', '카페', '하다가', '먹다가', '카와이', '카츠', '카레', '니가', '내가', '너가',
     '우리가', '너희가', '카카오', '카세트', '카플레이어', '카운터', '카정', '카드',
 ];
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const FALSE_POSITIVE_PATTERNS_ENGLISH: string[] = ['```css', 'ex)', '*', 'omg'];
 
 const allFalsePositivePatterns: string[] = [

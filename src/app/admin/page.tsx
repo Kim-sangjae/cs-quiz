@@ -1926,7 +1926,12 @@ function LogsTab() {
 
   const { data: users = [] } = useQuery<AdminUser[]>({
     queryKey: ['admin', 'users'],
-    queryFn: async () => { const r = await fetch('/api/admin/users'); if (!r.ok) return []; return r.json(); },
+    queryFn: async () => {
+      const r = await fetch('/api/admin/users?page=1&limit=1000');
+      if (!r.ok) return [];
+      const json = await r.json() as { users?: AdminUser[] };
+      return Array.isArray(json) ? json : (json.users ?? []);
+    },
     staleTime: 60_000,
   });
 
