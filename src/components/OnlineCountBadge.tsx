@@ -34,6 +34,12 @@ function battleRecord(p: UserProfile): string {
   return parts.join(' ');
 }
 
+const USER_REPORT_REASONS = [
+  { value: 'INAPPROPRIATE_NICKNAME', label: '부적절한 닉네임' },
+  { value: 'OTHER', label: '기타' },
+] as const;
+type ReportReason = typeof USER_REPORT_REASONS[number]['value'];
+
 function ProfileModal({
   user,
   profile,
@@ -53,6 +59,25 @@ function ProfileModal({
 }) {
   const [hoveredBadge, setHoveredBadge] = useState<string | null>(null);
   const [badgeTooltipPos, setBadgeTooltipPos] = useState<{ x: number; y: number } | null>(null);
+  const [reporting, setReporting] = useState(false);
+  const [reportReason, setReportReason] = useState<ReportReason>('INAPPROPRIATE_NICKNAME');
+  const [reportDesc, setReportDesc] = useState('');
+  const [reportDone, setReportDone] = useState(false);
+  const [reportLoading, setReportLoading] = useState(false);
+
+  async function handleReport() {
+    if (reportLoading) return;
+    setReportLoading(true);
+    try {
+      const res = await fetch(`/api/users/${user.id}/report`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: reportReason, description: reportDesc || undefined }),
+      });
+      if (res.ok || res.status === 409) setReportDone(true);
+    } catch {}
+    setReportLoading(false);
+  }
 
   return (
     <div className="fixed inset-0 z-[202] flex items-center justify-center p-4" onClick={onClose}>
@@ -81,7 +106,21 @@ function ProfileModal({
             </div>
             <span className="absolute bottom-0.5 right-0.5 w-3.5 h-3.5 rounded-full border-2 border-[#111111] bg-emerald-500" />
           </div>
-          <p className="text-base font-semibold text-white">{user.nickname}</p>
+          <div className="flex items-center gap-1.5">
+            <p className="text-base font-semibold text-white">{user.nickname}</p>
+            {!user.isSelf && (
+              <button
+                onClick={() => { setReporting(true); setReportDone(false); }}
+                className="p-1 rounded text-neutral-500 hover:text-red-400 transition-colors"
+                title="신고"
+              >
+                <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 2v2"/><path d="M4.93 4.93l1.41 1.41"/><path d="M19.07 4.93l-1.41 1.41"/>
+                  <path d="M8 11a4 4 0 018 0v3H8v-3z"/><path d="M5 15h14"/><path d="M9 19a3 3 0 006 0"/>
+                </svg>
+              </button>
+            )}
+          </div>
           <div className="flex items-center gap-2 mt-1">
             {loading ? (
               <div className="h-4 w-20 bg-neutral-800 rounded animate-pulse" />
@@ -176,6 +215,68 @@ function ProfileModal({
               >
                 {addingFriend ? '요청 중...' : '친구 추가'}
               </button>
+            )}
+          </div>
+        )}
+
+        {/* 신고 오버레이 */}
+        {!user.isSelf && reporting && (
+          <div className="absolute inset-0 bg-[#111111]/95 rounded-2xl flex flex-col justify-center px-5 py-6 z-10">
+            {reportDone ? (
+              <div className="flex flex-col items-center gap-3 text-center">
+                <svg width={28} height={28} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="text-emerald-400">
+                  <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><path d="M22 4L12 14.01l-3-3"/>
+                </svg>
+                <p className="text-sm text-neutral-300">신고가 접수되었습니다.</p>
+                <button
+                  onClick={() => { setReporting(false); setReportDesc(''); setReportReason('INAPPROPRIATE_NICKNAME'); }}
+                  className="mt-1 text-xs text-neutral-500 hover:text-white underline"
+                >
+                  닫기
+                </button>
+              </div>
+            ) : (
+              <>
+                <p className="text-sm font-medium text-white mb-4">{user.nickname} 신고</p>
+                <div className="space-y-2 mb-4">
+                  {USER_REPORT_REASONS.map((r) => (
+                    <label key={r.value} className="flex items-center gap-2.5 cursor-pointer group">
+                      <input
+                        type="radio"
+                        name="reportReason"
+                        value={r.value}
+                        checked={reportReason === r.value}
+                        onChange={() => setReportReason(r.value)}
+                        className="accent-red-500"
+                      />
+                      <span className="text-sm text-neutral-300 group-hover:text-white">{r.label}</span>
+                    </label>
+                  ))}
+                </div>
+                <textarea
+                  value={reportDesc}
+                  onChange={(e) => setReportDesc(e.target.value)}
+                  placeholder="추가 설명 (선택)"
+                  maxLength={200}
+                  rows={3}
+                  className="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-3 py-2 text-xs text-neutral-200 placeholder-neutral-600 resize-none focus:outline-none focus:border-neutral-500 mb-4"
+                />
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleReport}
+                    disabled={reportLoading}
+                    className="flex-1 rounded-lg bg-red-600 text-white text-xs font-semibold py-2.5 hover:bg-red-500 disabled:opacity-50 transition-colors"
+                  >
+                    {reportLoading ? '제출 중...' : '신고'}
+                  </button>
+                  <button
+                    onClick={() => { setReporting(false); setReportDesc(''); setReportReason('INAPPROPRIATE_NICKNAME'); }}
+                    className="flex-1 rounded-lg bg-neutral-800 text-neutral-300 text-xs font-semibold py-2.5 hover:bg-neutral-700 transition-colors"
+                  >
+                    취소
+                  </button>
+                </div>
+              </>
             )}
           </div>
         )}

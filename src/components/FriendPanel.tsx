@@ -142,12 +142,12 @@ function ProfileModal({
                 <p className="text-base font-semibold text-white">{friend.nickname}</p>
                 <button
                   onClick={() => { setReporting(true); setReportDone(false); }}
-                  className="p-1 rounded text-neutral-700 hover:text-red-400 transition-colors"
+                  className="p-1 rounded text-neutral-500 hover:text-red-400 transition-colors"
                   title="신고"
                 >
-                  <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
-                    <line x1="4" y1="22" x2="4" y2="15" />
+                  <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 2v2"/><path d="M4.93 4.93l1.41 1.41"/><path d="M19.07 4.93l-1.41 1.41"/>
+                    <path d="M8 11a4 4 0 018 0v3H8v-3z"/><path d="M5 15h14"/><path d="M9 19a3 3 0 006 0"/>
                   </svg>
                 </button>
               </div>
