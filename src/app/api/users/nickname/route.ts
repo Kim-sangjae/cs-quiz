@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { writeLog } from '@/lib/audit';
+import { isNicknameAllowed } from '@/lib/nickname-filter';
 
 const NICKNAME_REGEX = /^[a-zA-Z0-9가-힣]{2,12}$/;
 
@@ -16,6 +17,11 @@ export async function POST(req: NextRequest) {
 
   if (typeof nickname !== 'string' || !NICKNAME_REGEX.test(nickname)) {
     return NextResponse.json({ error: 'Invalid nickname' }, { status: 400 });
+  }
+
+  const filter = isNicknameAllowed(nickname);
+  if (!filter.ok) {
+    return NextResponse.json({ error: 'Inappropriate nickname' }, { status: 400 });
   }
 
   const existing = await prisma.user.findUnique({ where: { nickname } });
@@ -42,6 +48,11 @@ export async function PATCH(req: NextRequest) {
 
   if (typeof nickname !== 'string' || !NICKNAME_REGEX.test(nickname)) {
     return NextResponse.json({ error: 'Invalid nickname' }, { status: 400 });
+  }
+
+  const filter = isNicknameAllowed(nickname);
+  if (!filter.ok) {
+    return NextResponse.json({ error: 'Inappropriate nickname' }, { status: 400 });
   }
 
   const currentUser = await prisma.user.findUnique({ where: { id: session.user.id } });
