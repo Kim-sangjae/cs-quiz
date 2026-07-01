@@ -425,9 +425,11 @@ export default function MyPage() {
         body: JSON.stringify({ nickname: nicknameInput }),
       });
       if (!res.ok) {
-        setNicknameError((await res.json().catch(() => ({}))).error === 'Same nickname'
-          ? '현재와 동일한 닉네임입니다.'
-          : res.status === 409 ? '이미 사용 중인 닉네임입니다.' : '오류가 발생했습니다.');
+        const data = await res.json().catch(() => ({}));
+        if (data.error === 'Same nickname') setNicknameError('현재와 동일한 닉네임입니다.');
+        else if (res.status === 409) setNicknameError('이미 사용 중인 닉네임입니다.');
+        else if (data.error === 'Inappropriate nickname') setNicknameError('부적절한 닉네임입니다.');
+        else setNicknameError('오류가 발생했습니다.');
         return;
       }
       await update({ nickname: nicknameInput });
