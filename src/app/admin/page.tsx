@@ -2986,23 +2986,25 @@ function BlockedWordsTab() {
   });
 
   const addMutation = useMutation({
-    mutationFn: (word: string) =>
+    mutationFn: (words: string[]) =>
       fetch('/api/admin/blocked-words', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ word }),
+        body: JSON.stringify({ words }),
       }).then(async (r) => {
         if (!r.ok) throw new Error((await r.json()).error);
-        return r.json();
+        return r.json() as Promise<{ added: number; skipped: number }>;
       }),
-    onSuccess: () => {
+    onSuccess: (data) => {
       setInput('');
       void queryClient.invalidateQueries({ queryKey: ['admin-blocked-words'] });
-      toast.success('금칙어가 추가되었습니다.');
+      if (data.skipped > 0) {
+        toast.success(`${data.added}개 추가, ${data.skipped}개 중복 건너뜀`);
+      } else {
+        toast.success(`${data.added}개 추가되었습니다.`);
+      }
     },
-    onError: (e: Error) => {
-      toast.error(e.message === 'Already exists' ? '이미 등록된 단어입니다.' : '추가에 실패했습니다.');
-    },
+    onError: () => toast.error('추가에 실패했습니다.'),
   });
 
   const deleteMutation = useMutation({
@@ -3023,29 +3025,41 @@ function BlockedWordsTab() {
       <div className="bg-[#111111] border border-neutral-800 rounded-lg p-5">
         <h2 className="text-sm font-medium text-white mb-1">금칙어 추가</h2>
         <p className="text-xs text-neutral-500 mb-4">
-          닉네임에 사용할 수 없는 단어를 추가합니다. 소문자로 저장되며 부분 일치로 검사합니다.
+          쉼표(,) 또는 줄바꿈으로 구분해 여러 단어를 한꺼번에 추가할 수 있습니다.
+          소문자로 저장되며 <span className="text-neutral-400">닉네임 어디에 포함되든</span> 차단됩니다.
         </p>
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            if (input.trim()) addMutation.mutate(input.trim());
+            const words = input
+              .split(/[\n,]/)
+              .map((w) => w.trim())
+              .filter((w) => w.length > 0);
+            if (words.length > 0) addMutation.mutate(words);
           }}
-          className="flex gap-2"
+          className="space-y-2"
         >
-          <input
-            type="text"
+          <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="추가할 단어 입력"
-            className="flex-1 bg-[#1a1a1a] border border-neutral-800 rounded-md px-3 py-2 text-sm text-white placeholder-neutral-600 focus:outline-none focus:border-neutral-600"
+            placeholder={'단어1, 단어2, 단어3\n또는 줄바꿈으로 구분'}
+            rows={3}
+            className="w-full bg-[#1a1a1a] border border-neutral-800 rounded-md px-3 py-2 text-sm text-white placeholder-neutral-600 focus:outline-none focus:border-neutral-600 resize-none"
           />
-          <button
-            type="submit"
-            disabled={!input.trim() || addMutation.isPending}
-            className="rounded-md bg-white text-black text-sm font-medium px-4 py-2 hover:bg-neutral-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-          >
-            추가
-          </button>
+          <div className="flex justify-between items-center">
+            <span className="text-xs text-neutral-600">
+              {input.split(/[\n,]/).map((w) => w.trim()).filter((w) => w.length > 0).length > 0
+                ? `${input.split(/[\n,]/).map((w) => w.trim()).filter((w) => w.length > 0).length}개 입력됨`
+                : ''}
+            </span>
+            <button
+              type="submit"
+              disabled={!input.trim() || addMutation.isPending}
+              className="rounded-md bg-white text-black text-sm font-medium px-4 py-2 hover:bg-neutral-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              {addMutation.isPending ? '추가 중...' : '추가'}
+            </button>
+          </div>
         </form>
       </div>
 
@@ -3079,9 +3093,9 @@ function BlockedWordsTab() {
         <p className="text-xs text-neutral-500 mb-4">
           코드에 고정된 목록입니다. 수정하려면{' '}
           <code className="text-neutral-400 bg-neutral-900 rounded px-1">src/lib/nickname-filter.ts</code>를 직접 수정하세요.
-          korcen 라이브러리 단어 목록은{' '}
-          <a href="https://github.com/KR-korcen/korcen.ts/tree/stable/src" target="_blank" rel="noreferrer" className="text-blue-400 hover:underline">
-            여기
+          korcen 패턴 목록 전체는{' '}
+          <a href="https://github.com/Tanat05/korcen.ts/blob/stable/src/checkBadLang.ts" target="_blank" rel="noreferrer" className="text-blue-400 hover:underline">
+            여기 (checkBadLang.ts)
           </a>에서 확인하세요.
         </p>
         <div className="flex flex-wrap gap-2">

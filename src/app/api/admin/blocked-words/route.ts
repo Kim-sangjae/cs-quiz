@@ -20,20 +20,26 @@ export async function POST(req: NextRequest) {
   const session = await requireAdmin();
   if (!session) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
-  const { word } = await req.json() as { word: unknown };
-  if (typeof word !== 'string' || word.trim().length === 0) {
-    return NextResponse.json({ error: 'Invalid word' }, { status: 400 });
+  const body = await req.json() as { words: unknown };
+  const raw = body.words;
+  const words = Array.isArray(raw) ? raw : (typeof raw === 'string' ? [raw] : []);
+  const trimmed = words
+    .map((w) => (typeof w === 'string' ? w.trim().toLowerCase() : ''))
+    .filter((w) => w.length > 0);
+
+  if (trimmed.length === 0) {
+    return NextResponse.json({ error: 'Invalid words' }, { status: 400 });
   }
 
-  const trimmed = word.trim().toLowerCase();
-  try {
-    const created = await prisma.blockedWord.create({
-      data: { word: trimmed, createdBy: session.user.id },
-    });
-    return NextResponse.json(created);
-  } catch {
-    return NextResponse.json({ error: 'Already exists' }, { status: 409 });
-  }
+  const results = await Promise.allSettled(
+    trimmed.map((word) =>
+      prisma.blockedWord.create({ data: { word, createdBy: session.user.id } })
+    )
+  );
+
+  const added = results.filter((r) => r.status === 'fulfilled').length;
+  const skipped = results.filter((r) => r.status === 'rejected').length;
+  return NextResponse.json({ added, skipped });
 }
 
 export async function DELETE(req: NextRequest) {
