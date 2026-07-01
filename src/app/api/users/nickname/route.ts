@@ -19,7 +19,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid nickname' }, { status: 400 });
   }
 
-  const filter = await isNicknameAllowed(nickname);
+  const isAdmin = session.user.role === 'ADMIN';
+  const filter = await isNicknameAllowed(nickname, isAdmin);
   if (!filter.ok) {
     return NextResponse.json({ error: 'Inappropriate nickname' }, { status: 400 });
   }
@@ -50,7 +51,8 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid nickname' }, { status: 400 });
   }
 
-  const filter = await isNicknameAllowed(nickname);
+  const isAdmin = session.user.role === 'ADMIN';
+  const filter = await isNicknameAllowed(nickname, isAdmin);
   if (!filter.ok) {
     return NextResponse.json({ error: 'Inappropriate nickname' }, { status: 400 });
   }

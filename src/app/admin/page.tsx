@@ -3064,12 +3064,18 @@ function BlockedWordsTab() {
       </div>
 
       <div className="bg-[#111111] border border-neutral-800 rounded-lg p-5">
-        <h2 className="text-sm font-medium text-white mb-1">관리자 추가 금칙어</h2>
-        <p className="text-xs text-neutral-500 mb-4">삭제 시 즉시 적용됩니다.</p>
+        <h2 className="text-sm font-medium text-white mb-1">금칙어 목록</h2>
+        <p className="text-xs text-neutral-500 mb-4">
+          관리자 추가 단어는 삭제 가능, 기본 단어(흐리게 표시)는 읽기 전용입니다.
+          기본 단어 수정은{' '}
+          <code className="text-neutral-400 bg-neutral-900 rounded px-1">src/lib/nickname-filter.ts</code>를,
+          korcen 패턴 전체는{' '}
+          <a href="https://github.com/Tanat05/korcen.ts/blob/stable/src/checkBadLang.ts" target="_blank" rel="noreferrer" className="text-blue-400 hover:underline">
+            여기 (checkBadLang.ts)
+          </a>에서 확인하세요.
+        </p>
         {isLoading ? (
           <p className="text-xs text-neutral-500">불러오는 중...</p>
-        ) : customWords.length === 0 ? (
-          <p className="text-xs text-neutral-600">등록된 금칙어가 없습니다.</p>
         ) : (
           <div className="flex flex-wrap gap-2">
             {customWords.map((w) => (
@@ -3084,27 +3090,13 @@ function BlockedWordsTab() {
                 </button>
               </span>
             ))}
+            {BASE_BLOCKED_WORDS_DISPLAY.map((w) => (
+              <span key={w} className="text-xs bg-neutral-900 border border-neutral-700 rounded px-2.5 py-1 text-neutral-300">
+                {w}
+              </span>
+            ))}
           </div>
         )}
-      </div>
-
-      <div className="bg-[#111111] border border-neutral-800 rounded-lg p-5">
-        <h2 className="text-sm font-medium text-white mb-1">기본 금칙어 (읽기 전용)</h2>
-        <p className="text-xs text-neutral-500 mb-4">
-          코드에 고정된 목록입니다. 수정하려면{' '}
-          <code className="text-neutral-400 bg-neutral-900 rounded px-1">src/lib/nickname-filter.ts</code>를 직접 수정하세요.
-          korcen 패턴 목록 전체는{' '}
-          <a href="https://github.com/Tanat05/korcen.ts/blob/stable/src/checkBadLang.ts" target="_blank" rel="noreferrer" className="text-blue-400 hover:underline">
-            여기 (checkBadLang.ts)
-          </a>에서 확인하세요.
-        </p>
-        <div className="flex flex-wrap gap-2">
-          {BASE_BLOCKED_WORDS_DISPLAY.map((w) => (
-            <span key={w} className="text-xs bg-neutral-900/50 border border-neutral-800 rounded px-2.5 py-1 text-neutral-500">
-              {w}
-            </span>
-          ))}
-        </div>
       </div>
     </div>
   );

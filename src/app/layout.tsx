@@ -9,6 +9,7 @@ export const viewport: Viewport = {
 import Providers from "./providers";
 import Header from "@/components/Header";
 import ScrollButtons from "@/components/ScrollButtons";
+import DragScroll from "@/components/DragScroll";
 import SessionGuard from "@/components/SessionGuard";
 import FriendPanel from "@/components/FriendPanel";
 import BattleInviteAlert from "@/components/BattleInviteAlert";
@@ -51,6 +52,7 @@ export default function RootLayout({
           <Header />
           {children}
           <ScrollButtons />
+          <DragScroll />
           <FriendPanel />
           <BattleInviteAlert />
           <BattleRejectedAlert />

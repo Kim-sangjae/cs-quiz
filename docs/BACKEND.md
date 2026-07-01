@@ -98,6 +98,59 @@ SUPABASE_SERVICE_ROLE_KEY=  # Supabase service role 키 (서버 전용, 절대 �
 | `POST /api/admin/generate-questions` | 추가 | GPT-4o 배치 문제 자동생성 (BATCH_SIZE=10, pgvector 중복 검사, `{ "questions": [...] }` wrapper 포맷) |
 | `POST /api/quiz/sessions` | 수정 | `mode` 파라미터 추가 (normal\|review\|timed). review 모드 시 랭킹·뱃지·스트릭 업데이트 건너뜀 |
 
+## 닉네임 필터링
+
+### 파일 구조
+
+| 파일 | 역할 |
+|------|------|
+| `src/lib/korcen-check.ts` | Tanat05/korcen.ts `checkBadLang.ts` + `checkForeign.ts` 직접 이식. `check()` (한국어), `foreign()` (영어) 두 함수 export |
+| `src/lib/nickname-filter.ts` | 필터링 진입점. `isNicknameAllowed(nickname, isAdmin?)` async 함수 |
+| `src/app/api/users/nickname/route.ts` | POST(최초 설정) / PATCH(변경) 모두 필터 적용 |
+| `src/app/api/admin/blocked-words/route.ts` | GET·POST(bulk)·DELETE — 관리자 DB 금칙어 CRUD |
+
+### 필터링 파이프라인
+
+```
+닉네임 입력
+  → normalize() : 소문자 + 특수문자 제거 (시.발 → 시발 등 우회 방지)
+  → BASE_BLOCKED_WORDS 체크 (부분 일치, includes)
+      - RESERVED_WORDS (admin/운영자/관리자 등 예약어) — 관리자(isAdmin=true)는 건너뜀
+      - PROFANITY_WORDS (씨발/미친/애미/씹 등 korcen 미탐지 보충)
+  → DB BlockedWord 체크 (관리자가 추가한 커스텀 단어, 부분 일치)
+  → check(normalized) || check(nickname) : Tanat05 korcen 한국어 욕설 (8개 카테고리)
+  → foreign(nickname) : 영어 욕설 600+ 단어 (fuck/shit/bitch 등)
+  → ok: true
+```
+
+### 라이브러리 선택 배경
+
+- **npm `korcen@1.0.1`** (KR-korcen): 단어 목록 불완전 → 사용 안 함
+- **Tanat05/korcen.ts** (stable 브랜치): 한국어 욕설 8카테고리(GENERAL/MINOR/SEXUAL/BELITTLE/RACE/PARENT/SPECIAL/POLITICS) + 정규화 맵 포함. `checkBadLang.ts`에 전 카테고리 통합. `src/lib/korcen-check.ts`로 직접 이식
+- **checkForeign.ts** (동일 레포): 영어 600+, 일본어, 중국어 단어. `allProfanityPatterns`에 미포함이라 별도 `foreign()` 함수로 추가. 단, 중국어/일본어는 내부 코드 구조상 실제 탐지 안 됨(영어만 동작)
+
+### 관리자 예약어 우회
+
+`isNicknameAllowed(nickname, isAdmin = false)`:
+- `isAdmin=true`: RESERVED_WORDS 체크 건너뜀 → `admin`, `운영자`, `관리자` 등 사용 가능
+- 욕설(PROFANITY_WORDS + korcen + foreign)은 관리자도 동일 차단
+- `POST /api/users/nickname`, `PATCH /api/users/nickname` 모두 `session.user.role === 'ADMIN'` 전달
+
+### BlockedWord 모델
+
+```prisma
+model BlockedWord {
+  id        String   @id @default(cuid())
+  word      String   @unique
+  createdAt DateTime @default(now())
+  createdBy String
+}
+```
+
+- 관리자 패널 "금칙어 관리" 탭에서 추가/삭제
+- 쉼표·줄바꿈 구분 일괄 등록 지원 (`Promise.allSettled` — 중복 자동 건너뜀)
+- 닉네임 정규화 후 부분 일치(includes) 체크 — 앞/중간/뒤 어디 포함돼도 차단
+
 ## Supabase Realtime Broadcast (대결 실시간 동기화)
 
 - **유틸**: `src/lib/battle-broadcast.ts` — `broadcastBattleUpdate(roomId)` 호출 시 Supabase Realtime Broadcast로 양쪽 클라이언트에 "방 변경됨" 신호 발송

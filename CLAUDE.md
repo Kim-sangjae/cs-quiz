@@ -69,6 +69,7 @@ phases 0~6 + UX 개선 전부 완료. 아래 기능이 모두 구현된 상태�
 | 10-infra | 서비스명 CSORA, 카카오 로그인(NextAuth), 오답 복습 스케줄링(1/3/7/30일 간격반복, `src/lib/review-schedule.ts`), 뱃지/업적 시스템, Supabase Realtime 알림, 관리자 애널리틱스 대시보드, 친구 패널 대결 실시간 반영, 서비스 소개·기여도 순위 페이지, 접속자 슬라이드 패널, 감사 로그 확장, 모바일 헤더 친구 메뉴 |
 | 11-scale | 서버사이드 페이지네이션 전면 적용(mypage sessions/battle-history, admin users/inquiries), sessions/summary 경량 엔드포인트 분리, 퀴즈 진입 시 북마크 초기 상태 서버 로드, 최근 3세션 문제 제외 샘플링(다양성), 대전 누적 승무패 서버 집계, admin 서버사이드 검색 debounce |
 | 12-modes | 퀴즈 모드 구분(normal/review/timed), QuizSession.mode DB 필드, 오답복습·북마크 퀴즈는 랭킹/뱃지/레벨업/스트릭 제외(review 모드), 시간제한 모드(15초/문제, 타이머 단일 effect로 race condition 수정, 이전 문제 잠금), Navigator lockedBefore prop, ResultCard null 선택 처리(미답변 시간 초과), 마이페이지 모드 배지(오답복습/시간제한), AI 문제생성 배치 방식(GPT json_object 10개 제한 우회, BATCH_SIZE=10), se(소프트웨어공학) 카테고리 추가 |
+| 13-moderation | 닉네임 욕설·예약어 필터링(`src/lib/nickname-filter.ts`), Tanat05/korcen.ts 소스 직접 이식(`src/lib/korcen-check.ts`, 한국어 8카테고리+영어 600+), DB 기반 커스텀 금칙어(`BlockedWord` 모델, 관리자 bulk 등록/삭제), 관리자 패널 금칙어 관리 탭(통합 목록), 관리자 계정 예약어 우회(`isAdmin` 파라미터), 전역 마우스 드래그 스크롤(`DragScroll` 컴포넌트) |
 
 ---
 
