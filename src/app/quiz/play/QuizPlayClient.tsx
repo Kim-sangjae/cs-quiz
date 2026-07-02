@@ -15,10 +15,11 @@ interface Props {
   isReview?: boolean;
   isTimed?: boolean;
   initialBookmarks?: Record<string, boolean>;
+  initialPoints?: number;
 }
 
 
-export default function QuizPlayClient({ questions, category, mode = 'normal', isReview, isTimed, initialBookmarks = {} }: Props) {
+export default function QuizPlayClient({ questions, category, mode = 'normal', isReview, isTimed, initialBookmarks = {}, initialPoints = 0 }: Props) {
   const router = useRouter();
   const [answers, setAnswers] = useState<UserAnswer[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -33,6 +34,9 @@ export default function QuizPlayClient({ questions, category, mode = 'normal', i
   const [autoAdvance, setAutoAdvance] = useState(true);
   const [bookmarks, setBookmarks] = useState<Record<string, boolean>>(initialBookmarks);
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
+  const [points, setPoints] = useState(initialPoints);
+  // questionId -> eliminated option index
+  const [hints, setHints] = useState<Record<string, number>>({});
 
   const QUESTION_SECONDS = 15;
   const isDirty = answers.length > 0 && !isSubmitting;
@@ -231,6 +235,21 @@ export default function QuizPlayClient({ questions, category, mode = 'normal', i
     }
   }
 
+  async function applyHint(questionId: string): Promise<void> {
+    if (points < 30 || hints[questionId] !== undefined) return;
+    try {
+      const res = await fetch('/api/quiz/hint', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ questionId }),
+      });
+      if (!res.ok) return;
+      const { eliminateIndex, newPoints } = await res.json() as { eliminateIndex: number; newPoints: number };
+      setHints((h) => ({ ...h, [questionId]: eliminateIndex }));
+      setPoints(newPoints);
+    } catch { /* ignore */ }
+  }
+
   async function toggleBookmark(questionId: string): Promise<void> {
     const prev = bookmarks[questionId] ?? false;
     setBookmarks((b) => ({ ...b, [questionId]: !prev }));
@@ -414,10 +433,11 @@ export default function QuizPlayClient({ questions, category, mode = 'normal', i
         onSelect={(idx) => handleSelect(current.id, idx)}
         questionId={current.id}
         authorNickname={current.authorNickname}
+        eliminatedIndex={hints[current.id] ?? null}
       />
 
-      {/* 북마크 버튼 */}
-      <div className="flex justify-end mt-2 mb-1">
+      {/* 북마크 + 힌트 버튼 */}
+      <div className="flex items-center justify-between mt-2 mb-1">
         <button
           onClick={() => toggleBookmark(current.id)}
           className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border transition-colors ${
@@ -431,6 +451,22 @@ export default function QuizPlayClient({ questions, category, mode = 'normal', i
           </svg>
           {bookmarks[current.id] ? '북마크됨' : '북마크'}
         </button>
+        {initialPoints > 0 && (
+          hints[current.id] !== undefined ? (
+            <span className="text-[10px] text-amber-500/70 border border-amber-900/40 rounded px-2 py-0.5">
+              힌트 사용됨 · {points}P 남음
+            </span>
+          ) : (
+            <button
+              onClick={() => void applyHint(current.id)}
+              disabled={points < 30}
+              title={points < 30 ? '포인트가 부족합니다' : '오답 1개를 제거합니다 (-30P)'}
+              className="flex items-center gap-1 text-[10px] border border-neutral-800 text-neutral-500 rounded px-2 py-0.5 hover:border-neutral-600 hover:text-amber-400 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              💡 힌트 (-30P) · {points}P
+            </button>
+          )
+        )}
       </div>
 
       {/* 하단 고정 영역 */}

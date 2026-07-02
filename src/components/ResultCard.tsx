@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import type { Question } from '@/types';
 import ReportModal from '@/components/board/ReportModal';
+import NoteButton from '@/components/NoteButton';
 
 interface ResultCardProps {
   questionNumber: number;
@@ -132,8 +133,13 @@ export default function ResultCard({
       <div className="border-t border-neutral-800 mt-4 pt-4">
         <p className="text-sm text-neutral-300 leading-relaxed">{question.explanation}</p>
         {questionId && (
-          <div className="flex justify-end mt-3">
-            <ReportModal questionId={questionId} initialReported={false} />
+          <div className="flex items-center justify-between mt-3">
+            {userSelected !== question.answer && (
+              <NoteButton questionId={questionId} />
+            )}
+            <div className="ml-auto">
+              <ReportModal questionId={questionId} initialReported={false} />
+            </div>
           </div>
         )}
       </div>

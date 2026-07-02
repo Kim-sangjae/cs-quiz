@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import type { Question } from '@/types';
 import QuestionDrawer from '@/components/QuestionDrawer';
+import NoteButton from '@/components/NoteButton';
 
 const CATEGORY_LABELS: Record<string, string> = {
   ds: '자료구조',
@@ -78,24 +79,26 @@ export default function CategoryDetailPage({
           <p className="text-xs text-neutral-500 mb-4">틀린 문제 {items.length}개 (문제별 최신 오답 기준)</p>
           <div className="space-y-2">
             {items.map((item, i) => (
-              <button
+              <div
                 key={item.question.id}
-                onClick={() => setDrawerItem({ question: item.question, selected: item.selected, number: i + 1 })}
-                className="w-full text-left bg-[#111111] border border-neutral-800 rounded-lg px-4 py-3 hover:bg-[#1a1a1a] transition-colors flex items-center justify-between gap-3"
+                className="bg-[#111111] border border-neutral-800 rounded-lg px-4 py-3 hover:bg-[#1a1a1a] transition-colors"
               >
-                <div className="flex items-center gap-2 min-w-0">
-                  <span className="text-xs text-neutral-500 flex-shrink-0">{i + 1}.</span>
-                  {item.wrongCount > 1 && (
-                    <span className="text-[10px] text-red-400 border border-red-900/50 rounded px-1.5 py-0.5 flex-shrink-0">
-                      {item.wrongCount}회 틀림
-                    </span>
-                  )}
-                  <span className="text-sm text-neutral-300 truncate">{item.question.question}</span>
+                <div className="flex items-center gap-2">
+                  <button
+                    className="flex-1 flex items-center gap-2 min-w-0 text-left"
+                    onClick={() => setDrawerItem({ question: item.question, selected: item.selected, number: i + 1 })}
+                  >
+                    <span className="text-xs text-neutral-500 flex-shrink-0">{i + 1}.</span>
+                    {item.wrongCount > 1 && (
+                      <span className="text-[10px] text-red-400 border border-red-900/50 rounded px-1.5 py-0.5 flex-shrink-0">
+                        {item.wrongCount}회 틀림
+                      </span>
+                    )}
+                    <span className="text-sm text-neutral-300 truncate">{item.question.question}</span>
+                  </button>
+                  <NoteButton questionId={item.question.id} />
                 </div>
-                <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="text-neutral-600 flex-shrink-0 -rotate-90">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
+              </div>
             ))}
           </div>
 

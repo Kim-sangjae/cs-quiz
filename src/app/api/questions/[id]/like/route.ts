@@ -53,3 +53,21 @@ export async function POST(
 
   return NextResponse.json({ liked: !existing, likeCount });
 }
+
+// 폴더 이동
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const user = await getServerUser();
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const { id } = await params;
+  const { folderId } = await req.json() as { folderId: string | null };
+
+  await prisma.like.updateMany({
+    where: { userId: user.id, questionId: id },
+    data: { folderId: folderId ?? null },
+  });
+  return NextResponse.json({ ok: true });
+}

@@ -12,6 +12,7 @@ interface QuizCardProps {
   onSelect: (index: 0 | 1 | 2 | 3) => void;
   questionId?: string;
   authorNickname?: string | null;
+  eliminatedIndex?: number | null;
 }
 
 const LABELS = ['A', 'B', 'C', 'D'] as const;
@@ -31,6 +32,7 @@ export default function QuizCard({
   onSelect,
   questionId,
   authorNickname,
+  eliminatedIndex = null,
 }: QuizCardProps) {
   return (
     <div className="bg-[#111111] border border-neutral-800 rounded-xl p-6">
@@ -57,26 +59,32 @@ export default function QuizCard({
         {options.map((option, i) => {
           const idx = i as 0 | 1 | 2 | 3;
           const isSelected = selectedIndex === idx;
+          const isEliminated = eliminatedIndex === idx;
           return (
             <button
               key={idx}
-              onClick={() => onSelect(idx)}
+              onClick={() => !isEliminated && onSelect(idx)}
+              disabled={isEliminated}
               className={[
                 'w-full text-left rounded-lg border px-4 py-3 text-sm transition-all duration-150 flex items-center gap-3',
-                isSelected
+                isEliminated
+                  ? 'border-neutral-800 bg-[#141414] text-neutral-700 line-through cursor-not-allowed opacity-50'
+                  : isSelected
                   ? 'border-blue-500 bg-blue-500/15 text-white shadow-[0_0_0_1px_rgba(59,130,246,0.3)]'
                   : 'border-neutral-800 bg-[#1a1a1a] text-neutral-300 hover:border-neutral-600 hover:bg-[#202020] hover:text-white',
               ].join(' ')}
             >
               <span className={`w-6 h-6 rounded-full border flex-shrink-0 flex items-center justify-center text-[11px] font-bold transition-colors ${
-                isSelected
+                isEliminated
+                  ? 'border-neutral-800 text-neutral-700'
+                  : isSelected
                   ? 'border-blue-500 bg-blue-500 text-white'
                   : 'border-neutral-700 text-neutral-500'
               }`}>
                 {LABELS[i]}
               </span>
               <span className="flex-1">{option}</span>
-              {isSelected && (
+              {isSelected && !isEliminated && (
                 <svg className="flex-shrink-0 text-blue-400" width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
                   <path d="M4.5 12.75l6 6 9-13.5" />
                 </svg>

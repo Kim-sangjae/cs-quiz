@@ -9,12 +9,15 @@ export async function GET() {
   const likes = await prisma.like.findMany({
     where: { userId: user.id },
     orderBy: { createdAt: 'desc' },
-    include: {
+    select: {
+      folderId: true,
       question: {
         select: { id: true, category: true, question: true, status: true },
       },
     },
   });
 
-  return NextResponse.json({ questions: likes.map((l) => l.question) });
+  return NextResponse.json({
+    questions: likes.map((l) => ({ ...l.question, folderId: l.folderId })),
+  });
 }

@@ -87,6 +87,24 @@ type LikedQuestion = {
   category: string;
   question: string;
   status: string;
+  folderId: string | null;
+};
+
+type BookmarkFolder = {
+  id: string;
+  name: string;
+  _count: { likes: number };
+};
+
+type WeeklyGoal = {
+  key: string;
+  label: string;
+  description: string;
+  target: number;
+  points: number;
+  progress: number;
+  completed: boolean;
+  claimed: boolean;
 };
 
 function formatDate(iso: string): string {
@@ -222,9 +240,10 @@ function filterAndSortMyQ(questions: MyQuestion[], search: string, sort: MyQSort
   return arr;
 }
 
-function filterLiked(questions: LikedQuestion[], search: string, cat: string): LikedQuestion[] {
+function filterLiked(questions: LikedQuestion[], search: string, cat: string, folder: string | null | 'all'): LikedQuestion[] {
   let result = questions;
   if (cat !== "all") result = result.filter((q) => q.category === cat);
+  if (folder !== 'all') result = result.filter((q) => q.folderId === folder);
   if (search.trim()) {
     const s = search.trim().toLowerCase();
     result = result.filter((q) => q.question.toLowerCase().includes(s));
@@ -459,6 +478,16 @@ export default function MyPage() {
 
   const [likedQuestions, setLikedQuestions] = useState<LikedQuestion[] | null>(null);
   const [likedLoading, setLikedLoading] = useState(false);
+  const [likedFolder, setLikedFolder] = useState<string | null | 'all'>('all');
+  const [folders, setFolders] = useState<BookmarkFolder[] | null>(null);
+  const [showFolderInput, setShowFolderInput] = useState(false);
+  const [newFolderName, setNewFolderName] = useState('');
+  const [folderMovingId, setFolderMovingId] = useState<string | null>(null);
+
+  const [userPoints, setUserPoints] = useState<number | null>(null);
+  const [weeklyGoals, setWeeklyGoals] = useState<WeeklyGoal[] | null>(null);
+  const [weeklyGoalsLoading, setWeeklyGoalsLoading] = useState(false);
+  const [showWeeklyGoals, setShowWeeklyGoals] = useState(false);
 
   type DrawerState = {
     questionId: string;
@@ -553,10 +582,15 @@ export default function MyPage() {
   useEffect(() => {
     if (activeTab !== "liked" || likedQuestions !== null) return;
     setLikedLoading(true);
-    fetch("/api/mypage/liked-questions")
-      .then((r) => r.json())
-      .then((data) => setLikedQuestions((data as { questions: LikedQuestion[] }).questions ?? []))
-      .catch(() => setLikedQuestions([]))
+    Promise.all([
+      fetch("/api/mypage/liked-questions").then((r) => r.json()),
+      fetch("/api/mypage/bookmark-folders").then((r) => r.json()),
+    ])
+      .then(([likedData, foldersData]) => {
+        setLikedQuestions((likedData as { questions: LikedQuestion[] }).questions ?? []);
+        setFolders((foldersData as { folders: BookmarkFolder[] }).folders ?? []);
+      })
+      .catch(() => { setLikedQuestions([]); setFolders([]); })
       .finally(() => setLikedLoading(false));
   }, [activeTab, likedQuestions]);
 
@@ -627,6 +661,25 @@ export default function MyPage() {
 
   useEffect(() => { setCommentPage(0); }, [commentCat]);
 
+  // 포인트 잔액
+  useEffect(() => {
+    fetch("/api/mypage/points")
+      .then((r) => r.ok ? r.json() : null)
+      .then((d: { points: number } | null) => { if (d) setUserPoints(d.points); })
+      .catch(() => {});
+  }, []);
+
+  // 주간 목표 (토글 시 로드)
+  useEffect(() => {
+    if (!showWeeklyGoals || weeklyGoals !== null) return;
+    setWeeklyGoalsLoading(true);
+    fetch("/api/mypage/weekly-goals")
+      .then((r) => r.json())
+      .then((d: { goals: WeeklyGoal[] }) => setWeeklyGoals(d.goals ?? []))
+      .catch(() => setWeeklyGoals([]))
+      .finally(() => setWeeklyGoalsLoading(false));
+  }, [showWeeklyGoals, weeklyGoals]);
+
   const profileStats = computeProfileStats(categoryAttemptCounts, categoryAccuracy);
 
   return (
@@ -658,6 +711,9 @@ export default function MyPage() {
               <p className="text-xs text-neutral-600 mt-0.5">
                 총 {stats.totalSessions}회 완료 · 정답률 {stats.overallAccuracy}%
               </p>
+            )}
+            {userPoints !== null && (
+              <p className="text-xs text-amber-500/80 mt-0.5">포인트 {userPoints}P</p>
             )}
           </div>
           <button
@@ -735,6 +791,85 @@ export default function MyPage() {
           <WeeklyReport sessions={chartSessions} />
         </div>
       )}
+
+      {/* 주간 목표 */}
+      <div className="bg-[#111111] border border-neutral-800 rounded-lg mb-4 overflow-hidden">
+        <button
+          className="w-full flex items-center justify-between px-4 py-3 hover:bg-[#1a1a1a] transition-colors"
+          onClick={() => setShowWeeklyGoals((v) => !v)}
+        >
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold text-white">주간 목표</span>
+            {weeklyGoals && weeklyGoals.filter((g) => g.completed && !g.claimed).length > 0 && (
+              <span className="text-[10px] font-bold bg-amber-500 text-black rounded-full px-1.5 py-0.5">
+                {weeklyGoals.filter((g) => g.completed && !g.claimed).length}
+              </span>
+            )}
+          </div>
+          <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}
+            className={`text-neutral-500 transition-transform ${showWeeklyGoals ? 'rotate-180' : ''}`}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+        {showWeeklyGoals && (
+          <div className="border-t border-neutral-800 px-4 py-4">
+            {weeklyGoalsLoading ? (
+              <p className="text-sm text-neutral-500 text-center py-4">불러오는 중...</p>
+            ) : !weeklyGoals || weeklyGoals.length === 0 ? (
+              <p className="text-sm text-neutral-500 text-center py-4">데이터를 불러올 수 없습니다.</p>
+            ) : (
+              <div className="space-y-3">
+                {weeklyGoals.map((g) => (
+                  <div key={g.key} className="flex items-start gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <span className={`text-xs font-medium ${g.completed ? 'text-white' : 'text-neutral-400'}`}>
+                          {g.label}
+                        </span>
+                        <span className="text-[10px] text-amber-500">+{g.points}P</span>
+                        {g.claimed && (
+                          <span className="text-[10px] text-neutral-600 border border-neutral-800 rounded px-1 py-0.5">수령완료</span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-neutral-600 mb-1.5">{g.description}</p>
+                      <div className="h-1 bg-neutral-800 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all ${g.completed ? 'bg-emerald-500' : 'bg-neutral-600'}`}
+                          style={{ width: `${Math.min(100, (g.progress / g.target) * 100)}%` }}
+                        />
+                      </div>
+                      <p className="text-[10px] text-neutral-600 mt-0.5">{g.progress} / {g.target}</p>
+                    </div>
+                    {g.completed && !g.claimed && (
+                      <button
+                        onClick={async () => {
+                          const r = await fetch('/api/mypage/weekly-goals', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ goalKey: g.key }),
+                          });
+                          if (r.ok) {
+                            const d = await r.json() as { points: number; earned: number };
+                            setUserPoints(d.points);
+                            setWeeklyGoals((prev) => prev?.map((goal) =>
+                              goal.key === g.key ? { ...goal, claimed: true } : goal
+                            ) ?? null);
+                            toast.success(`${g.points}P 획득!`);
+                          }
+                        }}
+                        className="flex-shrink-0 rounded-md bg-amber-500 text-black text-xs font-bold px-3 py-1.5 hover:bg-amber-400 transition-colors"
+                      >
+                        수령
+                      </button>
+                    )}
+                  </div>
+                ))}
+                <p className="text-[10px] text-neutral-700 pt-1">포인트는 퀴즈 힌트 사용에 활용됩니다 (힌트 30P)</p>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* 복습 스케줄 */}
       {reviewInfo && reviewInfo.total > 0 && (
@@ -1402,6 +1537,99 @@ export default function MyPage() {
             className="w-full rounded-md border border-neutral-800 bg-[#111] px-3 py-2 text-sm text-white placeholder-neutral-600 focus:border-neutral-600 focus:outline-none transition-colors mb-3"
           />
 
+          {/* 폴더 필터 */}
+          {folders && folders.length > 0 && (
+            <div className="mb-3">
+              <div className="flex gap-1 flex-wrap items-center">
+                <button
+                  onClick={() => { setLikedFolder('all'); setLikedPage(0); }}
+                  className={`px-2.5 py-1 rounded text-xs transition-colors ${likedFolder === 'all' ? 'bg-white text-black font-medium' : 'border border-neutral-800 text-neutral-400 hover:border-neutral-600 hover:text-white'}`}
+                >
+                  전체
+                </button>
+                <button
+                  onClick={() => { setLikedFolder(null); setLikedPage(0); }}
+                  className={`px-2.5 py-1 rounded text-xs transition-colors ${likedFolder === null ? 'bg-white text-black font-medium' : 'border border-neutral-800 text-neutral-400 hover:border-neutral-600 hover:text-white'}`}
+                >
+                  미분류
+                </button>
+                {folders.map((f) => (
+                  <button
+                    key={f.id}
+                    onClick={() => { setLikedFolder(f.id); setLikedPage(0); }}
+                    className={`px-2.5 py-1 rounded text-xs transition-colors ${likedFolder === f.id ? 'bg-white text-black font-medium' : 'border border-neutral-800 text-neutral-400 hover:border-neutral-600 hover:text-white'}`}
+                  >
+                    {f.name} <span className="opacity-60">({f._count.likes})</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 폴더 관리 */}
+          <div className="flex items-center gap-2 mb-4">
+            <button
+              onClick={() => setShowFolderInput((v) => !v)}
+              className="text-xs text-neutral-500 border border-neutral-800 rounded px-2.5 py-1 hover:border-neutral-600 hover:text-white transition-colors"
+            >
+              + 폴더 만들기
+            </button>
+            {folders && folders.length > 0 && (
+              <button
+                onClick={async () => {
+                  const target = folders.find((f) => f.id === likedFolder);
+                  if (!target) return;
+                  if (!confirm(`"${target.name}" 폴더를 삭제할까요? 소속 북마크는 미분류로 이동됩니다.`)) return;
+                  const r = await fetch(`/api/mypage/bookmark-folders/${target.id}`, { method: 'DELETE' });
+                  if (r.ok) {
+                    setFolders((prev) => prev?.filter((f) => f.id !== target.id) ?? []);
+                    setLikedFolder('all');
+                    setLikedQuestions(null);
+                    toast.success('폴더가 삭제되었습니다.');
+                  }
+                }}
+                className={`text-xs text-red-500/60 hover:text-red-400 transition-colors ${typeof likedFolder === 'string' && likedFolder !== 'all' ? '' : 'hidden'}`}
+              >
+                폴더 삭제
+              </button>
+            )}
+          </div>
+          {showFolderInput && (
+            <form
+              className="flex gap-2 mb-3"
+              onSubmit={async (e) => {
+                e.preventDefault();
+                if (!newFolderName.trim()) return;
+                const r = await fetch('/api/mypage/bookmark-folders', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ name: newFolderName }),
+                });
+                if (r.ok) {
+                  const d = await r.json() as { folder: { id: string; name: string } };
+                  setFolders((prev) => [...(prev ?? []), { ...d.folder, _count: { likes: 0 } }]);
+                  setNewFolderName('');
+                  setShowFolderInput(false);
+                  toast.success('폴더가 만들어졌습니다.');
+                } else {
+                  const err = await r.json() as { error: string };
+                  toast.error(err.error === 'Max 10 folders' ? '폴더는 최대 10개까지 만들 수 있습니다.' : '이미 같은 이름의 폴더가 있습니다.');
+                }
+              }}
+            >
+              <input
+                type="text"
+                value={newFolderName}
+                onChange={(e) => setNewFolderName(e.target.value)}
+                placeholder="폴더 이름 (최대 30자)"
+                maxLength={30}
+                className="flex-1 rounded-md border border-neutral-800 bg-[#111] px-3 py-1.5 text-sm text-white placeholder-neutral-600 focus:border-neutral-600 focus:outline-none transition-colors"
+              />
+              <button type="submit" className="rounded-md bg-white text-black text-xs font-medium px-3 py-1.5 hover:bg-neutral-200 transition-colors">만들기</button>
+              <button type="button" onClick={() => setShowFolderInput(false)} className="text-xs text-neutral-500 hover:text-white transition-colors">취소</button>
+            </form>
+          )}
+
           {/* 카테고리 필터 */}
           <div className="flex gap-1 flex-wrap mb-4">
             {(["all", ...Object.keys(CATEGORY_LABELS)] as string[]).map((cat) => (
@@ -1424,16 +1652,16 @@ export default function MyPage() {
               <p className="text-neutral-500 text-sm">불러오는 중...</p>
             </div>
           ) : (() => {
-            const filtered = filterLiked(likedQuestions ?? [], likedSearch, likedCat);
+            const filtered = filterLiked(likedQuestions ?? [], likedSearch, likedCat, likedFolder);
             const pageCount = Math.ceil(filtered.length / HISTORY_PAGE_SIZE);
             const paged = filtered.slice(likedPage * HISTORY_PAGE_SIZE, (likedPage + 1) * HISTORY_PAGE_SIZE);
             if (filtered.length === 0) {
               return (
                 <div className="text-center py-12">
                   <p className="text-neutral-500 text-sm mb-4">
-                    {likedSearch || likedCat !== "all" ? "검색 결과가 없습니다." : "북마크한 문제가 없습니다."}
+                    {likedSearch || likedCat !== "all" || likedFolder !== 'all' ? "검색 결과가 없습니다." : "북마크한 문제가 없습니다."}
                   </p>
-                  {!likedSearch && likedCat === "all" && (
+                  {!likedSearch && likedCat === "all" && likedFolder === 'all' && (
                     <Link href="/board" className="rounded-md bg-white text-black text-sm font-medium px-6 py-2.5 hover:bg-neutral-200 transition-colors">
                       게시판 보기
                     </Link>
@@ -1457,18 +1685,62 @@ export default function MyPage() {
                 </div>
                 <div className="space-y-2">
                   {paged.map((q) => (
-                    <button
-                      key={q.id}
-                      onClick={() => setDrawerState({ questionId: q.id })}
-                      className="w-full text-left bg-[#111111] border border-neutral-800 rounded-lg px-4 py-3 hover:bg-[#161616] transition-colors"
-                    >
+                    <div key={q.id} className="bg-[#111111] border border-neutral-800 rounded-lg px-4 py-3 hover:bg-[#161616] transition-colors">
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="text-xs text-neutral-500 border border-neutral-800 rounded px-2 py-0.5">
-                          {CATEGORY_LABELS[q.category as Category] ?? q.category}
-                        </span>
+                        <button className="flex-1 text-left" onClick={() => setDrawerState({ questionId: q.id })}>
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-xs text-neutral-500 border border-neutral-800 rounded px-2 py-0.5">
+                              {CATEGORY_LABELS[q.category as Category] ?? q.category}
+                            </span>
+                            {q.folderId && folders && (
+                              <span className="text-[10px] text-neutral-600 border border-neutral-800 rounded px-1.5 py-0.5">
+                                {folders.find((f) => f.id === q.folderId)?.name ?? ''}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-sm text-neutral-300 truncate">{q.question}</p>
+                        </button>
+                        {/* 폴더 이동 */}
+                        {folderMovingId === q.id ? (
+                          <div className="flex gap-1 flex-wrap flex-shrink-0">
+                            {[{ id: null, name: '미분류' }, ...(folders ?? [])].map((f) => (
+                              <button
+                                key={String(f.id)}
+                                onClick={async () => {
+                                  const r = await fetch(`/api/questions/${q.id}/like`, {
+                                    method: 'PATCH',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ folderId: f.id }),
+                                  });
+                                  if (r.ok) {
+                                    setLikedQuestions((prev) => prev?.map((lq) =>
+                                      lq.id === q.id ? { ...lq, folderId: f.id } : lq
+                                    ) ?? null);
+                                    setFolderMovingId(null);
+                                    toast.success('이동했습니다.');
+                                  }
+                                }}
+                                className={`text-[10px] px-2 py-0.5 rounded border transition-colors ${
+                                  q.folderId === f.id
+                                    ? 'border-white text-white'
+                                    : 'border-neutral-700 text-neutral-500 hover:border-neutral-500 hover:text-white'
+                                }`}
+                              >
+                                {f.name}
+                              </button>
+                            ))}
+                            <button onClick={() => setFolderMovingId(null)} className="text-[10px] text-neutral-600 hover:text-white">✕</button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => setFolderMovingId(q.id)}
+                            className="text-[10px] text-neutral-600 border border-neutral-800 rounded px-1.5 py-0.5 hover:border-neutral-600 hover:text-white transition-colors flex-shrink-0"
+                          >
+                            폴더
+                          </button>
+                        )}
                       </div>
-                      <p className="text-sm text-neutral-300 truncate">{q.question}</p>
-                    </button>
+                    </div>
                   ))}
                 </div>
                 {pageCount > 1 && (

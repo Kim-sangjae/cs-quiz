@@ -73,16 +73,21 @@ export default async function QuizPlayPage({
     }
   }
 
-  // 북마크 초기 상태 로드 (로그인 시)
+  // 북마크 초기 상태 + 포인트 로드 (로그인 시)
   const initialBookmarks: Record<string, boolean> = {};
+  let initialPoints = 0;
   if (user && questions.length > 0) {
-    const liked = await prisma.like.findMany({
-      where: { userId: user.id, questionId: { in: questions.map((q) => q.id) } },
-      select: { questionId: true },
-    });
+    const [liked, userData] = await Promise.all([
+      prisma.like.findMany({
+        where: { userId: user.id, questionId: { in: questions.map((q) => q.id) } },
+        select: { questionId: true },
+      }),
+      prisma.user.findUnique({ where: { id: user.id }, select: { points: true } }),
+    ]);
     for (const { questionId } of liked) {
       initialBookmarks[questionId] = true;
     }
+    initialPoints = userData?.points ?? 0;
   }
 
   const quizMode: 'normal' | 'review' | 'timed' = reviewIds
@@ -99,6 +104,7 @@ export default async function QuizPlayPage({
       isReview={!!reviewIds}
       isTimed={timed === 'true'}
       initialBookmarks={initialBookmarks}
+      initialPoints={initialPoints}
     />
   );
 }
