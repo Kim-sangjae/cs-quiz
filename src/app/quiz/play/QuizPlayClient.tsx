@@ -15,11 +15,11 @@ interface Props {
   isReview?: boolean;
   isTimed?: boolean;
   initialBookmarks?: Record<string, boolean>;
-  initialPoints?: number;
+  initialPoints?: number | null; // null = 비로그인, 0+ = 로그인 포인트
 }
 
 
-export default function QuizPlayClient({ questions, category, mode = 'normal', isReview, isTimed, initialBookmarks = {}, initialPoints = 0 }: Props) {
+export default function QuizPlayClient({ questions, category, mode = 'normal', isReview, isTimed, initialBookmarks = {}, initialPoints = null }: Props) {
   const router = useRouter();
   const [answers, setAnswers] = useState<UserAnswer[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -34,7 +34,8 @@ export default function QuizPlayClient({ questions, category, mode = 'normal', i
   const [autoAdvance, setAutoAdvance] = useState(true);
   const [bookmarks, setBookmarks] = useState<Record<string, boolean>>(initialBookmarks);
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
-  const [points, setPoints] = useState(initialPoints);
+  const [points, setPoints] = useState(initialPoints ?? 0);
+  const [hintPending, setHintPending] = useState(false);
   // questionId -> eliminated option index
   const [hints, setHints] = useState<Record<string, number>>({});
 
@@ -236,7 +237,8 @@ export default function QuizPlayClient({ questions, category, mode = 'normal', i
   }
 
   async function applyHint(questionId: string): Promise<void> {
-    if (points < 30 || hints[questionId] !== undefined) return;
+    if (points < 30 || hints[questionId] !== undefined || hintPending) return;
+    setHintPending(true);
     try {
       const res = await fetch('/api/quiz/hint', {
         method: 'POST',
@@ -247,7 +249,9 @@ export default function QuizPlayClient({ questions, category, mode = 'normal', i
       const { eliminateIndex, newPoints } = await res.json() as { eliminateIndex: number; newPoints: number };
       setHints((h) => ({ ...h, [questionId]: eliminateIndex }));
       setPoints(newPoints);
-    } catch { /* ignore */ }
+    } finally {
+      setHintPending(false);
+    }
   }
 
   async function toggleBookmark(questionId: string): Promise<void> {
@@ -451,7 +455,7 @@ export default function QuizPlayClient({ questions, category, mode = 'normal', i
           </svg>
           {bookmarks[current.id] ? '북마크됨' : '북마크'}
         </button>
-        {initialPoints > 0 && (
+        {initialPoints !== null && (
           hints[current.id] !== undefined ? (
             <span className="text-[10px] text-amber-500/70 border border-amber-900/40 rounded px-2 py-0.5">
               힌트 사용됨 · {points}P 남음
@@ -459,8 +463,8 @@ export default function QuizPlayClient({ questions, category, mode = 'normal', i
           ) : (
             <button
               onClick={() => void applyHint(current.id)}
-              disabled={points < 30}
-              title={points < 30 ? '포인트가 부족합니다' : '오답 1개를 제거합니다 (-30P)'}
+              disabled={points < 30 || hintPending}
+              title={points < 30 ? `포인트 부족 (${points}P)` : '오답 1개를 제거합니다 (-30P)'}
               className="flex items-center gap-1 text-[10px] border border-neutral-800 text-neutral-500 rounded px-2 py-0.5 hover:border-neutral-600 hover:text-amber-400 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
             >
               💡 힌트 (-30P) · {points}P

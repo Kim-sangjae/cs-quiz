@@ -75,7 +75,7 @@ export default async function QuizPlayPage({
 
   // 북마크 초기 상태 + 포인트 로드 (로그인 시)
   const initialBookmarks: Record<string, boolean> = {};
-  let initialPoints = 0;
+  let initialPoints: number | null = null; // null = 비로그인
   if (user && questions.length > 0) {
     const [liked, userData] = await Promise.all([
       prisma.like.findMany({

@@ -25,10 +25,17 @@ export async function POST(req: NextRequest) {
   const wrongOptions = [0, 1, 2, 3].filter((i) => i !== question.answer);
   const eliminateIndex = wrongOptions[Math.floor(Math.random() * wrongOptions.length)];
 
-  await prisma.$transaction([
-    prisma.user.update({ where: { id: user.id }, data: { points: { decrement: HINT_COST } } }),
-    prisma.pointTransaction.create({ data: { userId: user.id, delta: -HINT_COST, reason: 'HINT' } }),
-  ]);
+  // 낙관적 잠금: points가 충분한 경우에만 차감 (race condition 방지)
+  const updated = await prisma.user.updateMany({
+    where: { id: user.id, points: { gte: HINT_COST } },
+    data: { points: { decrement: HINT_COST } },
+  });
+
+  if (updated.count === 0) {
+    return NextResponse.json({ error: 'Insufficient points' }, { status: 402 });
+  }
+
+  await prisma.pointTransaction.create({ data: { userId: user.id, delta: -HINT_COST, reason: 'HINT' } });
 
   const newPoints = userData.points - HINT_COST;
   return NextResponse.json({ eliminateIndex, newPoints });

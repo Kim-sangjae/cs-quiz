@@ -582,17 +582,21 @@ export default function MyPage() {
   useEffect(() => {
     if (activeTab !== "liked" || likedQuestions !== null) return;
     setLikedLoading(true);
-    Promise.all([
-      fetch("/api/mypage/liked-questions").then((r) => r.json()),
-      fetch("/api/mypage/bookmark-folders").then((r) => r.json()),
-    ])
-      .then(([likedData, foldersData]) => {
-        setLikedQuestions((likedData as { questions: LikedQuestion[] }).questions ?? []);
-        setFolders((foldersData as { folders: BookmarkFolder[] }).folders ?? []);
-      })
-      .catch(() => { setLikedQuestions([]); setFolders([]); })
+    fetch("/api/mypage/liked-questions")
+      .then((r) => r.json())
+      .then((data) => setLikedQuestions((data as { questions: LikedQuestion[] }).questions ?? []))
+      .catch(() => setLikedQuestions([]))
       .finally(() => setLikedLoading(false));
   }, [activeTab, likedQuestions]);
+
+  // 폴더는 별도 effect — likedQuestions 선로드 여부와 무관하게 로드
+  useEffect(() => {
+    if (activeTab !== "liked" || folders !== null) return;
+    fetch("/api/mypage/bookmark-folders")
+      .then((r) => r.json())
+      .then((data) => setFolders((data as { folders: BookmarkFolder[] }).folders ?? []))
+      .catch(() => setFolders([]));
+  }, [activeTab, folders]);
 
   useEffect(() => {
     if (activeTab !== "badges" || earnedBadges !== null) return;
@@ -843,18 +847,28 @@ export default function MyPage() {
                     {g.completed && !g.claimed && (
                       <button
                         onClick={async () => {
-                          const r = await fetch('/api/mypage/weekly-goals', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ goalKey: g.key }),
-                          });
-                          if (r.ok) {
-                            const d = await r.json() as { points: number; earned: number };
-                            setUserPoints(d.points);
-                            setWeeklyGoals((prev) => prev?.map((goal) =>
-                              goal.key === g.key ? { ...goal, claimed: true } : goal
-                            ) ?? null);
-                            toast.success(`${g.points}P 획득!`);
+                          try {
+                            const r = await fetch('/api/mypage/weekly-goals', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ goalKey: g.key }),
+                            });
+                            if (r.ok) {
+                              const d = await r.json() as { points: number; earned: number };
+                              setUserPoints(d.points);
+                              setWeeklyGoals((prev) => prev?.map((goal) =>
+                                goal.key === g.key ? { ...goal, claimed: true } : goal
+                              ) ?? null);
+                              toast.success(`${g.points}P 획득!`);
+                            } else if (r.status === 409) {
+                              setWeeklyGoals((prev) => prev?.map((goal) =>
+                                goal.key === g.key ? { ...goal, claimed: true } : goal
+                              ) ?? null);
+                            } else {
+                              toast.error('수령에 실패했습니다.');
+                            }
+                          } catch {
+                            toast.error('네트워크 오류가 발생했습니다.');
                           }
                         }}
                         className="flex-shrink-0 rounded-md bg-amber-500 text-black text-xs font-bold px-3 py-1.5 hover:bg-amber-400 transition-colors"
