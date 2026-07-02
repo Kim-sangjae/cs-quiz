@@ -210,7 +210,9 @@ export default function RankingSection({ rankings, currentUserId, myRanks, contr
                 >
                   <td className="py-2.5 text-neutral-500">{entry.rank}</td>
                   <td className={`py-2.5 ${isMe ? 'text-white font-medium' : 'text-neutral-300'}`}>
-                    {entry.nickname}
+                    <Link href={`/u/${encodeURIComponent(entry.nickname)}`} className="hover:text-white transition-colors">
+                      {entry.nickname}
+                    </Link>
                     {isMe && myRank && (
                       <span className="ml-2 text-[10px] text-emerald-500">
                         상위 {Math.ceil((myRank.rank / myRank.totalParticipants) * 100)}%

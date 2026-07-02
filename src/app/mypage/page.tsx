@@ -189,7 +189,7 @@ const STATUS_STYLE: Record<string, string> = {
 
 const NICKNAME_REGEX = /^[a-zA-Z0-9가-힣]{2,12}$/;
 
-type ActiveTab = "history" | "battle" | "my-questions" | "liked" | "badges";
+type ActiveTab = "history" | "battle" | "my-questions" | "liked" | "badges" | "comments";
 type MyQStatus = "all" | "pending" | "approved" | "rejected";
 type HistorySort = "newest" | "oldest" | "wrong_desc" | "wrong_asc";
 
@@ -483,6 +483,19 @@ export default function MyPage() {
   const [earnedBadges, setEarnedBadges] = useState<{ badge: string; earnedAt: string }[] | null>(null);
   const [reviewInfo, setReviewInfo] = useState<{ dueIds: string[]; total: number } | null>(null);
 
+  type MyComment = {
+    id: string;
+    content: string;
+    createdAt: string;
+    question: { id: string; category: string; question: string; status: string };
+  };
+  const [myComments, setMyComments] = useState<MyComment[] | null>(null);
+  const [commentTotal, setCommentTotal] = useState(0);
+  const [commentPageCount, setCommentPageCount] = useState(0);
+  const [commentPage, setCommentPage] = useState(0);
+  const [commentCat, setCommentCat] = useState("all");
+  const [commentLoading, setCommentLoading] = useState(false);
+
   type BattleRecord = {
     id: string;
     opponent: { id: string; nickname: string };
@@ -596,6 +609,24 @@ export default function MyPage() {
       .finally(() => setHistoryLoading(false));
   }, [activeTab, historyPage, historySort]);
 
+  useEffect(() => {
+    if (activeTab !== "comments") return;
+    setCommentLoading(true);
+    const params = new URLSearchParams({ page: String(commentPage), cat: commentCat });
+    fetch(`/api/mypage/comments?${params}`)
+      .then((r) => r.json())
+      .then((data) => {
+        const d = data as { comments: MyComment[]; total: number; pageCount: number };
+        setMyComments(d.comments ?? []);
+        setCommentTotal(d.total ?? 0);
+        setCommentPageCount(d.pageCount ?? 0);
+      })
+      .catch(() => setMyComments([]))
+      .finally(() => setCommentLoading(false));
+  }, [activeTab, commentPage, commentCat]);
+
+  useEffect(() => { setCommentPage(0); }, [commentCat]);
+
   const profileStats = computeProfileStats(categoryAttemptCounts, categoryAccuracy);
 
   return (
@@ -610,7 +641,19 @@ export default function MyPage() {
         <div className="flex items-center justify-between">
           <div>
             <p className="text-xs text-neutral-500 mb-0.5">닉네임</p>
-            <p className="text-sm text-white font-medium">{session?.user?.nickname ?? '–'}</p>
+            <div className="flex items-center gap-2">
+              <p className="text-sm text-white font-medium">{session?.user?.nickname ?? '–'}</p>
+              {session?.user?.nickname && (
+                <a
+                  href={`/u/${encodeURIComponent(session.user.nickname)}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-[10px] text-neutral-600 hover:text-neutral-400 transition-colors"
+                >
+                  공개 프로필 →
+                </a>
+              )}
+            </div>
             {stats && (
               <p className="text-xs text-neutral-600 mt-0.5">
                 총 {stats.totalSessions}회 완료 · 정답률 {stats.overallAccuracy}%
@@ -815,13 +858,14 @@ export default function MyPage() {
 
       {/* 탭 */}
       <div className="flex gap-1 mb-4 border-b border-neutral-800 pb-0 overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-        {(["history", "battle", "my-questions", "liked", "badges"] as ActiveTab[]).map((tab) => {
+        {(["history", "battle", "my-questions", "liked", "badges", "comments"] as ActiveTab[]).map((tab) => {
           const labels: Record<ActiveTab, string> = {
             history: "풀이 기록",
             battle: "대전",
             "my-questions": "등록 문제",
             liked: "북마크",
             badges: "업적",
+            comments: "내 댓글",
           };
           return (
             <button
@@ -1446,6 +1490,80 @@ export default function MyPage() {
             );
           })()}
         </>
+      )}
+
+      {/* 탭 6: 내 댓글 */}
+      {activeTab === "comments" && (
+        <div>
+          {/* 카테고리 필터 */}
+          <div className="flex gap-1 flex-wrap mb-4">
+            {(["all", ...Object.keys(CATEGORY_LABELS)] as string[]).map((cat) => (
+              <button
+                key={cat}
+                onClick={() => setCommentCat(cat)}
+                className={`px-2.5 py-1 rounded text-xs transition-colors ${
+                  commentCat === cat
+                    ? "bg-white text-black font-medium"
+                    : "border border-neutral-800 text-neutral-400 hover:border-neutral-600 hover:text-white"
+                }`}
+              >
+                {cat === "all" ? "전체" : CATEGORY_LABELS[cat as Category]}
+              </button>
+            ))}
+          </div>
+
+          {commentLoading ? (
+            <div className="py-12 text-center text-neutral-500 text-sm">불러오는 중...</div>
+          ) : !myComments || myComments.length === 0 ? (
+            <div className="py-12 text-center text-neutral-500 text-sm">
+              {commentCat !== "all" ? "해당 카테고리에 남긴 댓글이 없습니다." : "아직 댓글을 남기지 않았습니다."}
+            </div>
+          ) : (
+            <>
+              <div className="space-y-3 mb-4">
+                {myComments.map((c) => (
+                  <a
+                    key={c.id}
+                    href={`/board/${c.question.id}`}
+                    className="block bg-[#111111] border border-neutral-800 rounded-lg px-4 py-3 hover:border-neutral-600 transition-colors"
+                  >
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <span className="text-[11px] text-neutral-500 border border-neutral-800 rounded px-1.5 py-0.5">
+                        {CATEGORY_LABELS[c.question.category as Category] ?? c.question.category}
+                      </span>
+                      <span className="text-[11px] text-neutral-600">
+                        {new Date(c.createdAt).toLocaleDateString("ko-KR", { month: "long", day: "numeric" })}
+                      </span>
+                    </div>
+                    <p className="text-xs text-neutral-500 mb-1.5 line-clamp-1">
+                      Q. {c.question.question}
+                    </p>
+                    <p className="text-sm text-neutral-300 leading-relaxed line-clamp-2">
+                      {c.content}
+                    </p>
+                  </a>
+                ))}
+              </div>
+
+              {commentPageCount > 1 && (
+                <div className="flex items-center justify-center gap-3">
+                  <button
+                    disabled={commentPage === 0}
+                    onClick={() => setCommentPage((p) => p - 1)}
+                    className="text-xs text-neutral-400 border border-neutral-800 rounded px-2.5 py-1 hover:border-neutral-600 hover:text-white disabled:opacity-30 transition-colors"
+                  >←</button>
+                  <span className="text-xs text-neutral-500">{commentPage + 1} / {commentPageCount}</span>
+                  <button
+                    disabled={commentPage >= commentPageCount - 1}
+                    onClick={() => setCommentPage((p) => p + 1)}
+                    className="text-xs text-neutral-400 border border-neutral-800 rounded px-2.5 py-1 hover:border-neutral-600 hover:text-white disabled:opacity-30 transition-colors"
+                  >→</button>
+                  <span className="text-xs text-neutral-600 ml-2">총 {commentTotal}개</span>
+                </div>
+              )}
+            </>
+          )}
+        </div>
       )}
 
       {/* 탭 5: 업적 */}

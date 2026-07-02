@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma';
 import LikeButton from '@/components/board/LikeButton';
 import ReportModal from '@/components/board/ReportModal';
 import BoardQuizWidget from '@/components/board/BoardQuizWidget';
+import CommentSection from '@/components/board/CommentSection';
 
 const CATEGORY_LABELS: Record<string, string> = {
   ds: '자료구조',
@@ -122,6 +123,8 @@ export default async function BoardDetailPage({ params }: PageProps) {
             <ReportModal questionId={id} initialReported={hasReported} />
           )}
         </div>
+
+        <CommentSection questionId={id} />
       </div>
     </main>
   );
