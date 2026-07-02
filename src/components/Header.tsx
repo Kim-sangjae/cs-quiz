@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
 import { useQuery } from '@tanstack/react-query';
 import NotificationBell from './NotificationBell';
@@ -33,6 +33,7 @@ export default function Header() {
   const { data: session, status } = useSession();
   const user = session?.user;
   const router = useRouter();
+  const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
 
@@ -71,18 +72,20 @@ export default function Header() {
           </Link>
 
           <nav className="hidden sm:flex items-center gap-6">
-            <Link href="/about" className="text-sm text-neutral-400 hover:text-white transition-colors">
-              소개
-            </Link>
-            <Link href="/quiz" className="text-sm text-neutral-400 hover:text-white transition-colors">
-              퀴즈
-            </Link>
-            <Link href="/board" className="text-sm text-neutral-400 hover:text-white transition-colors">
-              게시판
-            </Link>
-            <Link href="/inquiry" className="text-sm text-neutral-400 hover:text-white transition-colors">
-              문의
-            </Link>
+            {[
+              { href: '/about', label: '소개' },
+              { href: '/quiz', label: '퀴즈' },
+              { href: '/board', label: '게시판' },
+              { href: '/inquiry', label: '문의' },
+            ].map(({ href, label }) => (
+              <Link
+                key={href}
+                href={href}
+                className={`text-sm transition-colors ${pathname.startsWith(href) ? 'text-white' : 'text-neutral-400 hover:text-white'}`}
+              >
+                {label}
+              </Link>
+            ))}
           </nav>
 
           <div className="flex items-center gap-2 flex-shrink-0">

@@ -72,8 +72,8 @@ export default function InquiryPage() {
     <div className="max-w-2xl mx-auto px-4 py-8">
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-xl font-semibold text-white">내 문의</h1>
-          <p className="text-xs text-neutral-500 mt-1">관리자가 확인 후 답변을 드립니다</p>
+          <h1 className="text-2xl font-semibold text-white mb-1">내 문의</h1>
+          <p className="text-sm text-neutral-500">관리자가 확인 후 답변을 드립니다</p>
         </div>
         <Link
           href="/inquiry/new"

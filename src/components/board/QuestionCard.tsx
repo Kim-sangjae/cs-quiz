@@ -9,6 +9,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   network: '네트워크',
   db: 'DB',
   arch: '컴퓨터구조',
+  se: 'SW공학',
 };
 
 function relativeTime(date: Date | string): string {
@@ -83,10 +84,15 @@ export default function QuestionCard({
           <span>정답률 {accuracyText}</span>
           {myAttempt ? (
             <span className={myAttempt.lastCorrect ? 'text-emerald-500' : 'text-red-400'}>
-              내 {myAttempt.count}회 · {myAttempt.lastCorrect ? '정답' : '오답'}
+              {myAttempt.count}회 · {myAttempt.lastCorrect ? '정답' : '오답'}
             </span>
           ) : null}
-          <span>♥ {likeCount}</span>
+          <span className="flex items-center gap-0.5">
+            <svg width={11} height={11} viewBox="0 0 24 24" fill="currentColor" stroke="none">
+              <path d="M12 21.593c-5.63-5.539-11-10.297-11-14.402 0-3.791 3.068-5.191 5.281-5.191 1.312 0 4.151.501 5.719 4.457 1.59-3.968 4.464-4.447 5.726-4.447 2.54 0 5.274 1.621 5.274 5.181 0 4.069-5.136 8.625-11 14.402z"/>
+            </svg>
+            {likeCount}
+          </span>
           <span>{relativeTime(createdAt)}</span>
         </div>
       </div>

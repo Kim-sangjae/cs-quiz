@@ -49,8 +49,7 @@ export default async function Home() {
       <div className="max-w-2xl mx-auto">
 
         {/* Hero */}
-        <div className="mb-10 relative">
-          <div className="absolute -top-16 -left-8 w-72 h-72 bg-emerald-500/[0.04] rounded-full blur-3xl pointer-events-none" />
+        <div className="mb-10">
           <div className="flex items-center gap-2 mb-5 flex-wrap">
             <div className="inline-flex items-center gap-1.5 text-xs text-neutral-500 border border-neutral-800 rounded-full px-3 py-1">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
@@ -152,9 +151,9 @@ export default async function Home() {
               <Link
                 key={c.key}
                 href={`/quiz/play?category=${c.key}`}
-                className="bg-[#111111] border border-neutral-800 rounded-xl px-4 py-3.5 hover:bg-[#181818] hover:border-neutral-700 hover:shadow-lg hover:shadow-black/30 transition-all duration-200 group"
+                className="bg-[#111111] border border-neutral-800 rounded-lg px-4 py-3.5 hover:bg-[#181818] hover:border-neutral-700 transition-colors group"
               >
-                <p className="text-sm font-medium text-white mb-0.5 group-hover:text-neutral-100 transition-colors">{c.label}</p>
+                <p className="text-sm font-medium text-white mb-0.5">{c.label}</p>
                 <p className="text-[11px] text-neutral-600 group-hover:text-neutral-500 transition-colors">{c.sub}</p>
               </Link>
             ))}

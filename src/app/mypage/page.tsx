@@ -600,14 +600,9 @@ export default function MyPage() {
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
-      <div className="flex items-center gap-4 mb-6">
-        <button
-          onClick={() => router.push("/")}
-          className="text-neutral-400 hover:text-white text-sm transition-colors"
-        >
-          ← 홈
-        </button>
-        <h1 className="text-xl font-semibold text-white">마이페이지</h1>
+      <div className="mb-6">
+        <h1 className="text-2xl font-semibold text-white mb-1">마이페이지</h1>
+        <p className="text-sm text-neutral-500">내 학습 기록과 통계를 확인하세요</p>
       </div>
 
       {/* 닉네임 변경 */}
@@ -748,7 +743,7 @@ export default function MyPage() {
               </span>
             </div>
             <div className="h-1.5 bg-neutral-800 rounded-full overflow-hidden mb-4">
-              <div className="h-full bg-indigo-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
+              <div className="h-full bg-emerald-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
             </div>
             <div className="grid grid-cols-2 gap-x-6 gap-y-2.5">
               {CATEGORY_ORDER.map((cat) => {
@@ -761,7 +756,7 @@ export default function MyPage() {
                       <span className="text-[10px] text-neutral-500">{tried}/{total}</span>
                     </div>
                     <div className="h-1 bg-neutral-800 rounded-full overflow-hidden">
-                      <div className="h-full bg-indigo-500/70 rounded-full" style={{ width: `${p}%` }} />
+                      <div className="h-full bg-emerald-500/60 rounded-full" style={{ width: `${p}%` }} />
                     </div>
                   </div>
                 );
