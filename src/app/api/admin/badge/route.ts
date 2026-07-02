@@ -15,21 +15,24 @@ export async function GET() {
   const lastSeenAt = admin?.adminLastSeenAt ?? null;
   const since = lastSeenAt ?? new Date(0);
 
-  const [questions, reports, inquiries, newQuestions, newReports, newInquiries] = await Promise.all([
+  const [questions, reports, inquiries, userReports, newQuestions, newReports, newInquiries, newUserReports] = await Promise.all([
     prisma.question.count({ where: { status: 'PENDING' } }),
     prisma.report.groupBy({ by: ['questionId'], where: { status: 'PENDING' } }).then((r) => r.length),
     prisma.inquiry.count({ where: { status: 'PENDING', adminReply: null } }),
+    prisma.userReport.count({ where: { status: 'PENDING' } }),
     prisma.question.count({ where: { status: 'PENDING', createdAt: { gt: since } } }),
     prisma.report.groupBy({ by: ['questionId'], where: { status: 'PENDING', createdAt: { gt: since } } }).then((r) => r.length),
     prisma.inquiry.count({ where: { status: 'PENDING', adminReply: null, createdAt: { gt: since } } }),
+    prisma.userReport.count({ where: { status: 'PENDING', createdAt: { gt: since } } }),
   ]);
 
   return NextResponse.json({
     questions,
     reports,
     inquiries,
-    total: questions + reports + inquiries,
-    newTotal: newQuestions + newReports + newInquiries,
+    userReports,
+    total: questions + reports + inquiries + userReports,
+    newTotal: newQuestions + newReports + newInquiries + newUserReports,
     lastSeenAt: lastSeenAt?.toISOString() ?? null,
   });
 }

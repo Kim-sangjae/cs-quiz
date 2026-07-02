@@ -79,7 +79,7 @@ export default function AdminPage() {
   const [prevSeenAt, setPrevSeenAt] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
-  const { data: badge } = useQuery<{ questions: number; reports: number; inquiries: number }>({
+  const { data: badge } = useQuery<{ questions: number; reports: number; inquiries: number; userReports: number }>({
     queryKey: ['admin', 'badge'],
     queryFn: () => fetch('/api/admin/badge').then((r) => r.json()),
     refetchInterval: 60_000,
@@ -118,7 +118,7 @@ export default function AdminPage() {
     { key: 'analytics', label: '애널리틱스' },
     { key: 'questions', label: '승인 대기', count: badge?.questions },
     { key: 'board', label: '게시판 관리' },
-    { key: 'reports', label: '신고 접수', count: badge?.reports },
+    { key: 'reports', label: '신고 접수', count: (badge?.reports ?? 0) + (badge?.userReports ?? 0) || undefined },
     { key: 'users', label: '유저 관리' },
     { key: 'inquiries', label: '문의 관리', count: badge?.inquiries },
     { key: 'logs', label: '감사 로그' },
@@ -1038,8 +1038,26 @@ function ReportsTab({ prevSeenAt }: { prevSeenAt: string | null }) {
   });
   const dismissUserReportMutation = useMutation({
     mutationFn: (id: string) => fetch('/api/admin/user-reports', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, action: 'dismiss' }) }),
-    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['admin', 'user-reports'] }); toast.success('처리되었습니다.'); },
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['admin', 'user-reports'] }); void queryClient.invalidateQueries({ queryKey: ['admin', 'badge'] }); toast.success('처리되었습니다.'); },
   });
+  const blindUserMutation = useMutation({
+    mutationFn: ({ id, reason }: { id: string; reason: string }) => fetch('/api/admin/user-reports', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, action: 'blind', reason }) }),
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['admin', 'user-reports'] }); void queryClient.invalidateQueries({ queryKey: ['admin', 'badge'] }); toast.success('블라인드 처리되었습니다.'); },
+  });
+  const changeNicknameMutation = useMutation({
+    mutationFn: ({ id, reason }: { id: string; reason: string }) => fetch('/api/admin/user-reports', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, action: 'change-nickname', reason }) }),
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['admin', 'user-reports'] }); void queryClient.invalidateQueries({ queryKey: ['admin', 'badge'] }); toast.success('닉네임이 강제 변경되었습니다.'); },
+  });
+  const bulkDismissUserMutation = useMutation({
+    mutationFn: (ids: string[]) => fetch('/api/admin/user-reports', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids, action: 'dismiss' }) }),
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['admin', 'user-reports'] }); void queryClient.invalidateQueries({ queryKey: ['admin', 'badge'] }); setUserSelectedIds(new Set()); toast.success('처리되었습니다.'); },
+  });
+  const [userSelectedIds, setUserSelectedIds] = useState<Set<string>>(new Set());
+
+  function handleUserAction(id: string, action: 'blind' | 'change-nickname', reason: string) {
+    if (action === 'blind') blindUserMutation.mutate({ id, reason });
+    else changeNicknameMutation.mutate({ id, reason });
+  }
 
   const mutation = useMutation({
     mutationFn: ({ questionId, action }: { questionId: string; action: 'blind' | 'dismiss' }) =>
@@ -1115,12 +1133,22 @@ function ReportsTab({ prevSeenAt }: { prevSeenAt: string | null }) {
               { key: 'REVIEWED', label: '처리됨' },
               { key: 'all', label: '전체' },
             ] as const).map(({ key, label }) => (
-              <button key={key} onClick={() => setUserReportStatusFilter(key)}
+              <button key={key} onClick={() => { setUserReportStatusFilter(key); setUserSelectedIds(new Set()); }}
                 className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${userReportStatusFilter === key ? 'bg-white text-black' : 'text-neutral-400 hover:text-white border border-neutral-800 hover:border-neutral-600'}`}>
                 {label}
               </button>
             ))}
           </div>
+          {userSelectedIds.size > 0 && (
+            <div className="flex items-center gap-3 bg-neutral-900 border border-neutral-700 rounded-lg px-4 py-2.5">
+              <span className="text-xs text-neutral-300">{userSelectedIds.size}개 선택됨</span>
+              <button onClick={() => bulkDismissUserMutation.mutate([...userSelectedIds])} disabled={bulkDismissUserMutation.isPending}
+                className="rounded-md bg-[#1a1a1a] border border-neutral-700 text-neutral-400 text-xs px-3 py-1.5 hover:text-white transition-colors disabled:opacity-40">
+                일괄 무시
+              </button>
+              <button onClick={() => setUserSelectedIds(new Set())} className="ml-auto text-xs text-neutral-600 hover:text-neutral-400 transition-colors">선택 해제</button>
+            </div>
+          )}
           {(userReportsLoading || userReportsFetching) ? (
             <p className="text-neutral-500 text-sm text-center py-8">로딩 중...</p>
           ) : userReportsError ? (
@@ -1129,28 +1157,63 @@ function ReportsTab({ prevSeenAt }: { prevSeenAt: string | null }) {
             <p className="text-neutral-500 text-sm text-center py-8">신고가 없습니다.</p>
           ) : (
             <div className="space-y-3">
-              {filteredUserReports.map((report) => (
-                <div key={report.id} className={`bg-[#111111] border rounded-lg p-4 ${report.status === 'REVIEWED' ? 'border-neutral-800/50 opacity-60' : 'border-neutral-800'}`}>
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="space-y-1.5">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-xs font-medium text-neutral-200">{report.reported.nickname ?? report.reported.email}</span>
-                        <span className="text-xs text-neutral-600">이(가) 신고됨</span>
-                        <span className="text-xs bg-neutral-900 border border-neutral-700 rounded px-2 py-0.5 text-neutral-400">{USER_REPORT_REASON_LABEL[report.reason] ?? report.reason}</span>
-                        {report.status === 'REVIEWED' && <span className="text-xs text-neutral-600 border border-neutral-800 rounded px-1.5 py-0.5">처리됨</span>}
+              {filteredUserReports.map((report) => {
+                const isPending = report.status === 'PENDING';
+                const isActing = blindUserMutation.isPending || changeNicknameMutation.isPending || dismissUserReportMutation.isPending;
+                return (
+                  <div key={report.id} className={`bg-[#111111] border rounded-lg p-4 ${isPending ? 'border-neutral-800' : 'border-neutral-800/40 opacity-60'}`}>
+                    <div className="flex items-start gap-3">
+                      {isPending && (
+                        <input type="checkbox" checked={userSelectedIds.has(report.id)}
+                          onChange={() => setUserSelectedIds((prev) => { const n = new Set(prev); if (n.has(report.id)) n.delete(report.id); else n.add(report.id); return n; })}
+                          className="mt-1 w-3.5 h-3.5 accent-white flex-shrink-0 cursor-pointer" />
+                      )}
+                      <div className="flex-1 space-y-2.5">
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                          <div>
+                            <p className="text-[10px] text-neutral-600 uppercase tracking-wide mb-0.5">피신고자</p>
+                            <p className="text-sm font-semibold text-white">{report.reported.nickname ?? report.reported.email}</p>
+                          </div>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-xs bg-red-500/10 border border-red-500/30 text-red-400 rounded px-2 py-0.5">{USER_REPORT_REASON_LABEL[report.reason] ?? report.reason}</span>
+                            {!isPending && <span className="text-xs text-neutral-600 border border-neutral-800 rounded px-1.5 py-0.5">처리됨</span>}
+                          </div>
+                        </div>
+                        <div className="bg-neutral-900/60 rounded-md px-3 py-2 border border-neutral-800/60">
+                          <p className="text-[10px] text-neutral-600 uppercase tracking-wide mb-1">신고자</p>
+                          <p className="text-xs text-neutral-400">
+                            <span className="text-neutral-300">{report.reporter.nickname ?? report.reporter.email}</span>
+                            <span className="text-neutral-700 ml-2">{new Date(report.createdAt).toLocaleDateString('ko-KR')}</span>
+                          </p>
+                          {report.description && <p className="text-xs text-neutral-500 mt-1 italic">&ldquo;{report.description}&rdquo;</p>}
+                        </div>
+                        {isPending && (
+                          <div className="flex gap-1.5 flex-wrap">
+                            <button
+                              onClick={() => handleUserAction(report.id, 'change-nickname', `${USER_REPORT_REASON_LABEL[report.reason] ?? report.reason}`)}
+                              disabled={isActing}
+                              className="rounded-md bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs px-3 py-1.5 hover:bg-amber-500/20 transition-colors disabled:opacity-40">
+                              닉네임 강제변경
+                            </button>
+                            <button
+                              onClick={() => handleUserAction(report.id, 'blind', `${USER_REPORT_REASON_LABEL[report.reason] ?? report.reason}`)}
+                              disabled={isActing}
+                              className="rounded-md bg-red-500/10 border border-red-500/30 text-red-400 text-xs px-3 py-1.5 hover:bg-red-500/20 transition-colors disabled:opacity-40">
+                              블라인드
+                            </button>
+                            <button
+                              onClick={() => dismissUserReportMutation.mutate(report.id)}
+                              disabled={isActing}
+                              className="rounded-md border border-neutral-700 text-neutral-400 text-xs px-3 py-1.5 hover:text-white transition-colors disabled:opacity-40">
+                              무시
+                            </button>
+                          </div>
+                        )}
                       </div>
-                      {report.description && <p className="text-xs text-neutral-500">{report.description}</p>}
-                      <p className="text-xs text-neutral-700">신고자: {report.reporter.nickname ?? report.reporter.email} · {new Date(report.createdAt).toLocaleDateString('ko-KR')}</p>
                     </div>
-                    {report.status === 'PENDING' && (
-                      <button onClick={() => dismissUserReportMutation.mutate(report.id)} disabled={dismissUserReportMutation.isPending}
-                        className="flex-shrink-0 rounded-md border border-neutral-700 text-xs text-neutral-400 px-3 py-1.5 hover:text-white transition-colors disabled:opacity-40">
-                        무시
-                      </button>
-                    )}
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
