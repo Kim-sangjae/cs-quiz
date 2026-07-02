@@ -32,7 +32,7 @@ export async function GET() {
     inquiries,
     userReports,
     total: questions + reports + inquiries + userReports,
-    newTotal: newQuestions + newReports + newInquiries + newUserReports,
+    newTotal: newQuestions + newReports + newInquiries + userReports,
     lastSeenAt: lastSeenAt?.toISOString() ?? null,
   });
 }

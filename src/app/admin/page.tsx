@@ -1742,6 +1742,19 @@ function InquiriesTab({ prevSeenAt }: { prevSeenAt: string | null }) {
 
                 {expanded && (
                   <div className="border-t border-neutral-800 px-5 py-5 space-y-5">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-neutral-500">문의자 이메일</span>
+                      <span className="text-xs text-neutral-300 font-mono">{inq.user.email}</span>
+                      <button
+                        onClick={() => { void navigator.clipboard.writeText(inq.user.email); toast.success('이메일이 복사되었습니다.'); }}
+                        title="이메일 복사"
+                        className="p-1 rounded text-neutral-600 hover:text-white transition-colors"
+                      >
+                        <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
+                        </svg>
+                      </button>
+                    </div>
                     <div>
                       <p className="text-xs text-neutral-500 mb-1.5">문의 내용</p>
                       <p className="text-sm text-neutral-300 leading-relaxed whitespace-pre-wrap">{inq.content}</p>
