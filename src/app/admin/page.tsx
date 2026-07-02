@@ -3130,13 +3130,14 @@ function UserReportsTab() {
   const queryClient = useQueryClient();
   const [statusFilter, setStatusFilter] = useState<'PENDING' | 'REVIEWED' | 'all'>('PENDING');
 
-  const { data: reports = [], isLoading, isError } = useQuery<UserReportItem[]>({
+  const { data: reports = [], isLoading, isError, isFetching } = useQuery<UserReportItem[]>({
     queryKey: ['admin', 'user-reports'],
     queryFn: async () => {
       const r = await fetch('/api/admin/user-reports');
       if (!r.ok) throw new Error(`${r.status}`);
       return r.json() as Promise<UserReportItem[]>;
     },
+    refetchOnMount: 'always',
   });
 
   const dismissMutation = useMutation({
@@ -3177,10 +3178,10 @@ function UserReportsTab() {
         ))}
       </div>
 
-      {isLoading ? (
+      {(isLoading || isFetching) ? (
         <p className="text-neutral-500 text-sm text-center py-8">로딩 중...</p>
       ) : isError ? (
-        <p className="text-red-500 text-sm text-center py-8">신고 목록을 불러오지 못했습니다. (콘솔 확인)</p>
+        <p className="text-red-500 text-sm text-center py-8">신고 목록을 불러오지 못했습니다.</p>
       ) : filtered.length === 0 ? (
         <p className="text-neutral-500 text-sm text-center py-8">신고가 없습니다.</p>
       ) : (
