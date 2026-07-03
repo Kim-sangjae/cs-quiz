@@ -2399,6 +2399,34 @@ function CategoryQuestionStats() {
   );
 }
 
+function PointsStatsCard() {
+  const { data, isLoading } = useQuery<{ totalIssued: number; totalSpent: number; hintCount: number; avgPoints: number }>({
+    queryKey: ['admin', 'points-stats'],
+    queryFn: () => fetch('/api/admin/points-stats').then((r) => r.json()),
+    staleTime: 60_000,
+  });
+  if (isLoading) return <div className="h-20 bg-neutral-800/40 rounded-xl animate-pulse" />;
+  if (!data) return null;
+  return (
+    <div className="bg-[#111111] border border-neutral-800 rounded-xl p-4">
+      <p className="text-xs text-neutral-500 font-semibold uppercase tracking-wider mb-3">포인트 현황</p>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {[
+          { label: '총 지급 포인트', value: data.totalIssued.toLocaleString() + 'P' },
+          { label: '총 사용 포인트', value: data.totalSpent.toLocaleString() + 'P' },
+          { label: '힌트 사용 횟수', value: data.hintCount.toLocaleString() + '회' },
+          { label: '유저 평균 잔액', value: Math.round(data.avgPoints) + 'P' },
+        ].map(({ label, value }) => (
+          <div key={label} className="bg-[#0d0d0d] border border-neutral-800 rounded-lg p-3">
+            <p className="text-[10px] text-neutral-500 mb-1">{label}</p>
+            <p className="text-sm font-semibold text-amber-400">{value}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function AnalyticsTab() {
   const [chartPeriod, setChartPeriod] = useState<'month' | 'year'>('month');
   const [targetYear, setTargetYear] = useState(String(new Date().getFullYear()));
@@ -2452,6 +2480,7 @@ function AnalyticsTab() {
   return (
     <div className="space-y-6">
       <CategoryQuestionStats />
+      <PointsStatsCard />
 
       {/* ── 슬라이드 패널 ── */}
       <div

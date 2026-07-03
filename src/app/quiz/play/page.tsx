@@ -8,14 +8,43 @@ import QuizPlayClient from "./QuizPlayClient";
 export default async function QuizPlayPage({
   searchParams,
 }: {
-  searchParams: Promise<{ category?: string; reviewIds?: string; timed?: string }>;
+  searchParams: Promise<{ category?: string; reviewIds?: string; timed?: string; sharedFrom?: string }>;
 }) {
-  const { category, reviewIds, timed } = await searchParams;
+  const { category, reviewIds, timed, sharedFrom } = await searchParams;
 
   const user = await getServerUser();
   let questions: Question[];
+  let sharedCategory: string | undefined;
 
-  if (reviewIds) {
+  if (sharedFrom) {
+    const sharedSession = await prisma.quizSession.findUnique({
+      where: { id: sharedFrom },
+      select: { questionIds: true, category: true },
+    });
+    if (!sharedSession) {
+      questions = [];
+    } else {
+      sharedCategory = sharedSession.category;
+      const ids = sharedSession.questionIds as string[];
+      const dbQuestions = await prisma.question.findMany({
+        where: { id: { in: ids }, status: { in: ['OFFICIAL', 'APPROVED'] } },
+        include: { author: { select: { nickname: true } } },
+      });
+      const qMap = new Map(dbQuestions.map((q) => [q.id, q]));
+      questions = ids
+        .map((id) => qMap.get(id))
+        .filter((q): q is NonNullable<typeof q> => !!q)
+        .map((q) => ({
+          id: q.id,
+          category: q.category as Category,
+          question: q.question,
+          options: q.options as [string, string, string, string],
+          answer: q.answer as 0 | 1 | 2 | 3,
+          explanation: q.explanation,
+          authorNickname: q.author?.nickname ?? null,
+        }));
+    }
+  } else if (reviewIds) {
     const ids = reviewIds.split(",").filter(Boolean).slice(0, 20);
     const dbQuestions = await prisma.question.findMany({
       where: { id: { in: ids } },
@@ -96,10 +125,12 @@ export default async function QuizPlayPage({
     ? 'timed'
     : 'normal';
 
+  const effectiveCategory = sharedFrom ? (sharedCategory ?? category ?? 'all') : (category ?? 'all');
+
   return (
     <QuizPlayClient
       questions={questions}
-      category={category ?? "all"}
+      category={effectiveCategory}
       mode={quizMode}
       isReview={!!reviewIds}
       isTimed={timed === 'true'}

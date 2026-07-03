@@ -30,6 +30,7 @@ interface UserProfile {
   battleTotal: number;
   isOnline: boolean;
   badges: string[];
+  profileVisibility?: string;
 }
 
 function formatLastSeen(lastSeenAt: string | null, isOnline: boolean): string {
@@ -273,6 +274,19 @@ function ProfileModal({
                 </div>
               </div>
             ) : (
+              <>
+              {profile?.profileVisibility !== 'PRIVATE' && (
+                <div className="px-4 pb-1">
+                  <a
+                    href={`/u/${encodeURIComponent(friend.nickname)}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="block w-full text-center text-xs text-neutral-500 hover:text-white border border-neutral-800 hover:border-neutral-600 rounded-lg py-2 transition-colors"
+                  >
+                    프로필 상세보기 →
+                  </a>
+                </div>
+              )}
               <div className="border-t border-neutral-800 px-4 py-3 flex gap-2">
                 {friend.battleStatus === 'PLAYING' && (
                   <div className="flex-1 rounded-lg bg-red-500/10 border border-red-500/30 px-3 py-2.5 text-center">
@@ -299,6 +313,7 @@ function ProfileModal({
                   친구 삭제
                 </button>
               </div>
+              </>
             )}
 
             {/* 신고 모달 */}

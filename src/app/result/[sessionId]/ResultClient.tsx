@@ -38,6 +38,7 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
   const [copyLabel, setCopyLabel] = useState('링크 복사');
   const [shareModal, setShareModal] = useState<string | null>(null);
   const [bookmarkedIds, setBookmarkedIds] = useState<Set<string>>(new Set());
+  const [pointsEarned, setPointsEarned] = useState<number | null>(null);
 
   useEffect(() => {
     fetch(`/api/quiz/sessions/${sessionId}`)
@@ -50,6 +51,11 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
         setData(d);
       })
       .catch(() => router.replace("/quiz"));
+    const earned = sessionStorage.getItem(`points-earned-${sessionId}`);
+    if (earned) {
+      setPointsEarned(Number(earned));
+      sessionStorage.removeItem(`points-earned-${sessionId}`);
+    }
   }, [sessionId, router]);
 
   useEffect(() => {
@@ -152,9 +158,24 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
           )}
           <button
             onClick={() => {
+              const quizUrl = `${window.location.origin}/quiz/play?sharedFrom=${sessionId}`;
+              navigator.clipboard.writeText(quizUrl).then(() => {
+                setCopyLabel('복사됨!');
+                setTimeout(() => { setCopyLabel('문제 링크 복사'); setShareModal(null); }, 1200);
+              });
+            }}
+            className="w-full rounded-md border border-neutral-700 text-sm text-neutral-300 py-3 hover:border-neutral-500 hover:text-white transition-colors flex items-center justify-center gap-2"
+          >
+            <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244" />
+            </svg>
+            같은 문제 공유 (링크 복사)
+          </button>
+          <button
+            onClick={() => {
               navigator.clipboard.writeText(window.location.href).then(() => {
                 setCopyLabel('복사됨!');
-                setTimeout(() => { setCopyLabel('링크 복사'); setShareModal(null); }, 1200);
+                setTimeout(() => { setCopyLabel('결과 링크 복사'); setShareModal(null); }, 1200);
               });
             }}
             className="w-full rounded-md border border-neutral-700 text-sm text-neutral-300 py-3 hover:border-neutral-500 hover:text-white transition-colors"
@@ -211,6 +232,12 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
       {ShareModal}
+      {pointsEarned !== null && (
+        <div className="flex items-center gap-2 bg-amber-950/30 border border-amber-800/40 rounded-lg px-4 py-2.5 mb-4">
+          <span className="text-amber-400 text-sm font-semibold">+{pointsEarned}P</span>
+          <span className="text-amber-500/80 text-xs">퀴즈 완료 보상이 지급되었습니다</span>
+        </div>
+      )}
       <div className="text-center mb-8">
         <div className="mb-2">
           <span className={`text-4xl font-bold ${scoreColor}`}>

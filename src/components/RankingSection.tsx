@@ -5,6 +5,82 @@ import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import type { CategoryRankings, RankEntry, MyRankEntry, ContributorEntry } from '@/lib/rankings';
 
+interface RankUserProfile {
+  nickname: string;
+  level: number;
+  totalAttempts: number;
+  accuracy: number;
+  battleTotal: number;
+  battleWins: number;
+  profileVisibility: string;
+}
+
+function RankProfileModal({ userId, nickname, onClose }: { userId: string; nickname: string; onClose: () => void }) {
+  const { data, isLoading } = useQuery<RankUserProfile>({
+    queryKey: ['rank-profile', userId],
+    queryFn: () => fetch(`/api/users/${userId}/profile`).then((r) => r.json()),
+    staleTime: 60_000,
+  });
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px]" />
+      <div
+        className="relative w-full max-w-xs bg-[#111111] border border-neutral-800 rounded-2xl overflow-hidden shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button
+          onClick={onClose}
+          className="absolute top-3 right-3 p-1.5 rounded text-neutral-600 hover:text-white hover:bg-neutral-800 transition-colors"
+        >
+          <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+            <path d="M18 6L6 18M6 6l12 12" />
+          </svg>
+        </button>
+        <div className="flex flex-col items-center pt-8 pb-5 px-5">
+          <div className="w-14 h-14 rounded-full bg-neutral-800 border border-neutral-700 flex items-center justify-center mb-3">
+            <span className="text-lg font-semibold text-neutral-300">{(nickname[0] ?? '?').toUpperCase()}</span>
+          </div>
+          <p className="text-base font-semibold text-white">{nickname}</p>
+          {isLoading ? (
+            <div className="h-4 w-20 bg-neutral-800 rounded animate-pulse mt-1" />
+          ) : data ? (
+            <p className="text-xs text-neutral-500 mt-1">Lv.{data.level}</p>
+          ) : null}
+        </div>
+        {!isLoading && data && (
+          <div className="border-t border-neutral-800 px-5 py-4 space-y-2">
+            <div className="flex justify-between text-xs">
+              <span className="text-neutral-500">총 시도</span>
+              <span className="text-neutral-300">{data.totalAttempts.toLocaleString()}회</span>
+            </div>
+            <div className="flex justify-between text-xs">
+              <span className="text-neutral-500">정답률</span>
+              <span className="text-neutral-300">{(data.accuracy * 100).toFixed(1)}%</span>
+            </div>
+            {data.battleTotal > 0 && (
+              <div className="flex justify-between text-xs">
+                <span className="text-neutral-500">대전 승률</span>
+                <span className="text-neutral-300">{Math.round((data.battleWins / data.battleTotal) * 100)}%</span>
+              </div>
+            )}
+          </div>
+        )}
+        {!isLoading && data?.profileVisibility !== 'PRIVATE' && (
+          <div className="border-t border-neutral-800 px-4 py-3">
+            <a
+              href={`/u/${encodeURIComponent(nickname)}`}
+              className="block w-full text-center text-xs text-neutral-400 hover:text-white border border-neutral-800 hover:border-neutral-600 rounded-lg py-2 transition-colors"
+            >
+              프로필 상세보기 →
+            </a>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 const CATEGORY_TABS: { key: keyof CategoryRankings; label: string }[] = [
   { key: 'ds', label: 'DS' },
   { key: 'algo', label: 'Algo' },
@@ -91,6 +167,7 @@ function FriendRankings({ currentUserId }: { currentUserId: string | null }) {
 
 export default function RankingSection({ rankings, currentUserId, myRanks, contributors }: RankingSectionProps) {
   const [activeTab, setActiveTab] = useState<keyof CategoryRankings | 'friends' | 'contributors'>('ds');
+  const [profileModal, setProfileModal] = useState<{ userId: string; nickname: string } | null>(null);
   const isFriendsTab = activeTab === 'friends';
   const isContributorsTab = activeTab === 'contributors';
   const entries: RankEntry[] = (isFriendsTab || isContributorsTab) ? [] : (rankings[activeTab as keyof CategoryRankings] ?? []);
@@ -191,6 +268,14 @@ export default function RankingSection({ rankings, currentUserId, myRanks, contr
       ) : entries.length === 0 ? (
         <p className="text-sm text-neutral-500 py-4">아직 랭킹 데이터가 없습니다</p>
       ) : (
+        <>
+        {profileModal && (
+          <RankProfileModal
+            userId={profileModal.userId}
+            nickname={profileModal.nickname}
+            onClose={() => setProfileModal(null)}
+          />
+        )}
         <table className="w-full text-sm">
           <thead>
             <tr className="text-neutral-500 text-left border-b border-neutral-800">
@@ -210,9 +295,12 @@ export default function RankingSection({ rankings, currentUserId, myRanks, contr
                 >
                   <td className="py-2.5 text-neutral-500">{entry.rank}</td>
                   <td className={`py-2.5 ${isMe ? 'text-white font-medium' : 'text-neutral-300'}`}>
-                    <Link href={`/u/${encodeURIComponent(entry.nickname)}`} className="hover:text-white transition-colors">
+                    <button
+                      onClick={() => setProfileModal({ userId: entry.userId, nickname: entry.nickname })}
+                      className="hover:text-white transition-colors text-left"
+                    >
                       {entry.nickname}
-                    </Link>
+                    </button>
                     {isMe && myRank && (
                       <span className="ml-2 text-[10px] text-emerald-500">
                         상위 {Math.ceil((myRank.rank / myRank.totalParticipants) * 100)}%
@@ -250,6 +338,7 @@ export default function RankingSection({ rankings, currentUserId, myRanks, contr
             )}
           </tbody>
         </table>
+        </>
       )}
     </section>
   );

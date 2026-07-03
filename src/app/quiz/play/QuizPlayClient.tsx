@@ -237,7 +237,7 @@ export default function QuizPlayClient({ questions, category, mode = 'normal', i
   }
 
   async function applyHint(questionId: string): Promise<void> {
-    if (points < 30 || hints[questionId] !== undefined || hintPending) return;
+    if (points < 20 || hints[questionId] !== undefined || hintPending) return;
     setHintPending(true);
     try {
       const res = await fetch('/api/quiz/hint', {
@@ -293,8 +293,11 @@ export default function QuizPlayClient({ questions, category, mode = 'normal', i
         router.replace("/");
         return;
       }
-      const { sessionId } = await res.json() as { sessionId: string };
+      const { sessionId, pointsEarned } = await res.json() as { sessionId: string; pointsEarned?: number };
       localStorage.removeItem(progressKey);
+      if (pointsEarned) {
+        sessionStorage.setItem(`points-earned-${sessionId}`, String(pointsEarned));
+      }
       router.push(`/result/${sessionId}`);
     } catch (e) {
       console.error("[QuizPlay] submit failed:", e);
@@ -463,11 +466,11 @@ export default function QuizPlayClient({ questions, category, mode = 'normal', i
           ) : (
             <button
               onClick={() => void applyHint(current.id)}
-              disabled={points < 30 || hintPending}
-              title={points < 30 ? `포인트 부족 (${points}P)` : '오답 1개를 제거합니다 (-30P)'}
+              disabled={points < 20 || hintPending}
+              title={points < 20 ? `포인트 부족 (${points}P)` : '오답 1개를 제거합니다 (-20P)'}
               className="flex items-center gap-1 text-[10px] border border-neutral-800 text-neutral-500 rounded px-2 py-0.5 hover:border-neutral-600 hover:text-amber-400 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
             >
-              💡 힌트 (-30P) · {points}P
+              💡 힌트 (-20P) · {points}P
             </button>
           )
         )}

@@ -488,6 +488,10 @@ export default function MyPage() {
   const [weeklyGoals, setWeeklyGoals] = useState<WeeklyGoal[] | null>(null);
   const [weeklyGoalsLoading, setWeeklyGoalsLoading] = useState(false);
   const [showWeeklyGoals, setShowWeeklyGoals] = useState(false);
+  const [showPointsModal, setShowPointsModal] = useState(false);
+  const [pointsTransactions, setPointsTransactions] = useState<{ id: string; delta: number; reason: string; createdAt: string }[] | null>(null);
+  const [profileVisibility, setProfileVisibility] = useState<'PUBLIC' | 'FRIENDS_ONLY' | 'PRIVATE'>('PUBLIC');
+  const [visibilityLoading, setVisibilityLoading] = useState(false);
 
   type DrawerState = {
     questionId: string;
@@ -665,24 +669,33 @@ export default function MyPage() {
 
   useEffect(() => { setCommentPage(0); }, [commentCat]);
 
-  // 포인트 잔액
+  // 포인트 잔액 + 내역 + visibility
   useEffect(() => {
-    fetch("/api/mypage/points")
-      .then((r) => r.ok ? r.json() : null)
-      .then((d: { points: number } | null) => { if (d) setUserPoints(d.points); })
-      .catch(() => {});
+    Promise.all([
+      fetch("/api/mypage/points").then((r) => r.ok ? r.json() : null),
+      fetch("/api/mypage/profile-visibility").then((r) => r.ok ? r.json() : null),
+    ]).then(([pointsData, visData]) => {
+      const pd = pointsData as { points: number; transactions: { id: string; delta: number; reason: string; createdAt: string }[] } | null;
+      if (pd) {
+        setUserPoints(pd.points);
+        setPointsTransactions(pd.transactions ?? []);
+      }
+      const vd = visData as { visibility: 'PUBLIC' | 'FRIENDS_ONLY' | 'PRIVATE' } | null;
+      if (vd) setProfileVisibility(vd.visibility);
+    }).catch(() => {});
   }, []);
 
-  // 주간 목표 (토글 시 로드)
+  // 주간 목표 — 마운트 시 자동 로드 (배지 표시용)
   useEffect(() => {
-    if (!showWeeklyGoals || weeklyGoals !== null) return;
+    if (weeklyGoals !== null) return;
     setWeeklyGoalsLoading(true);
     fetch("/api/mypage/weekly-goals")
       .then((r) => r.json())
       .then((d: { goals: WeeklyGoal[] }) => setWeeklyGoals(d.goals ?? []))
       .catch(() => setWeeklyGoals([]))
       .finally(() => setWeeklyGoalsLoading(false));
-  }, [showWeeklyGoals, weeklyGoals]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const profileStats = computeProfileStats(categoryAttemptCounts, categoryAccuracy);
 
@@ -693,39 +706,90 @@ export default function MyPage() {
         <p className="text-sm text-neutral-500">내 학습 기록과 통계를 확인하세요</p>
       </div>
 
-      {/* 닉네임 변경 */}
+      {/* 닉네임 + 포인트 + 프로필 공개설정 */}
       <div className="bg-[#111111] border border-neutral-800 rounded-lg p-4 mb-4">
         <div className="flex items-center justify-between">
-          <div>
+          <div className="flex-1 min-w-0">
             <p className="text-xs text-neutral-500 mb-0.5">닉네임</p>
-            <div className="flex items-center gap-2">
-              <p className="text-sm text-white font-medium">{session?.user?.nickname ?? '–'}</p>
-              {session?.user?.nickname && (
-                <a
-                  href={`/u/${encodeURIComponent(session.user.nickname)}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-[10px] text-neutral-600 hover:text-neutral-400 transition-colors"
-                >
-                  공개 프로필 →
-                </a>
-              )}
-            </div>
+            <p className="text-sm text-white font-medium">{session?.user?.nickname ?? '–'}</p>
             {stats && (
               <p className="text-xs text-neutral-600 mt-0.5">
                 총 {stats.totalSessions}회 완료 · 정답률 {stats.overallAccuracy}%
               </p>
             )}
             {userPoints !== null && (
-              <p className="text-xs text-amber-500/80 mt-0.5">포인트 {userPoints}P</p>
+              <div className="flex items-center gap-1.5 mt-1">
+                <button
+                  onClick={() => setShowPointsModal(true)}
+                  className="flex items-center gap-1.5 text-xs text-amber-400 hover:text-amber-300 transition-colors group"
+                  title="포인트 획득/사용 방법 및 내역 보기"
+                >
+                  <span className="font-semibold">{userPoints}P</span>
+                  <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}
+                    className="text-amber-500/60 group-hover:text-amber-400 transition-colors">
+                    <circle cx={12} cy={12} r={10}/><path strokeLinecap="round" d="M12 16v-4m0-4h.01"/>
+                  </svg>
+                </button>
+              </div>
             )}
           </div>
           <button
             onClick={() => { setShowNicknameForm((v) => !v); setNicknameInput(''); setNicknameError(''); }}
-            className="text-xs text-neutral-400 border border-neutral-700 rounded px-3 py-1.5 hover:border-neutral-500 hover:text-white transition-colors"
+            className="text-xs text-neutral-400 border border-neutral-700 rounded px-3 py-1.5 hover:border-neutral-500 hover:text-white transition-colors flex-shrink-0 ml-3"
           >
-            {showNicknameForm ? '취소' : '변경'}
+            {showNicknameForm ? '취소' : '닉네임 변경'}
           </button>
+        </div>
+
+        {/* 공개 프로필 설정 */}
+        <div className="mt-3 pt-3 border-t border-neutral-800/60">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2">
+              {session?.user?.nickname && profileVisibility !== 'PRIVATE' && (
+                <a
+                  href={`/u/${encodeURIComponent(session.user.nickname)}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-xs font-medium text-white/80 hover:text-white border border-neutral-700 hover:border-neutral-500 rounded px-2.5 py-1 transition-colors"
+                >
+                  공개 프로필 보기 →
+                </a>
+              )}
+              <span className="text-xs text-neutral-600">공개 설정</span>
+            </div>
+            <div className="flex items-center gap-1">
+              {(['PUBLIC', 'FRIENDS_ONLY', 'PRIVATE'] as const).map((v) => {
+                const labels = { PUBLIC: '공개', FRIENDS_ONLY: '친구만', PRIVATE: '비공개' };
+                return (
+                  <button
+                    key={v}
+                    disabled={visibilityLoading}
+                    onClick={async () => {
+                      if (profileVisibility === v || visibilityLoading) return;
+                      setVisibilityLoading(true);
+                      try {
+                        const res = await fetch('/api/mypage/profile-visibility', {
+                          method: 'PATCH',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ visibility: v }),
+                        });
+                        if (res.ok) setProfileVisibility(v);
+                      } finally {
+                        setVisibilityLoading(false);
+                      }
+                    }}
+                    className={`text-[11px] px-2.5 py-1 rounded border transition-colors ${
+                      profileVisibility === v
+                        ? 'border-white/30 bg-white/10 text-white font-medium'
+                        : 'border-neutral-800 text-neutral-500 hover:border-neutral-600 hover:text-neutral-300'
+                    }`}
+                  >
+                    {labels[v]}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </div>
 
         {showNicknameForm && (
@@ -753,6 +817,72 @@ export default function MyPage() {
           </form>
         )}
       </div>
+
+      {/* 포인트 정보/내역 모달 */}
+      {showPointsModal && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/60" onClick={() => setShowPointsModal(false)}>
+          <div className="w-full max-w-sm bg-[#111111] border border-neutral-700 rounded-xl shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 py-4 border-b border-neutral-800">
+              <h3 className="text-sm font-semibold text-white">포인트 안내</h3>
+              <button onClick={() => setShowPointsModal(false)} className="text-neutral-500 hover:text-white transition-colors p-1">
+                <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+              </button>
+            </div>
+            <div className="px-5 py-4">
+              <p className="text-xs text-neutral-500 mb-3">포인트 획득 방법</p>
+              <div className="space-y-2 mb-4">
+                {[
+                  { label: '퀴즈 완료 (정답률 70% 이상)', val: '+5P' },
+                  { label: '퀴즈 완료 (정답률 70% 미만)', val: '+2P' },
+                  { label: '주간 목표 달성 수령', val: '+15~30P' },
+                ].map(({ label, val }) => (
+                  <div key={label} className="flex items-center justify-between text-xs">
+                    <span className="text-neutral-400">{label}</span>
+                    <span className="text-emerald-400 font-medium">{val}</span>
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-neutral-500 mb-3">포인트 사용</p>
+              <div className="space-y-2 mb-4">
+                {[{ label: '힌트 사용 (오답 보기 1개 제거)', val: '-20P' }].map(({ label, val }) => (
+                  <div key={label} className="flex items-center justify-between text-xs">
+                    <span className="text-neutral-400">{label}</span>
+                    <span className="text-red-400 font-medium">{val}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="border-t border-neutral-800 pt-3">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs text-neutral-500">최근 내역</p>
+                  <span className="text-sm font-bold text-amber-400">{userPoints ?? 0}P</span>
+                </div>
+                {!pointsTransactions || pointsTransactions.length === 0 ? (
+                  <p className="text-xs text-neutral-600 text-center py-3">내역이 없습니다</p>
+                ) : (
+                  <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                    {pointsTransactions.map((t) => {
+                      const reasonLabel: Record<string, string> = {
+                        HINT: '힌트 사용',
+                        QUIZ_COMPLETE_HIGH: '퀴즈 완료 (고득점)',
+                        QUIZ_COMPLETE_LOW: '퀴즈 완료',
+                        WEEKLY_GOAL: '주간 목표 달성',
+                      };
+                      return (
+                        <div key={t.id} className="flex items-center justify-between text-xs">
+                          <span className="text-neutral-500">{reasonLabel[t.reason] ?? t.reason}</span>
+                          <span className={t.delta > 0 ? 'text-emerald-400' : 'text-red-400'}>
+                            {t.delta > 0 ? '+' : ''}{t.delta}P
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 요약 카드 */}
       {stats && (
@@ -805,7 +935,7 @@ export default function MyPage() {
           <div className="flex items-center gap-2">
             <span className="text-sm font-semibold text-white">주간 목표</span>
             {weeklyGoals && weeklyGoals.filter((g) => g.completed && !g.claimed).length > 0 && (
-              <span className="text-[10px] font-bold bg-amber-500 text-black rounded-full px-1.5 py-0.5">
+              <span className="text-[10px] font-bold bg-red-500 text-white rounded-full px-1.5 py-0.5">
                 {weeklyGoals.filter((g) => g.completed && !g.claimed).length}
               </span>
             )}

@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import type { Metadata } from 'next';
 import { prisma } from '@/lib/prisma';
+import { getServerUser } from '@/lib/auth';
 import { BADGE_META } from '@/lib/badges';
 
 const CATEGORIES = ['ds', 'algo', 'os', 'network', 'db', 'arch', 'se'] as const;
@@ -43,22 +44,46 @@ export default async function PublicProfilePage({ params }: PageProps) {
   const { nickname: encodedNickname } = await params;
   const nickname = decodeURIComponent(encodedNickname);
 
-  const user = await prisma.user.findUnique({
-    where: { nickname },
-    select: {
-      id: true,
-      nickname: true,
-      createdAt: true,
-      streakCount: true,
-      deletedAt: true,
-      badges: {
-        select: { badge: true, earnedAt: true },
-        orderBy: { earnedAt: 'asc' },
+  const [viewer, user] = await Promise.all([
+    getServerUser(),
+    prisma.user.findUnique({
+      where: { nickname },
+      select: {
+        id: true,
+        nickname: true,
+        createdAt: true,
+        streakCount: true,
+        deletedAt: true,
+        profileVisibility: true,
+        badges: {
+          select: { badge: true, earnedAt: true },
+          orderBy: { earnedAt: 'asc' },
+        },
       },
-    },
-  });
+    }),
+  ]);
 
   if (!user || user.deletedAt) notFound();
+
+  // 접근 제어
+  if (user.profileVisibility === 'PRIVATE') {
+    if (!viewer || viewer.id !== user.id) notFound();
+  } else if (user.profileVisibility === 'FRIENDS_ONLY') {
+    if (!viewer || viewer.id === user.id) {
+      // 본인은 통과
+    } else {
+      const friendship = await prisma.friendship.findFirst({
+        where: {
+          status: 'ACCEPTED',
+          OR: [
+            { requesterId: viewer.id, addresseeId: user.id },
+            { requesterId: user.id, addresseeId: viewer.id },
+          ],
+        },
+      });
+      if (!friendship) notFound();
+    }
+  }
 
   const [attempts, totalSessions, approvedCount, recentSessions] = await Promise.all([
     prisma.questionAttempt.findMany({

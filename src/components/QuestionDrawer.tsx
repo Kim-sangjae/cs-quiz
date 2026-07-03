@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import ResultCard from './ResultCard';
+import CommentSection from './board/CommentSection';
 import type { Question } from '@/types';
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -226,6 +227,7 @@ export default function QuestionDrawer({
                   게시판에서 보기 →
                 </Link>
               </div>
+              <CommentSection questionId={q.id} />
             </>
           )}
         </div>

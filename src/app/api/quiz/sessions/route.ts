@@ -191,7 +191,32 @@ export async function POST(req: NextRequest) {
     answersWithCorrectness.map((a) => ({ questionId: a.questionId, isCorrect: a.isCorrect }))
   ).catch(() => {});
 
-  return NextResponse.json({ sessionId: session.id });
+  // 일반/시간제한 모드: 정답률에 따라 포인트 지급
+  let pointsEarned = 0;
+  if (isRanked) {
+    const accuracy = questionIds.length > 0 ? score / questionIds.length : 0;
+    pointsEarned = accuracy >= 0.7 ? 5 : 2;
+    try {
+      await prisma.$transaction([
+        prisma.user.update({
+          where: { id: user.id },
+          data: { points: { increment: pointsEarned } },
+        }),
+        prisma.pointTransaction.create({
+          data: {
+            userId: user.id,
+            delta: pointsEarned,
+            reason: accuracy >= 0.7 ? 'QUIZ_COMPLETE_HIGH' : 'QUIZ_COMPLETE_LOW',
+          },
+        }),
+      ]);
+    } catch (e) {
+      console.error('[sessions/POST] point award failed:', e);
+      pointsEarned = 0;
+    }
+  }
+
+  return NextResponse.json({ sessionId: session.id, pointsEarned });
 }
 
 export async function GET() {

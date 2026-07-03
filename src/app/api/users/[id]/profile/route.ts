@@ -20,7 +20,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const [user, attempts, rooms, presence, userBadges] = await Promise.all([
     prisma.user.findUnique({
       where: { id: targetId },
-      select: { nickname: true },
+      select: { nickname: true, profileVisibility: true },
     }),
     prisma.$queryRaw<[{ total: number; correct: number }]>`
       SELECT COUNT(*)::int AS total,
@@ -77,5 +77,6 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     battleTotal,
     isOnline,
     badges: userBadges.map((b) => b.badge),
+    profileVisibility: user.profileVisibility ?? 'PUBLIC',
   });
 }

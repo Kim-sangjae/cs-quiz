@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerUser } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 
-const HINT_COST = 30;
+const HINT_COST = 20;
 
 export async function POST(req: NextRequest) {
   const user = await getServerUser();
