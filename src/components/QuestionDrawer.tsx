@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import ResultCard from './ResultCard';
 import CommentSection from './board/CommentSection';
+import AuthorButton from './AuthorButton';
 import type { Question } from '@/types';
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -23,6 +24,8 @@ interface FetchedQuestion {
   explanation: string;
   status: string;
   rejectionReason?: string | null;
+  authorId?: string | null;
+  author?: { nickname: string | null } | null;
 }
 
 interface PrefetchedQuestion {
@@ -68,7 +71,7 @@ export default function QuestionDrawer({
     if (!open) { setFetched(null); setBookmarked(false); return; }
     const qid = prefetched?.id ?? questionId;
     if (qid) fetchBookmark(qid);
-    if (prefetched || !questionId) return;
+    if (!questionId) return;
     setLoading(true);
     fetch(`/api/questions/${questionId}`)
       .then((r) => r.json())
@@ -160,9 +163,16 @@ export default function QuestionDrawer({
             />
           ) : (
             <>
-              <span className="text-xs text-neutral-500 border border-neutral-800 rounded px-2 py-0.5 inline-block mb-3">
-                {CATEGORY_LABELS[q.category] ?? q.category}
-              </span>
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-xs text-neutral-500 border border-neutral-800 rounded px-2 py-0.5">
+                  {CATEGORY_LABELS[q.category] ?? q.category}
+                </span>
+                {fetched?.author?.nickname && fetched.authorId && (
+                  <span className="text-xs text-neutral-600">
+                    출제: <AuthorButton authorId={fetched.authorId} authorNickname={fetched.author.nickname} className="hover:text-neutral-400 transition-colors" />
+                  </span>
+                )}
+              </div>
               <p className="text-sm text-white leading-relaxed mb-5">{q.question}</p>
               <div className="space-y-2 mb-5">
                 {options.map((opt, i) => {

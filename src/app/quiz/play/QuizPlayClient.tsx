@@ -86,6 +86,22 @@ export default function QuizPlayClient({ questions, category, mode = 'normal', i
     quizUrlRef.current = window.location.href;
   }, []);
 
+  // 퀴즈 풀이 중 상태 (친구 패널용)
+  useEffect(() => {
+    void fetch('/api/me/quiz-status', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ isPlayingQuiz: true }),
+    }).catch(() => {});
+    return () => {
+      void fetch('/api/me/quiz-status', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isPlayingQuiz: false }),
+      }).catch(() => {});
+    };
+  }, []);
+
   const progressKey = `quiz-progress-${category}-${questions[0]?.id ?? ''}`;
 
   // 문제별 타이머 (단일 effect — race condition 방지)

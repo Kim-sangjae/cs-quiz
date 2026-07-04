@@ -48,6 +48,8 @@ function SubmitContent() {
   const [similarQuestions, setSimilarQuestions] = useState<SimilarQuestion[]>([]);
   const similarTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [generating, setGenerating] = useState(false);
+  const [generateCount, setGenerateCount] = useState(0);
+  const MAX_GENERATE = 3;
 
   // 재요청 모드: 기존 문제 데이터 프리필
   useEffect(() => {
@@ -91,7 +93,7 @@ function SubmitContent() {
   }
 
   async function handleGenerateOptions() {
-    if (!question.trim() || !options[answer ?? -1]?.trim()) return;
+    if (!question.trim() || !options[answer ?? -1]?.trim() || generateCount >= MAX_GENERATE) return;
     setGenerating(true);
     try {
       const correctAnswer = options[answer!];
@@ -111,6 +113,7 @@ function SubmitContent() {
       }
       setOptions(next);
       if (generatedExplanation) setExplanation(generatedExplanation);
+      setGenerateCount((c) => c + 1);
     } finally {
       setGenerating(false);
     }
@@ -242,10 +245,11 @@ function SubmitContent() {
               <button
                 type="button"
                 onClick={handleGenerateOptions}
-                disabled={generating || !question.trim() || answer === null || !options[answer]?.trim()}
+                disabled={generating || generateCount >= MAX_GENERATE || !question.trim() || answer === null || !options[answer]?.trim()}
                 className="text-xs text-neutral-400 border border-neutral-700 rounded-md px-3 py-1.5 hover:text-white hover:border-neutral-500 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                title={generateCount >= MAX_GENERATE ? 'AI 생성 횟수를 초과했습니다. 직접 작성해주세요.' : undefined}
               >
-                {generating ? '생성 중...' : '✦ 보기 + 해설 자동 생성'}
+                {generating ? '생성 중...' : generateCount >= MAX_GENERATE ? `AI 생성 불가 (${MAX_GENERATE}회 초과)` : `✦ 보기 + 해설 자동 생성 (${MAX_GENERATE - generateCount}회 남음)`}
               </button>
               <div className="relative group">
                 <span className="flex items-center justify-center w-4 h-4 rounded-full border border-neutral-700 text-neutral-500 text-[10px] cursor-help hover:border-neutral-500 hover:text-neutral-300 transition-colors select-none">

@@ -37,7 +37,13 @@ export async function GET() {
     const completed = progress >= g.target;
     const claimed = claimedKeys.has(g.key);
 
-    return { ...g, progress: Math.min(progress, g.target), completed, claimed };
+    return {
+      ...g,
+      progress: Math.min(progress, g.target),
+      completed,
+      claimed,
+      ...(g.key === 'CATEGORY_3' ? { categories: [...categories] } : {}),
+    };
   });
 
   return NextResponse.json({ goals, week });

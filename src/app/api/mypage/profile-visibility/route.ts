@@ -8,10 +8,10 @@ export async function GET() {
 
   const userData = await prisma.user.findUnique({
     where: { id: user.id },
-    select: { profileVisibility: true },
+    select: { profileVisibility: true, bio: true },
   });
 
-  return NextResponse.json({ visibility: userData?.profileVisibility ?? 'PUBLIC' });
+  return NextResponse.json({ visibility: userData?.profileVisibility ?? 'PUBLIC', bio: userData?.bio ?? null });
 }
 
 export async function PATCH(req: NextRequest) {

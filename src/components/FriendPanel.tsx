@@ -7,8 +7,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { toast } from 'sonner';
 import { useSupabaseRealtime } from '@/hooks/useSupabaseRealtime';
 import { supabaseBrowser } from '@/lib/supabase-browser';
-import { BADGE_META } from '@/lib/badges';
-import type { BadgeType } from '@/lib/badges';
+import UserProfileModal from './UserProfileModal';
 
 interface Friend {
   friendshipId: string;
@@ -17,20 +16,7 @@ interface Friend {
   isOnline: boolean;
   lastSeenAt: string | null;
   battleStatus: 'WAITING' | 'PLAYING' | null;
-}
-
-interface UserProfile {
-  nickname: string;
-  level: number;
-  totalAttempts: number;
-  accuracy: number;
-  battleWins: number;
-  battleTies: number;
-  battleLosses: number;
-  battleTotal: number;
-  isOnline: boolean;
-  badges: string[];
-  profileVisibility?: string;
+  isPlayingQuiz?: boolean;
 }
 
 function formatLastSeen(lastSeenAt: string | null, isOnline: boolean): string {
@@ -45,388 +31,6 @@ function formatLastSeen(lastSeenAt: string | null, isOnline: boolean): string {
   const days = Math.floor(hours / 24);
   if (days < 30) return `${days}일 전`;
   return `${Math.floor(days / 30)}개월 전`;
-}
-
-const CATEGORIES = [
-  { key: 'all', label: '전체' },
-  { key: 'ds', label: '자료구조' },
-  { key: 'algo', label: '알고리즘' },
-  { key: 'os', label: '운영체제' },
-  { key: 'network', label: '네트워크' },
-  { key: 'db', label: '데이터베이스' },
-  { key: 'arch', label: '컴퓨터 구조' },
-  { key: 'se', label: '소프트웨어공학' },
-] as const;
-
-const USER_REPORT_REASONS: { value: string; label: string }[] = [
-  { value: 'INAPPROPRIATE_NICKNAME', label: '부적절한 닉네임' },
-  { value: 'OTHER', label: '기타' },
-];
-
-function ProfileModal({
-  friend,
-  onClose,
-  onBattle,
-  onRemove,
-}: {
-  friend: Friend;
-  onClose: () => void;
-  onBattle: (friendId: string, category: string) => void;
-  onRemove: (friendshipId: string) => void;
-}) {
-  const [step, setStep] = useState<'profile' | 'battle'>('profile');
-  const [confirmingRemove, setConfirmingRemove] = useState(false);
-  const [reporting, setReporting] = useState(false);
-  const [reportReason, setReportReason] = useState('INAPPROPRIATE_NICKNAME');
-  const [reportDesc, setReportDesc] = useState('');
-  const [reportDone, setReportDone] = useState(false);
-  const [reportLoading, setReportLoading] = useState(false);
-  const [category, setCategory] = useState('ds');
-  const [hoveredBadge, setHoveredBadge] = useState<string | null>(null);
-  const [badgeTooltipPos, setBadgeTooltipPos] = useState<{ x: number; y: number } | null>(null);
-
-  const { data: profile, isLoading } = useQuery<UserProfile>({
-    queryKey: ['profile', friend.userId],
-    queryFn: () => fetch(`/api/users/${friend.userId}/profile`).then((r) => r.json()),
-    staleTime: 60_000,
-  });
-
-  const battleWinRate = profile && profile.battleTotal > 0
-    ? Math.round((profile.battleWins / profile.battleTotal) * 100)
-    : null;
-
-  function battleRecord(p: UserProfile): string {
-    if (p.battleTotal === 0) return '-';
-    const parts = [`${p.battleWins}승`];
-    if (p.battleTies > 0) parts.push(`${p.battleTies}무`);
-    parts.push(`${p.battleLosses}패`);
-    return parts.join(' ');
-  }
-
-  return (
-    <div
-      className="fixed inset-0 z-[60] flex items-center justify-center p-4"
-      onClick={onClose}
-    >
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px]" />
-      <div
-        className="relative w-full max-w-xs bg-[#111111] border border-neutral-800 rounded-2xl overflow-hidden shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* 닫기 */}
-        <button
-          onClick={onClose}
-          className="absolute top-3 right-3 p-1.5 rounded text-neutral-600 hover:text-white hover:bg-neutral-800 transition-colors"
-        >
-          <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-            <path d="M18 6L6 18M6 6l12 12" />
-          </svg>
-        </button>
-
-        {step === 'profile' && (
-          <>
-            {/* 아바타 + 닉네임 */}
-            <div className="flex flex-col items-center pt-8 pb-5 px-5">
-              <div className="relative mb-3">
-                <div className="w-16 h-16 rounded-full bg-neutral-800 border border-neutral-700 flex items-center justify-center">
-                  <span className="text-xl font-semibold text-neutral-300">
-                    {(friend.nickname[0] ?? '?').toUpperCase()}
-                  </span>
-                </div>
-                <span
-                  className={`absolute bottom-0.5 right-0.5 w-3.5 h-3.5 rounded-full border-2 border-[#111111] ${
-                    friend.isOnline ? 'bg-emerald-500' : 'bg-neutral-600'
-                  }`}
-                />
-              </div>
-              <div className="flex items-center gap-1.5">
-                <p className="text-base font-semibold text-white">{friend.nickname}</p>
-                <button
-                  onClick={() => { setReporting(true); setReportDone(false); }}
-                  className="p-1 rounded text-neutral-500 hover:text-red-400 transition-colors"
-                  title="신고"
-                >
-                  <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M12 2v2"/><path d="M4.93 4.93l1.41 1.41"/><path d="M19.07 4.93l-1.41 1.41"/>
-                    <path d="M8 11a4 4 0 018 0v3H8v-3z"/><path d="M5 15h14"/><path d="M9 19a3 3 0 006 0"/>
-                  </svg>
-                </button>
-              </div>
-              <div className="flex items-center gap-2 mt-1">
-                {isLoading ? (
-                  <div className="h-4 w-16 bg-neutral-800 rounded animate-pulse" />
-                ) : profile ? (
-                  <>
-                    <span className="text-xs text-neutral-500">Lv.{profile.level}</span>
-                    <span className="text-neutral-700">·</span>
-                    <span className={`text-xs ${friend.isOnline ? 'text-emerald-400' : 'text-neutral-600'}`}>
-                      {formatLastSeen(friend.lastSeenAt, friend.isOnline)}
-                    </span>
-                  </>
-                ) : null}
-              </div>
-            </div>
-
-            {/* 스탯 */}
-            <div className="border-t border-neutral-800 px-5 py-4">
-              {isLoading ? (
-                <div className="space-y-2">
-                  {[1, 2, 3].map((i) => (
-                    <div key={i} className="h-4 bg-neutral-800 rounded animate-pulse" />
-                  ))}
-                </div>
-              ) : profile ? (
-                <div className="space-y-2.5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-neutral-500">정답률</span>
-                    <span className="text-sm font-medium text-neutral-200">
-                      {profile.totalAttempts > 0 ? `${(profile.accuracy * 100).toFixed(1)}%` : '-'}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-neutral-500">총 시도</span>
-                    <span className="text-sm font-medium text-neutral-200">
-                      {profile.totalAttempts > 0 ? `${profile.totalAttempts.toLocaleString()}문제` : '-'}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-neutral-500">상대방과의 승률</span>
-                    <span className="text-sm font-medium text-neutral-200">
-                      {profile.battleTotal > 0
-                        ? `${battleWinRate}% (${battleRecord(profile)})`
-                        : '-'}
-                    </span>
-                  </div>
-                </div>
-              ) : null}
-            </div>
-
-            {/* 업적 */}
-            {profile && profile.badges.length > 0 && (
-              <div className="border-t border-neutral-800 px-5 py-3.5">
-                <p className="text-[10px] text-neutral-500 mb-2">달성한 업적</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {profile.badges.map((badge) => {
-                    const meta = BADGE_META[badge as BadgeType];
-                    if (!meta) return null;
-                    return (
-                      <span
-                        key={badge}
-                        className="text-lg cursor-default select-none"
-                        onMouseEnter={(e) => {
-                          const rect = e.currentTarget.getBoundingClientRect();
-                          setBadgeTooltipPos({ x: rect.left + rect.width / 2, y: rect.top });
-                          setHoveredBadge(badge);
-                        }}
-                        onMouseLeave={() => {
-                          setHoveredBadge(null);
-                          setBadgeTooltipPos(null);
-                        }}
-                      >
-                        {meta.icon}
-                      </span>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-            {/* 배지 말풍선 툴팁 (fixed — overflow-hidden 우회) */}
-            {hoveredBadge && badgeTooltipPos && BADGE_META[hoveredBadge as BadgeType] && (
-              <div
-                className="fixed z-[9999] pointer-events-none"
-                style={{
-                  left: badgeTooltipPos.x,
-                  top: badgeTooltipPos.y - 8,
-                  transform: 'translate(-50%, -100%)',
-                }}
-              >
-                <div className="w-48 bg-neutral-900 border border-neutral-700 rounded-xl px-3 py-2.5 shadow-2xl">
-                  <p className="text-[11px] font-semibold text-white leading-tight whitespace-normal">
-                    {BADGE_META[hoveredBadge as BadgeType].icon} {BADGE_META[hoveredBadge as BadgeType].label}
-                  </p>
-                  <p className="text-[10px] text-neutral-400 mt-1 leading-snug whitespace-normal">
-                    {BADGE_META[hoveredBadge as BadgeType].description}
-                  </p>
-                </div>
-                <div className="flex justify-center">
-                  <div className="w-2.5 h-2.5 bg-neutral-900 border-r border-b border-neutral-700 rotate-45 -mt-1.5" />
-                </div>
-              </div>
-            )}
-
-            {/* 버튼 */}
-            {confirmingRemove ? (
-              <div className="border-t border-neutral-800 px-4 py-3 space-y-2">
-                <p className="text-xs text-neutral-400 text-center">{friend.nickname}님을 친구 목록에서 삭제할까요?</p>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => onRemove(friend.friendshipId)}
-                    className="flex-1 rounded-lg bg-red-500/15 border border-red-500/30 text-xs text-red-400 font-medium py-2 hover:bg-red-500/25 transition-colors"
-                  >
-                    삭제
-                  </button>
-                  <button
-                    onClick={() => setConfirmingRemove(false)}
-                    className="flex-1 rounded-lg border border-neutral-700 text-xs text-neutral-400 py-2 hover:text-white transition-colors"
-                  >
-                    취소
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <>
-              {profile?.profileVisibility !== 'PRIVATE' && (
-                <div className="px-4 pb-1">
-                  <a
-                    href={`/u/${encodeURIComponent(friend.nickname)}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="block w-full text-center text-xs text-neutral-500 hover:text-white border border-neutral-800 hover:border-neutral-600 rounded-lg py-2 transition-colors"
-                  >
-                    프로필 상세보기 →
-                  </a>
-                </div>
-              )}
-              <div className="border-t border-neutral-800 px-4 py-3 flex gap-2">
-                {friend.battleStatus === 'PLAYING' && (
-                  <div className="flex-1 rounded-lg bg-red-500/10 border border-red-500/30 px-3 py-2.5 text-center">
-                    <p className="text-xs text-red-400 font-medium">⚔ 대결 진행 중</p>
-                  </div>
-                )}
-                {friend.battleStatus === 'WAITING' && (
-                  <div className="flex-1 rounded-lg bg-amber-500/10 border border-amber-500/30 px-3 py-2.5 text-center">
-                    <p className="text-xs text-amber-400 font-medium">⏳ 대결 준비 중</p>
-                  </div>
-                )}
-                {!friend.battleStatus && friend.isOnline && (
-                  <button
-                    onClick={() => setStep('battle')}
-                    className="flex-1 rounded-lg bg-white text-black text-xs font-semibold py-2.5 hover:bg-neutral-200 transition-colors"
-                  >
-                    대전 신청
-                  </button>
-                )}
-                <button
-                  onClick={() => setConfirmingRemove(true)}
-                  className={`${friend.isOnline ? '' : 'flex-1'} rounded-lg border border-neutral-800 text-xs text-neutral-500 py-2.5 px-3 hover:border-red-900 hover:text-red-400 transition-colors`}
-                >
-                  친구 삭제
-                </button>
-              </div>
-              </>
-            )}
-
-            {/* 신고 모달 */}
-            {reporting && (
-              <div className="absolute inset-0 bg-[#111111]/95 rounded-2xl flex flex-col justify-center px-5 py-6 z-10">
-                {reportDone ? (
-                  <div className="text-center space-y-3">
-                    <p className="text-sm text-neutral-300">신고가 접수되었습니다.</p>
-                    <button
-                      onClick={() => { setReporting(false); setReportDesc(''); setReportReason('INAPPROPRIATE_NICKNAME'); }}
-                      className="text-xs text-neutral-500 hover:text-white transition-colors"
-                    >
-                      닫기
-                    </button>
-                  </div>
-                ) : (
-                  <>
-                    <p className="text-sm font-medium text-white mb-4">{friend.nickname} 신고</p>
-                    <div className="space-y-2 mb-4">
-                      {USER_REPORT_REASONS.map((r) => (
-                        <label key={r.value} className="flex items-center gap-2.5 cursor-pointer group">
-                          <input
-                            type="radio"
-                            name="reportReason"
-                            value={r.value}
-                            checked={reportReason === r.value}
-                            onChange={() => setReportReason(r.value)}
-                            className="accent-neutral-400"
-                          />
-                          <span className="text-xs text-neutral-300 group-hover:text-white transition-colors">{r.label}</span>
-                        </label>
-                      ))}
-                    </div>
-                    <textarea
-                      value={reportDesc}
-                      onChange={(e) => setReportDesc(e.target.value)}
-                      placeholder="추가 설명 (선택)"
-                      maxLength={200}
-                      rows={2}
-                      className="w-full bg-[#1a1a1a] border border-neutral-800 rounded-md px-2.5 py-2 text-xs text-white placeholder-neutral-600 focus:outline-none focus:border-neutral-600 resize-none mb-3"
-                    />
-                    <div className="flex gap-2">
-                      <button
-                        disabled={reportLoading}
-                        onClick={async () => {
-                          setReportLoading(true);
-                          try {
-                            const res = await fetch(`/api/users/${friend.userId}/report`, {
-                              method: 'POST',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({ reason: reportReason, description: reportDesc || undefined }),
-                            });
-                            if (res.ok || res.status === 409) setReportDone(true);
-                          } finally {
-                            setReportLoading(false);
-                          }
-                        }}
-                        className="flex-1 rounded-lg bg-red-500/10 border border-red-500/30 text-xs text-red-400 py-2 hover:bg-red-500/20 transition-colors disabled:opacity-40"
-                      >
-                        {reportLoading ? '제출 중...' : '신고'}
-                      </button>
-                      <button
-                        onClick={() => { setReporting(false); setReportDesc(''); setReportReason('INAPPROPRIATE_NICKNAME'); }}
-                        className="rounded-lg border border-neutral-800 text-xs text-neutral-500 py-2 px-4 hover:text-white transition-colors"
-                      >
-                        취소
-                      </button>
-                    </div>
-                  </>
-                )}
-              </div>
-            )}
-          </>
-        )}
-
-        {step === 'battle' && (
-          <>
-            <div className="px-5 pt-6 pb-4">
-              <button onClick={() => setStep('profile')} className="text-xs text-neutral-500 hover:text-neutral-300 mb-4 flex items-center gap-1">
-                <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M15 18l-6-6 6-6" /></svg>
-                뒤로
-              </button>
-              <p className="text-sm font-medium text-white mb-1">{friend.nickname}에게 대전 신청</p>
-              <p className="text-xs text-neutral-500 mb-4">카테고리를 선택하세요</p>
-              <div className="grid grid-cols-2 gap-2">
-                {CATEGORIES.map((c) => (
-                  <button
-                    key={c.key}
-                    onClick={() => setCategory(c.key)}
-                    className={`text-xs px-3 py-2 rounded-lg border transition-colors ${
-                      category === c.key
-                        ? 'border-neutral-400 text-white bg-neutral-800'
-                        : 'border-neutral-800 text-neutral-500 hover:border-neutral-600 hover:text-neutral-300'
-                    }`}
-                  >
-                    {c.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="border-t border-neutral-800 px-4 py-3">
-              <button
-                onClick={() => onBattle(friend.userId, category)}
-                className="w-full rounded-lg bg-white text-black text-xs font-semibold py-2.5 hover:bg-neutral-200 transition-colors"
-              >
-                신청하기
-              </button>
-            </div>
-          </>
-        )}
-      </div>
-    </div>
-  );
 }
 
 export default function FriendPanel() {
@@ -451,7 +55,6 @@ export default function FriendPanel() {
     refetchInterval: open ? 5_000 : 30_000,
   });
 
-  // 패널 열릴 때마다 즉시 최신 데이터 반영 (broadcast 미수신 시 fallback)
   useEffect(() => {
     if (open) {
       void queryClient.invalidateQueries({ queryKey: ['friends'] });
@@ -461,7 +64,6 @@ export default function FriendPanel() {
     }
   }, [open, queryClient]);
 
-  // 친구 대결 상태 실시간 반영
   useEffect(() => {
     if (status !== 'authenticated') return;
     const channel = supabaseBrowser
@@ -488,11 +90,10 @@ export default function FriendPanel() {
   const activeRoomId = activeRoom?.id;
   const isOnBattlePage = pathname?.startsWith('/battle/') ?? false;
 
-  // WAITING→null: 타임아웃 toast / WAITING→PLAYING: 호스트 자동 이동
   useEffect(() => {
     const prevStatus = prevActiveRoomStatusRef.current;
     prevActiveRoomStatusRef.current = activeRoomStatus;
-    if (prevStatus === undefined) return; // 최초 렌더 스킵
+    if (prevStatus === undefined) return;
     if (prevStatus === 'WAITING' && !activeRoomStatus && !isOnBattlePage) {
       toast.info('상대방의 응답이 없어 대전이 취소되었습니다');
     }
@@ -608,21 +209,27 @@ export default function FriendPanel() {
         </div>
       )}
 
-      {/* 프로필 모달 */}
+      {/* 프로필 모달 - UserProfileModal 통일 */}
       {selectedFriend && (
-        <ProfileModal
-          friend={selectedFriend}
+        <UserProfileModal
+          userId={selectedFriend.userId}
+          nickname={selectedFriend.nickname}
+          isOnline={selectedFriend.isOnline}
+          isFriend={true}
+          showActions={true}
           onClose={() => setSelectedFriend(null)}
-          onBattle={(friendId, category) => createRoom.mutate({ friendId, category })}
-          onRemove={(fid) => removeFriend.mutate(fid)}
+          friendActions={{
+            battleStatus: selectedFriend.battleStatus,
+            isPlayingQuiz: selectedFriend.isPlayingQuiz,
+            onBattle: (category) => createRoom.mutate({ friendId: selectedFriend.userId, category }),
+            onRemove: () => removeFriend.mutate(selectedFriend.friendshipId),
+          }}
         />
       )}
 
       <div ref={panelRef} className="fixed right-4 z-50 flex flex-col items-end" style={{ bottom: 'max(7rem, calc(env(safe-area-inset-bottom, 0px) + 7rem))' }}>
-        {/* 패널 */}
         {open && (
           <div className="mb-2 w-64 bg-[#0f0f0f] border border-neutral-800 rounded-xl shadow-2xl overflow-hidden">
-            {/* 헤더 */}
             <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-neutral-800">
               <span className="text-xs font-medium text-neutral-300">
                 친구&nbsp;
@@ -652,7 +259,6 @@ export default function FriendPanel() {
               </div>
             </div>
 
-            {/* 활성 대전 배너 */}
             {activeRoom && (
               <button
                 onClick={() => { router.push(`/battle/${activeRoom.id}`); setOpen(false); }}
@@ -662,7 +268,7 @@ export default function FriendPanel() {
                     : 'border-amber-900/40 bg-amber-500/10 hover:bg-amber-500/20'
                 }`}
               >
-                <span className={`relative flex-shrink-0 w-2.5 h-2.5`}>
+                <span className="relative flex-shrink-0 w-2.5 h-2.5">
                   <span className={`absolute inset-0 rounded-full animate-ping opacity-75 ${activeRoom.status === 'PLAYING' ? 'bg-red-500' : 'bg-amber-500'}`} />
                   <span className={`relative block w-2.5 h-2.5 rounded-full ${activeRoom.status === 'PLAYING' ? 'bg-red-400' : 'bg-amber-400'}`} />
                 </span>
@@ -678,7 +284,6 @@ export default function FriendPanel() {
               </button>
             )}
 
-            {/* 친구 추가 입력 */}
             {addingFriend && (
               <form
                 onSubmit={(e) => {
@@ -705,7 +310,6 @@ export default function FriendPanel() {
               </form>
             )}
 
-            {/* 검색 / 필터 (친구가 5명 이상일 때 표시) */}
             {allFriends.length >= 5 && (
               <div className="px-3 py-2 border-b border-neutral-800/60 flex items-center gap-1.5">
                 <input
@@ -725,7 +329,6 @@ export default function FriendPanel() {
               </div>
             )}
 
-            {/* 친구 목록 */}
             <ul className="max-h-72 overflow-y-auto">
               {allFriends.length === 0 ? (
                 <li className="px-3.5 py-5 text-center">
@@ -761,14 +364,16 @@ export default function FriendPanel() {
                         <p className={`text-[10px] ${
                           f.battleStatus === 'PLAYING' ? 'text-red-500' :
                           f.battleStatus === 'WAITING' ? 'text-amber-500' :
+                          f.isPlayingQuiz ? 'text-blue-500' :
                           f.isOnline ? 'text-emerald-500' : 'text-neutral-600'
                         }`}>
                           {f.battleStatus === 'PLAYING' ? '⚔ 대결 중' :
                            f.battleStatus === 'WAITING' ? '⏳ 준비 중' :
+                           f.isPlayingQuiz ? '📝 퀴즈 풀이 중' :
                            formatLastSeen(f.lastSeenAt, f.isOnline)}
                         </p>
                       </div>
-                      {!f.battleStatus && f.isOnline && (
+                      {!f.battleStatus && !f.isPlayingQuiz && f.isOnline && (
                         <span className="text-[9px] text-emerald-800 border border-emerald-900/50 rounded px-1 py-0.5 flex-shrink-0">
                           대전
                         </span>
@@ -781,7 +386,6 @@ export default function FriendPanel() {
           </div>
         )}
 
-        {/* 플로팅 버튼 */}
         <button
           onClick={() => {
             if (activeRoom && !open) {
@@ -800,7 +404,6 @@ export default function FriendPanel() {
           }`}
           aria-label={activeRoom ? '대결 진행 중 - 탭하여 이동' : '친구 목록'}
         >
-          {/* PLAYING 시 펄스 링 */}
           {activeRoom?.status === 'PLAYING' && (
             <span className="absolute inset-0 rounded-full border-2 border-red-500 animate-ping opacity-30" />
           )}
@@ -820,7 +423,6 @@ export default function FriendPanel() {
               <path d="M16 3.13a4 4 0 010 7.75" />
             </svg>
           )}
-          {/* 대결 뱃지 */}
           {activeRoom ? (
             <span className={`absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold border-2 border-[#0a0a0a] ${
               activeRoom.status === 'PLAYING' ? 'bg-red-500 text-white' : 'bg-amber-500 text-black'

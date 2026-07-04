@@ -140,9 +140,12 @@ export default async function PublicProfilePage({ params }: PageProps) {
               퀴즈 <span className="text-white font-medium">{totalSessions}</span>회
             </span>
             {approvedCount > 0 && (
-              <span className="text-xs text-neutral-400">
-                문제 기여 <span className="text-white font-medium">{approvedCount}</span>개
-              </span>
+              <a
+                href={`/board?author=${encodeURIComponent(nickname)}`}
+                className="text-xs text-neutral-400 hover:text-white transition-colors"
+              >
+                문제 기여 <span className="text-white font-medium">{approvedCount}</span>개 →
+              </a>
             )}
           </div>
         </div>

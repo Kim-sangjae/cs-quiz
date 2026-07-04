@@ -32,6 +32,7 @@ export async function GET() {
       nickname: other.nickname ?? '(닉네임 없음)',
       isOnline: other.presence ? other.presence.lastSeenAt > twoMinutesAgo : false,
       lastSeenAt: other.presence?.lastSeenAt?.toISOString() ?? null,
+      isPlayingQuiz: other.presence?.isPlayingQuiz ?? false,
     };
   });
 

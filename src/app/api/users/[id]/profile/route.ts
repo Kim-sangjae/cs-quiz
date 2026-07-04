@@ -17,10 +17,10 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const { id: targetId } = await params;
   const myId = session.user.id;
 
-  const [user, attempts, rooms, presence, userBadges] = await Promise.all([
+  const [user, attempts, rooms, presence, userBadges, approvedCount] = await Promise.all([
     prisma.user.findUnique({
       where: { id: targetId },
-      select: { nickname: true, profileVisibility: true },
+      select: { nickname: true, profileVisibility: true, email: true, bio: true },
     }),
     prisma.$queryRaw<[{ total: number; correct: number }]>`
       SELECT COUNT(*)::int AS total,
@@ -45,9 +45,17 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       select: { badge: true, earnedAt: true },
       orderBy: { earnedAt: 'asc' },
     }),
+    prisma.question.count({
+      where: { authorId: targetId, status: { in: ['APPROVED', 'OFFICIAL'] } },
+    }),
   ]);
 
   if (!user) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+
+  function maskEmail(email: string): string {
+    const local = email.split('@')[0] ?? '';
+    return local.slice(0, Math.min(3, local.length)) + '**';
+  }
 
   const total = Number(attempts[0]?.total ?? 0);
   const correct = Number(attempts[0]?.correct ?? 0);
@@ -78,5 +86,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     isOnline,
     badges: userBadges.map((b) => b.badge),
     profileVisibility: user.profileVisibility ?? 'PUBLIC',
+    maskedEmail: user.email ? maskEmail(user.email) : null,
+    approvedCount,
+    bio: user.bio ?? null,
   });
 }

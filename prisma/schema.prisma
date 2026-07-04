@@ -13,6 +13,7 @@ model User {
   name          String?
   nickname      String?   @unique
   avatarUrl     String?
+  bio           String?   @db.VarChar(20)
   role          Role      @default(USER)
   tokenVersion  Int       @default(0)
   deletedAt        DateTime?
@@ -325,8 +326,9 @@ enum FriendshipStatus {
 }
 
 model UserPresence {
-  userId     String   @id
-  lastSeenAt DateTime @default(now()) @updatedAt
+  userId        String   @id
+  lastSeenAt    DateTime @default(now()) @updatedAt
+  isPlayingQuiz Boolean  @default(false)
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

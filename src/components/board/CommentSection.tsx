@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import { toast } from 'sonner';
-import Link from 'next/link';
+import UserProfileModal from '@/components/UserProfileModal';
 
 interface Comment {
   id: string;
@@ -32,6 +32,7 @@ export default function CommentSection({ questionId }: { questionId: string }) {
   const [loading, setLoading] = useState(false);
   const [content, setContent] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [profileModal, setProfileModal] = useState<{ userId: string; nickname: string } | null>(null);
 
   const fetchComments = useCallback(async (p: number) => {
     setLoading(true);
@@ -80,12 +81,21 @@ export default function CommentSection({ questionId }: { questionId: string }) {
 
   return (
     <div className="mt-6 pt-6 border-t border-neutral-800">
+      {profileModal && (
+        <UserProfileModal
+          userId={profileModal.userId}
+          nickname={profileModal.nickname}
+          isSelf={session?.user?.id === profileModal.userId}
+          showActions={session?.user?.id !== profileModal.userId}
+          onClose={() => setProfileModal(null)}
+        />
+      )}
+
       <h3 className="text-sm font-semibold text-white mb-4">
         댓글
         {total > 0 && <span className="ml-1.5 text-neutral-500 font-normal">{total}</span>}
       </h3>
 
-      {/* 댓글 목록 */}
       {loading ? (
         <div className="py-6 text-center text-sm text-neutral-600">불러오는 중...</div>
       ) : comments.length === 0 ? (
@@ -101,12 +111,16 @@ export default function CommentSection({ questionId }: { questionId: string }) {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-baseline gap-2 flex-wrap">
-                    <Link
-                      href={`/u/${encodeURIComponent(c.user.nickname ?? '')}`}
+                    <button
+                      onClick={() => {
+                        if (c.user.nickname) {
+                          setProfileModal({ userId: c.userId, nickname: c.user.nickname });
+                        }
+                      }}
                       className="text-xs font-medium text-neutral-300 hover:text-white transition-colors"
                     >
                       {c.user.nickname ?? '익명'}
-                    </Link>
+                    </button>
                     <span className="text-[11px] text-neutral-600">{relativeTime(c.createdAt)}</span>
                     {(isMe || isAdmin) && (
                       <button
@@ -127,7 +141,6 @@ export default function CommentSection({ questionId }: { questionId: string }) {
         </div>
       )}
 
-      {/* 페이지네이션 */}
       {pageCount > 1 && (
         <div className="flex items-center gap-2 mb-4">
           <button
@@ -149,7 +162,6 @@ export default function CommentSection({ questionId }: { questionId: string }) {
         </div>
       )}
 
-      {/* 댓글 입력 */}
       {session ? (
         <form onSubmit={(e) => void handleSubmit(e)} className="flex flex-col gap-2">
           <textarea
@@ -175,7 +187,7 @@ export default function CommentSection({ questionId }: { questionId: string }) {
         </form>
       ) : (
         <div className="text-sm text-neutral-600 border border-neutral-800 rounded-lg px-4 py-3">
-          <Link href="/auth/login" className="text-neutral-400 hover:text-white transition-colors">로그인</Link>
+          <a href="/auth/login" className="text-neutral-400 hover:text-white transition-colors">로그인</a>
           {' '}후 댓글을 남길 수 있습니다.
         </div>
       )}

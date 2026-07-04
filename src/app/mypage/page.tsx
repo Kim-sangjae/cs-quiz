@@ -105,6 +105,7 @@ type WeeklyGoal = {
   progress: number;
   completed: boolean;
   claimed: boolean;
+  categories?: string[];
 };
 
 function formatDate(iso: string): string {
@@ -432,6 +433,11 @@ export default function MyPage() {
   const [nicknameError, setNicknameError] = useState('');
   const [nicknameSubmitting, setNicknameSubmitting] = useState(false);
 
+  const [bio, setBio] = useState('');
+  const [bioInput, setBioInput] = useState('');
+  const [showBioForm, setShowBioForm] = useState(false);
+  const [bioSubmitting, setBioSubmitting] = useState(false);
+
   async function handleNicknameChange(e: React.FormEvent) {
     e.preventDefault();
     if (!NICKNAME_REGEX.test(nicknameInput) || nicknameSubmitting) return;
@@ -457,6 +463,26 @@ export default function MyPage() {
       toast.success('닉네임이 변경되었습니다.');
     } finally {
       setNicknameSubmitting(false);
+    }
+  }
+
+  async function handleBioSave(e: React.FormEvent) {
+    e.preventDefault();
+    if (bioSubmitting) return;
+    setBioSubmitting(true);
+    try {
+      const res = await fetch('/api/mypage/bio', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bio: bioInput }),
+      });
+      if (!res.ok) { toast.error('오류가 발생했습니다.'); return; }
+      const data = await res.json() as { bio: string | null };
+      setBio(data.bio ?? '');
+      setShowBioForm(false);
+      toast.success('소개글이 저장되었습니다.');
+    } finally {
+      setBioSubmitting(false);
     }
   }
 
@@ -669,7 +695,7 @@ export default function MyPage() {
 
   useEffect(() => { setCommentPage(0); }, [commentCat]);
 
-  // 포인트 잔액 + 내역 + visibility
+  // 포인트 잔액 + 내역 + visibility + bio
   useEffect(() => {
     Promise.all([
       fetch("/api/mypage/points").then((r) => r.ok ? r.json() : null),
@@ -680,8 +706,11 @@ export default function MyPage() {
         setUserPoints(pd.points);
         setPointsTransactions(pd.transactions ?? []);
       }
-      const vd = visData as { visibility: 'PUBLIC' | 'FRIENDS_ONLY' | 'PRIVATE' } | null;
-      if (vd) setProfileVisibility(vd.visibility);
+      const vd = visData as { visibility: 'PUBLIC' | 'FRIENDS_ONLY' | 'PRIVATE'; bio: string | null } | null;
+      if (vd) {
+        setProfileVisibility(vd.visibility);
+        setBio(vd.bio ?? '');
+      }
     }).catch(() => {});
   }, []);
 
@@ -816,6 +845,50 @@ export default function MyPage() {
             </button>
           </form>
         )}
+
+        {/* 소개글 */}
+        <div className="mt-3 pt-3 border-t border-neutral-800/60">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs text-neutral-500 mb-0.5">소개글</p>
+              {bio ? (
+                <p className="text-sm text-neutral-300 truncate">{bio}</p>
+              ) : (
+                <p className="text-sm text-neutral-600 italic">소개글 없음</p>
+              )}
+            </div>
+            <button
+              onClick={() => { setShowBioForm((v) => !v); setBioInput(bio); }}
+              className="text-xs text-neutral-400 border border-neutral-700 rounded px-3 py-1.5 hover:border-neutral-500 hover:text-white transition-colors flex-shrink-0"
+            >
+              {showBioForm ? '취소' : '편집'}
+            </button>
+          </div>
+          {showBioForm && (
+            <form onSubmit={(e) => void handleBioSave(e)} className="mt-2 flex items-center gap-2">
+              <div className="flex-1 relative">
+                <input
+                  type="text"
+                  value={bioInput}
+                  onChange={(e) => setBioInput(e.target.value.slice(0, 20))}
+                  maxLength={20}
+                  placeholder="20자 이하 소개글"
+                  className="w-full rounded-md border border-neutral-800 bg-[#1a1a1a] px-3 py-2 text-sm text-white placeholder-neutral-600 focus:border-neutral-600 focus:outline-none transition-colors pr-10"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] text-neutral-600 pointer-events-none">
+                  {bioInput.length}/20
+                </span>
+              </div>
+              <button
+                type="submit"
+                disabled={bioSubmitting}
+                className="rounded-md bg-white text-black text-sm font-medium px-4 py-2 hover:bg-neutral-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex-shrink-0"
+              >
+                {bioSubmitting ? '저장 중...' : '저장'}
+              </button>
+            </form>
+          )}
+        </div>
       </div>
 
       {/* 포인트 정보/내역 모달 */}
@@ -966,6 +1039,15 @@ export default function MyPage() {
                         )}
                       </div>
                       <p className="text-[11px] text-neutral-600 mb-1.5">{g.description}</p>
+                      {g.key === 'CATEGORY_3' && g.categories && g.categories.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mb-1.5">
+                          {g.categories.map((cat) => (
+                            <span key={cat} className="text-[10px] border border-neutral-700 text-neutral-500 rounded px-1.5 py-0.5">
+                              {({ ds: '자료구조', algo: '알고리즘', os: 'OS', network: '네트워크', db: 'DB', arch: '컴퓨터구조', se: '소프트웨어공학' } as Record<string, string>)[cat] ?? cat}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                       <div className="h-1 bg-neutral-800 rounded-full overflow-hidden">
                         <div
                           className={`h-full rounded-full transition-all ${g.completed ? 'bg-emerald-500' : 'bg-neutral-600'}`}
@@ -1008,7 +1090,7 @@ export default function MyPage() {
                     )}
                   </div>
                 ))}
-                <p className="text-[10px] text-neutral-700 pt-1">포인트는 퀴즈 힌트 사용에 활용됩니다 (힌트 30P)</p>
+                <p className="text-[10px] text-neutral-700 pt-1">포인트는 퀴즈 힌트 사용에 활용됩니다 (힌트 20P)</p>
               </div>
             )}
           </div>

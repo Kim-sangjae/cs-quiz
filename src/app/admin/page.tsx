@@ -7,7 +7,7 @@ import { useSession } from 'next-auth/react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
-type Tab = 'questions' | 'board' | 'reports' | 'users' | 'inquiries' | 'logs' | 'analytics' | 'errors' | 'generate' | 'blocked-words';
+type Tab = 'questions' | 'board' | 'reports' | 'users' | 'inquiries' | 'logs' | 'analytics' | 'errors' | 'generate' | 'blocked-words' | 'points-log';
 
 const CATEGORY_LABEL: Record<string, string> = {
   ds: '자료구조', algo: '알고리즘', os: '운영체제',
@@ -110,6 +110,7 @@ export default function AdminPage() {
 
   if (status === 'loading') return null;
   if (!session || session.user?.role !== 'ADMIN') {
+    alert('권한이 없습니다.');
     router.replace('/');
     return null;
   }
@@ -125,6 +126,7 @@ export default function AdminPage() {
     { key: 'errors', label: '오류 로그' },
     { key: 'generate', label: 'AI 문제 생성' },
     { key: 'blocked-words', label: '금칙어 관리' },
+    { key: 'points-log', label: '포인트 로그' },
   ];
 
   return (
@@ -179,6 +181,7 @@ export default function AdminPage() {
       {activeTab === 'errors' && <ErrorLogsTab />}
       {activeTab === 'generate' && <GenerateQuestionsTab />}
       {activeTab === 'blocked-words' && <BlockedWordsTab />}
+      {activeTab === 'points-log' && <PointsLogTab />}
       {confirm && (
         <ConfirmDialog
           message={confirm.message}
@@ -2399,30 +2402,93 @@ function CategoryQuestionStats() {
   );
 }
 
-function PointsStatsCard() {
-  const { data, isLoading } = useQuery<{ totalIssued: number; totalSpent: number; hintCount: number; avgPoints: number }>({
-    queryKey: ['admin', 'points-stats'],
-    queryFn: () => fetch('/api/admin/points-stats').then((r) => r.json()),
-    staleTime: 60_000,
+interface PointsTx {
+  id: string;
+  delta: number;
+  reason: string;
+  createdAt: string;
+  user: { nickname: string | null; email: string };
+}
+
+function PointsLogTab() {
+  const [page, setPage] = useState(1);
+  const [search, setSearch] = useState('');
+  const [query, setQuery] = useState('');
+
+  const { data, isLoading } = useQuery<{ transactions: PointsTx[]; totalCount: number; pageCount: number }>({
+    queryKey: ['admin', 'points-log', page, query],
+    queryFn: () => {
+      const params = new URLSearchParams({ page: String(page) });
+      if (query) params.set('user', query);
+      return fetch(`/api/admin/points-log?${params}`).then((r) => r.json());
+    },
+    staleTime: 30_000,
   });
-  if (isLoading) return <div className="h-20 bg-neutral-800/40 rounded-xl animate-pulse" />;
-  if (!data) return null;
+
+  function handleSearch(e: React.FormEvent) {
+    e.preventDefault();
+    setQuery(search);
+    setPage(1);
+  }
+
+  const transactions = data?.transactions ?? [];
+
   return (
-    <div className="bg-[#111111] border border-neutral-800 rounded-xl p-4">
-      <p className="text-xs text-neutral-500 font-semibold uppercase tracking-wider mb-3">포인트 현황</p>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {[
-          { label: '총 지급 포인트', value: data.totalIssued.toLocaleString() + 'P' },
-          { label: '총 사용 포인트', value: data.totalSpent.toLocaleString() + 'P' },
-          { label: '힌트 사용 횟수', value: data.hintCount.toLocaleString() + '회' },
-          { label: '유저 평균 잔액', value: Math.round(data.avgPoints) + 'P' },
-        ].map(({ label, value }) => (
-          <div key={label} className="bg-[#0d0d0d] border border-neutral-800 rounded-lg p-3">
-            <p className="text-[10px] text-neutral-500 mb-1">{label}</p>
-            <p className="text-sm font-semibold text-amber-400">{value}</p>
+    <div className="space-y-4">
+      <form onSubmit={handleSearch} className="flex gap-2">
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="닉네임 또는 이메일 검색"
+          className="flex-1 bg-neutral-900 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white placeholder-neutral-600 focus:outline-none focus:border-neutral-500"
+        />
+        <button type="submit" className="px-4 py-2 rounded-lg bg-white text-black text-sm font-medium hover:bg-neutral-200 transition-colors">
+          검색
+        </button>
+      </form>
+      {isLoading ? (
+        <div className="h-32 bg-neutral-800/40 rounded-xl animate-pulse" />
+      ) : (
+        <>
+          <p className="text-xs text-neutral-500">총 {data?.totalCount.toLocaleString()}건</p>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="text-neutral-500 border-b border-neutral-800">
+                  <th className="text-left pb-2 font-normal">일시</th>
+                  <th className="text-left pb-2 font-normal">유저</th>
+                  <th className="text-right pb-2 font-normal">포인트</th>
+                  <th className="text-left pb-2 font-normal pl-3">사유</th>
+                </tr>
+              </thead>
+              <tbody>
+                {transactions.map((tx) => (
+                  <tr key={tx.id} className="border-b border-neutral-800/50 last:border-0">
+                    <td className="py-2 text-neutral-500 whitespace-nowrap">
+                      {new Date(tx.createdAt).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                    </td>
+                    <td className="py-2 text-neutral-300">
+                      <span>{tx.user.nickname ?? tx.user.email}</span>
+                      <span className="text-neutral-600 ml-1">({tx.user.email})</span>
+                    </td>
+                    <td className={`py-2 text-right font-mono font-semibold ${tx.delta > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                      {tx.delta > 0 ? '+' : ''}{tx.delta}P
+                    </td>
+                    <td className="py-2 pl-3 text-neutral-500">{tx.reason}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-        ))}
-      </div>
+          {(data?.pageCount ?? 0) > 1 && (
+            <div className="flex gap-2 justify-center pt-2">
+              <button disabled={page <= 1} onClick={() => setPage((p) => p - 1)} className="px-3 py-1 text-xs rounded border border-neutral-700 text-neutral-400 disabled:opacity-40 hover:border-neutral-500">이전</button>
+              <span className="px-3 py-1 text-xs text-neutral-500">{page} / {data?.pageCount}</span>
+              <button disabled={page >= (data?.pageCount ?? 1)} onClick={() => setPage((p) => p + 1)} className="px-3 py-1 text-xs rounded border border-neutral-700 text-neutral-400 disabled:opacity-40 hover:border-neutral-500">다음</button>
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }
@@ -2480,7 +2546,6 @@ function AnalyticsTab() {
   return (
     <div className="space-y-6">
       <CategoryQuestionStats />
-      <PointsStatsCard />
 
       {/* ── 슬라이드 패널 ── */}
       <div

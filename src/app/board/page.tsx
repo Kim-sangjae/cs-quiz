@@ -5,6 +5,7 @@ import { getServerUser } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import SearchBar from '@/components/board/SearchBar';
 import FilterBar from '@/components/board/FilterBar';
+import AuthorSearchBar from '@/components/board/AuthorSearchBar';
 import BoardListClient from '@/components/board/BoardListClient';
 import Pagination from '@/components/board/Pagination';
 
@@ -31,6 +32,7 @@ export default async function BoardPage({ searchParams }: PageProps) {
   const params = await searchParams;
 
   const q = typeof params.q === 'string' ? params.q.trim() : '';
+  const author = typeof params.author === 'string' ? params.author.trim() : '';
   const cat = typeof params.cat === 'string' ? params.cat : 'all';
   const sort = typeof params.sort === 'string' ? params.sort : 'newest';
   const page = Math.max(1, parseInt(typeof params.page === 'string' ? params.page : '1', 10));
@@ -46,6 +48,14 @@ export default async function BoardPage({ searchParams }: PageProps) {
     status: { in: statusIn as Prisma.EnumQuestionStatusFilter['in'] },
     ...(cat !== 'all' && VALID_CATEGORIES.includes(cat) ? { category: cat } : {}),
     ...(q ? { question: { contains: q, mode: 'insensitive' } } : {}),
+    ...(author ? {
+      author: {
+        OR: [
+          { nickname: { contains: author, mode: 'insensitive' } },
+          { email: { startsWith: author.toLowerCase() } },
+        ],
+      },
+    } : {}),
   };
 
   if (untried && user) {
@@ -130,9 +140,20 @@ export default async function BoardPage({ searchParams }: PageProps) {
         </Link>
       </div>
 
+      {author && (
+        <div className="flex items-center gap-2 mb-4">
+          <span className="text-xs text-neutral-400 border border-neutral-700 rounded-full px-3 py-1 flex items-center gap-1.5">
+            출제자: <span className="text-white font-medium">{author}</span>
+            <Link href="/board" className="ml-1 text-neutral-600 hover:text-white transition-colors">×</Link>
+          </span>
+        </div>
+      )}
       <div className="flex flex-col gap-3 mb-6">
         <Suspense>
           <SearchBar />
+        </Suspense>
+        <Suspense>
+          <AuthorSearchBar />
         </Suspense>
         <Suspense>
           <FilterBar isLoggedIn={!!user} />

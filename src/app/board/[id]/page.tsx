@@ -6,6 +6,7 @@ import LikeButton from '@/components/board/LikeButton';
 import ReportModal from '@/components/board/ReportModal';
 import BoardQuizWidget from '@/components/board/BoardQuizWidget';
 import CommentSection from '@/components/board/CommentSection';
+import AuthorButton from '@/components/AuthorButton';
 
 const CATEGORY_LABELS: Record<string, string> = {
   ds: '자료구조',
@@ -104,7 +105,11 @@ export default async function BoardDetailPage({ params }: PageProps) {
         />
 
         <div className="flex items-center justify-between text-xs text-neutral-500 mb-4">
-          <span>{question.author?.nickname ?? '익명'}</span>
+          {question.author?.id && question.author?.nickname ? (
+            <AuthorButton authorId={question.author.id} authorNickname={question.author.nickname} />
+          ) : (
+            <span>익명</span>
+          )}
           <div className="flex items-center gap-3">
             <span>시도 {question.attemptCount}회</span>
             <span>정답률 {accuracyText}</span>

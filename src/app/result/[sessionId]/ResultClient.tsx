@@ -161,7 +161,7 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
               const quizUrl = `${window.location.origin}/quiz/play?sharedFrom=${sessionId}`;
               navigator.clipboard.writeText(quizUrl).then(() => {
                 setCopyLabel('복사됨!');
-                setTimeout(() => { setCopyLabel('문제 링크 복사'); setShareModal(null); }, 1200);
+                setTimeout(() => { setCopyLabel('링크 복사'); setShareModal(null); }, 1200);
               });
             }}
             className="w-full rounded-md border border-neutral-700 text-sm text-neutral-300 py-3 hover:border-neutral-500 hover:text-white transition-colors flex items-center justify-center gap-2"
@@ -175,7 +175,7 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
             onClick={() => {
               navigator.clipboard.writeText(window.location.href).then(() => {
                 setCopyLabel('복사됨!');
-                setTimeout(() => { setCopyLabel('결과 링크 복사'); setShareModal(null); }, 1200);
+                setTimeout(() => { setCopyLabel('링크 복사'); setShareModal(null); }, 1200);
               });
             }}
             className="w-full rounded-md border border-neutral-700 text-sm text-neutral-300 py-3 hover:border-neutral-500 hover:text-white transition-colors"
