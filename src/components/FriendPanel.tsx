@@ -380,63 +380,71 @@ export default function FriendPanel() {
                   <p className="text-xs text-neutral-600">검색 결과 없음</p>
                 </li>
               ) : (
-                friends.map((f) => (
-                  <li key={f.friendshipId}>
-                    <button
-                      onClick={() => setSelectedFriend(f)}
-                      className="w-full flex items-center gap-2.5 px-3.5 py-2.5 hover:bg-neutral-800/60 transition-colors text-left"
-                    >
-                      <div className="relative flex-shrink-0">
-                        <div className="w-8 h-8 rounded-full bg-neutral-800 border border-neutral-700 flex items-center justify-center">
-                          <span className="text-xs text-neutral-400 font-medium">
-                            {(f.nickname[0] ?? '?').toUpperCase()}
-                          </span>
-                        </div>
-                        <span className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-[#0f0f0f] ${f.isOnline ? 'bg-emerald-500' : 'bg-neutral-600'}`} />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-1.5">
-                          <p className="text-xs font-medium text-neutral-200 truncate">{f.nickname}</p>
-                          {(unreadCounts[f.userId] ?? 0) > 0 && (
-                            <span className="flex-shrink-0 min-w-[16px] h-4 bg-sky-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1 leading-none">
-                              {unreadCounts[f.userId]}
+                friends.map((f) => {
+                  const unread = unreadCounts[f.userId] ?? 0;
+                  function openChat() {
+                    setChatFriend({ userId: f.userId, nickname: f.nickname });
+                    setUnreadCounts((prev) => { const next = { ...prev }; delete next[f.userId]; return next; });
+                    setOpen(false);
+                  }
+                  return (
+                    <li key={f.friendshipId}>
+                      <div
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => unread > 0 ? openChat() : setSelectedFriend(f)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') unread > 0 ? openChat() : setSelectedFriend(f); }}
+                        className="w-full flex items-center gap-2.5 px-3.5 py-2.5 hover:bg-neutral-800/60 transition-colors cursor-pointer"
+                      >
+                        <div className="relative flex-shrink-0">
+                          <div className="w-8 h-8 rounded-full bg-neutral-800 border border-neutral-700 flex items-center justify-center">
+                            <span className="text-xs text-neutral-400 font-medium">
+                              {(f.nickname[0] ?? '?').toUpperCase()}
                             </span>
-                          )}
+                          </div>
+                          <span className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-[#0f0f0f] ${f.isOnline ? 'bg-emerald-500' : 'bg-neutral-600'}`} />
                         </div>
-                        <p className={`text-[10px] ${
-                          f.battleStatus === 'PLAYING' ? 'text-red-500' :
-                          f.battleStatus === 'WAITING' ? 'text-amber-500' :
-                          f.isPlayingQuiz ? 'text-blue-500' :
-                          f.isOnline ? 'text-emerald-500' : 'text-neutral-600'
-                        }`}>
-                          {f.battleStatus === 'PLAYING' ? '⚔ 대결 중' :
-                           f.battleStatus === 'WAITING' ? '⏳ 준비 중' :
-                           f.isPlayingQuiz ? '📝 퀴즈 풀이 중' :
-                           formatLastSeen(f.lastSeenAt, f.isOnline)}
-                        </p>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5">
+                            <p className="text-xs font-medium text-neutral-200 truncate">{f.nickname}</p>
+                            {unread > 0 && (
+                              <span className="flex-shrink-0 min-w-[16px] h-4 bg-sky-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1 leading-none">
+                                {unread}
+                              </span>
+                            )}
+                          </div>
+                          <p className={`text-[10px] ${
+                            f.battleStatus === 'PLAYING' ? 'text-red-500' :
+                            f.battleStatus === 'WAITING' ? 'text-amber-500' :
+                            f.isPlayingQuiz ? 'text-blue-500' :
+                            f.isOnline ? 'text-emerald-500' : 'text-neutral-600'
+                          }`}>
+                            {f.battleStatus === 'PLAYING' ? '⚔ 대결 중' :
+                             f.battleStatus === 'WAITING' ? '⏳ 준비 중' :
+                             f.isPlayingQuiz ? '📝 퀴즈 풀이 중' :
+                             formatLastSeen(f.lastSeenAt, f.isOnline)}
+                          </p>
+                        </div>
+                        {!f.battleStatus && !f.isPlayingQuiz && f.isOnline && (
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                            <button
+                              onClick={(e) => { e.stopPropagation(); openChat(); }}
+                              className="flex items-center justify-center w-7 h-7 rounded-full bg-sky-500/15 border border-sky-500/30 text-sky-400 hover:bg-sky-500/30 hover:border-sky-400 transition-colors"
+                              title="채팅"
+                            >
+                              <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                              </svg>
+                            </button>
+                            <span className="text-[9px] text-emerald-800 border border-emerald-900/50 rounded px-1 py-0.5">
+                              대전
+                            </span>
+                          </div>
+                        )}
                       </div>
-                      {!f.battleStatus && !f.isPlayingQuiz && f.isOnline && (
-                        <div className="flex items-center gap-1 flex-shrink-0">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setChatFriend({ userId: f.userId, nickname: f.nickname });
-                              setUnreadCounts((prev) => { const next = { ...prev }; delete next[f.userId]; return next; });
-                              setOpen(false);
-                            }}
-                            className="text-[9px] text-sky-800 border border-sky-900/50 rounded px-1 py-0.5 hover:text-sky-400 hover:border-sky-600 transition-colors"
-                            title="채팅"
-                          >
-                            채팅
-                          </button>
-                          <span className="text-[9px] text-emerald-800 border border-emerald-900/50 rounded px-1 py-0.5">
-                            대전
-                          </span>
-                        </div>
-                      )}
-                    </button>
-                  </li>
-                ))
+                    </li>
+                  );
+                })
               )}
             </ul>
           </div>

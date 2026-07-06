@@ -119,10 +119,14 @@ export default function ChatWindow({ myId, friend, onClose }: Props) {
 
       {/* 메시지 목록 */}
       <div className="flex-1 overflow-y-auto px-3 py-2 space-y-1.5">
-        {/* 안내 문구 (항상 상단 고정) */}
-        <p className="text-[10px] text-neutral-600 text-center py-1.5 border-b border-neutral-800/60 mb-1">
-          로그아웃 시 채팅 기록이 삭제됩니다
-        </p>
+        {/* 안내 문구 */}
+        <div className="flex items-center justify-center gap-1 py-1.5 mb-1 border-b border-amber-500/20 bg-amber-500/5 rounded-md">
+          <svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="text-amber-500/80 flex-shrink-0">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+            <line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
+          </svg>
+          <p className="text-[10px] text-amber-500/80">로그아웃 시 채팅 기록이 삭제됩니다</p>
+        </div>
 
         {loading ? (
           <div className="flex items-center justify-center py-6">
