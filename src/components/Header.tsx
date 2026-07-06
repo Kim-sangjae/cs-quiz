@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
+import { clearAllChats } from '@/lib/chat-store';
 import { useQuery } from '@tanstack/react-query';
 import NotificationBell from './NotificationBell';
 
@@ -122,7 +123,7 @@ export default function Header() {
                   {user.nickname ?? user.name ?? '사용자'}
                 </Link>
                 <button
-                  onClick={() => signOut({ callbackUrl: '/' })}
+                  onClick={() => { clearAllChats(); signOut({ callbackUrl: '/' }); }}
                   className="hidden sm:block rounded-md border border-neutral-700 text-xs text-neutral-400 px-3 py-1.5 hover:border-neutral-500 hover:text-white transition-colors"
                 >
                   로그아웃
@@ -210,7 +211,7 @@ export default function Header() {
                 {user.nickname ?? user.name ?? '사용자'} (마이페이지)
               </Link>
               <button
-                onClick={() => { closeMenu(); signOut({ callbackUrl: '/' }); }}
+                onClick={() => { closeMenu(); clearAllChats(); signOut({ callbackUrl: '/' }); }}
                 className="text-left text-base text-neutral-500 hover:text-white transition-colors"
               >
                 로그아웃

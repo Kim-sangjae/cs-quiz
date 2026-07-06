@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { useSupabaseRealtime } from '@/hooks/useSupabaseRealtime';
 import { supabaseBrowser } from '@/lib/supabase-browser';
 import UserProfileModal from './UserProfileModal';
+import ChatWindow from './ChatWindow';
 
 interface Friend {
   friendshipId: string;
@@ -34,13 +35,14 @@ function formatLastSeen(lastSeenAt: string | null, isOnline: boolean): string {
 }
 
 export default function FriendPanel() {
-  const { status } = useSession();
+  const { data: session, status } = useSession();
   const [open, setOpen] = useState(false);
   const [addingFriend, setAddingFriend] = useState(false);
   const [nickname, setNickname] = useState('');
   const [friendSearch, setFriendSearch] = useState('');
   const [onlineOnly, setOnlineOnly] = useState(false);
   const [selectedFriend, setSelectedFriend] = useState<Friend | null>(null);
+  const [chatFriend, setChatFriend] = useState<{ userId: string; nickname: string } | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const pathname = usePathname();
@@ -185,8 +187,20 @@ export default function FriendPanel() {
 
   const playingRoom = (battleRoomsData?.rooms ?? []).find(r => r.status === 'PLAYING');
 
+  const myId = session?.user?.id ?? '';
+  const myNickname = session?.user?.nickname ?? session?.user?.name ?? '';
+
   return (
     <>
+      {chatFriend && myId && (
+        <ChatWindow
+          myId={myId}
+          myNickname={myNickname}
+          friend={chatFriend}
+          onClose={() => setChatFriend(null)}
+        />
+      )}
+
       {/* 대결 진행 중 – 다른 페이지 차단 */}
       {playingRoom && !isOnBattlePage && battleRoomsData && (
         <div className="fixed inset-0 z-[65] flex items-center justify-center p-4">
@@ -374,9 +388,22 @@ export default function FriendPanel() {
                         </p>
                       </div>
                       {!f.battleStatus && !f.isPlayingQuiz && f.isOnline && (
-                        <span className="text-[9px] text-emerald-800 border border-emerald-900/50 rounded px-1 py-0.5 flex-shrink-0">
-                          대전
-                        </span>
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setChatFriend({ userId: f.userId, nickname: f.nickname });
+                              setOpen(false);
+                            }}
+                            className="text-[9px] text-sky-800 border border-sky-900/50 rounded px-1 py-0.5 hover:text-sky-400 hover:border-sky-600 transition-colors"
+                            title="채팅"
+                          >
+                            채팅
+                          </button>
+                          <span className="text-[9px] text-emerald-800 border border-emerald-900/50 rounded px-1 py-0.5">
+                            대전
+                          </span>
+                        </div>
                       )}
                     </button>
                   </li>
