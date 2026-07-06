@@ -48,7 +48,7 @@ export default function CommentSection({ questionId }: { questionId: string }) {
   const [submitting, setSubmitting] = useState(false);
   const [profileModal, setProfileModal] = useState<{ userId: string; nickname: string } | null>(null);
   const [reportModal, setReportModal] = useState<ReportModalState | null>(null);
-  const [adminPending, setAdminPending] = useState<string | null>(null);
+  const [adminDeletePending, setAdminDeletePending] = useState<string | null>(null);
 
   const fetchComments = useCallback(async (p: number) => {
     setLoading(true);
@@ -93,19 +93,15 @@ export default function CommentSection({ questionId }: { questionId: string }) {
     toast.success('삭제되었습니다.');
   }
 
-  async function handleAdminBlind(commentId: string) {
-    setAdminPending(commentId);
+  async function handleAdminDelete(commentId: string) {
+    setAdminDeletePending(commentId);
     try {
-      const r = await fetch('/api/admin/comment-reports', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ commentId, action: 'blind' }),
-      });
-      if (!r.ok) { toast.error('처리 실패'); return; }
+      const r = await fetch(`/api/questions/${questionId}/comments/${commentId}`, { method: 'DELETE' });
+      if (!r.ok) { toast.error('삭제 실패'); return; }
       await fetchComments(page);
-      toast.success('블라인드 처리되었습니다.');
+      toast.success('삭제되었습니다.');
     } finally {
-      setAdminPending(null);
+      setAdminDeletePending(null);
     }
   }
 
@@ -243,21 +239,11 @@ export default function CommentSection({ questionId }: { questionId: string }) {
                           </svg>
                         </button>
                       )}
-                      {/* 관리자 블라인드 버튼 */}
-                      {isAdmin && (
-                        <button
-                          onClick={() => void handleAdminBlind(c.id)}
-                          disabled={adminPending === c.id}
-                          className="opacity-0 group-hover:opacity-100 text-[11px] text-neutral-700 hover:text-orange-400 transition-all disabled:opacity-40"
-                          title="블라인드"
-                        >
-                          블라인드
-                        </button>
-                      )}
                       {(isMe || isAdmin) && (
                         <button
-                          onClick={() => void handleDelete(c.id)}
-                          className="text-[11px] text-neutral-700 hover:text-red-400 transition-colors"
+                          onClick={() => void (isAdmin && !isMe ? handleAdminDelete(c.id) : handleDelete(c.id))}
+                          disabled={isAdmin && !isMe ? adminDeletePending === c.id : false}
+                          className="text-[11px] text-neutral-700 hover:text-red-400 transition-colors disabled:opacity-40"
                         >
                           삭제
                         </button>

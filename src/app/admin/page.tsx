@@ -79,7 +79,7 @@ export default function AdminPage() {
   const [prevSeenAt, setPrevSeenAt] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
-  const { data: badge } = useQuery<{ questions: number; reports: number; inquiries: number; userReports: number }>({
+  const { data: badge } = useQuery<{ questions: number; reports: number; inquiries: number; userReports: number; commentReports: number }>({
     queryKey: ['admin', 'badge'],
     queryFn: () => fetch('/api/admin/badge').then((r) => r.json()),
     refetchInterval: 60_000,
@@ -119,7 +119,7 @@ export default function AdminPage() {
     { key: 'analytics', label: '애널리틱스' },
     { key: 'questions', label: '승인 대기', count: badge?.questions },
     { key: 'board', label: '게시판 관리' },
-    { key: 'reports', label: '신고 접수', count: (badge?.reports ?? 0) + (badge?.userReports ?? 0) || undefined },
+    { key: 'reports', label: '신고 접수', count: (badge?.reports ?? 0) + (badge?.userReports ?? 0) + (badge?.commentReports ?? 0) || undefined },
     { key: 'users', label: '유저 관리' },
     { key: 'inquiries', label: '문의 관리', count: badge?.inquiries },
     { key: 'logs', label: '감사 로그' },
@@ -1063,7 +1063,7 @@ function ReportsTab({ prevSeenAt }: { prevSeenAt: string | null }) {
     queryFn: async () => { const r = await fetch('/api/admin/comment-reports'); if (!r.ok) return []; return r.json(); },
   });
   const commentReportMutation = useMutation({
-    mutationFn: ({ commentId, action }: { commentId: string; action: 'blind' | 'delete' | 'dismiss' }) =>
+    mutationFn: ({ commentId, action }: { commentId: string; action: 'delete' | 'dismiss' }) =>
       fetch('/api/admin/comment-reports', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ commentId, action }) }),
     onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['admin', 'comment-reports'] }); void queryClient.invalidateQueries({ queryKey: ['admin', 'badge'] }); toast.success('처리되었습니다.'); },
   });
@@ -1182,7 +1182,6 @@ function ReportsTab({ prevSeenAt }: { prevSeenAt: string | null }) {
                             {CATEGORY_LABEL[group.comment.question.category] ?? group.comment.question.category}
                           </span>
                           <span className="text-xs text-neutral-500">신고 {group.reportCount}건</span>
-                          {group.comment.blinded && <span className="text-xs text-orange-400 border border-orange-500/30 rounded px-1.5 py-0.5">블라인드됨</span>}
                           {group.comment.deletedAt && <span className="text-xs text-red-400 border border-red-500/30 rounded px-1.5 py-0.5">삭제됨</span>}
                           {!group.dismissed && <span className="text-[10px] font-bold text-amber-400 border border-amber-500/40 rounded px-1.5 py-0.5">PENDING</span>}
                         </div>
@@ -1214,14 +1213,6 @@ function ReportsTab({ prevSeenAt }: { prevSeenAt: string | null }) {
                       </div>
                       {isPending && (
                         <div className="flex gap-1.5 flex-wrap">
-                          {!group.comment.blinded && (
-                            <button
-                              onClick={() => commentReportMutation.mutate({ commentId: group.commentId, action: 'blind' })}
-                              disabled={isActing}
-                              className="rounded-md bg-orange-500/10 border border-orange-500/30 text-orange-400 text-xs px-3 py-1.5 hover:bg-orange-500/20 transition-colors disabled:opacity-40">
-                              블라인드
-                            </button>
-                          )}
                           {!group.comment.deletedAt && (
                             <button
                               onClick={() => commentReportMutation.mutate({ commentId: group.commentId, action: 'delete' })}
@@ -3502,7 +3493,6 @@ interface CommentReportGroup {
   comment: {
     id: string;
     content: string;
-    blinded: boolean;
     deletedAt: string | null;
     userId: string;
     user: { nickname: string | null };

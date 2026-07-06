@@ -20,7 +20,6 @@ export async function GET() {
         select: {
           id: true,
           content: true,
-          blinded: true,
           deletedAt: true,
           userId: true,
           user: { select: { nickname: true } },
@@ -70,20 +69,14 @@ export async function PATCH(req: NextRequest) {
   const body = await req.json() as { commentId: string; action: string };
   const { commentId, action } = body;
 
-  if (!['blind', 'delete', 'dismiss'].includes(action)) {
+  if (!['delete', 'dismiss'].includes(action)) {
     return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
   }
 
   const comment = await prisma.questionComment.findUnique({ where: { id: commentId } });
   if (!comment) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
-  if (action === 'blind') {
-    await prisma.$transaction([
-      prisma.questionComment.update({ where: { id: commentId }, data: { blinded: true } }),
-      prisma.commentReport.updateMany({ where: { commentId, status: 'PENDING' }, data: { status: 'REVIEWED' } }),
-    ]);
-    writeLog({ actorId: user.id, actorRole: user.role, action: 'COMMENT_BLIND', targetType: 'Comment', targetId: commentId });
-  } else if (action === 'delete') {
+  if (action === 'delete') {
     await prisma.$transaction([
       prisma.questionComment.update({ where: { id: commentId }, data: { deletedAt: new Date() } }),
       prisma.commentReport.updateMany({ where: { commentId, status: 'PENDING' }, data: { status: 'REVIEWED' } }),
