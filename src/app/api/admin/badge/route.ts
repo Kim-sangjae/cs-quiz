@@ -15,15 +15,17 @@ export async function GET() {
   const lastSeenAt = admin?.adminLastSeenAt ?? null;
   const since = lastSeenAt ?? new Date(0);
 
-  const [questions, reports, inquiries, userReports, newQuestions, newReports, newInquiries, newUserReports] = await Promise.all([
+  const [questions, reports, inquiries, userReports, commentReports, newQuestions, newReports, newInquiries, newUserReports, newCommentReports] = await Promise.all([
     prisma.question.count({ where: { status: 'PENDING' } }),
     prisma.report.groupBy({ by: ['questionId'], where: { status: 'PENDING' } }).then((r) => r.length),
     prisma.inquiry.count({ where: { status: 'PENDING', adminReply: null } }),
     prisma.userReport.count({ where: { status: 'PENDING' } }),
+    prisma.commentReport.groupBy({ by: ['commentId'], where: { status: 'PENDING' } }).then((r) => r.length),
     prisma.question.count({ where: { status: 'PENDING', createdAt: { gt: since } } }),
     prisma.report.groupBy({ by: ['questionId'], where: { status: 'PENDING', createdAt: { gt: since } } }).then((r) => r.length),
     prisma.inquiry.count({ where: { status: 'PENDING', adminReply: null, createdAt: { gt: since } } }),
     prisma.userReport.count({ where: { status: 'PENDING', createdAt: { gt: since } } }),
+    prisma.commentReport.groupBy({ by: ['commentId'], where: { status: 'PENDING', createdAt: { gt: since } } }).then((r) => r.length),
   ]);
 
   return NextResponse.json({
@@ -31,8 +33,9 @@ export async function GET() {
     reports,
     inquiries,
     userReports,
-    total: questions + reports + inquiries + userReports,
-    newTotal: newQuestions + newReports + newInquiries + userReports,
+    commentReports,
+    total: questions + reports + inquiries + userReports + commentReports,
+    newTotal: newQuestions + newReports + newInquiries + newUserReports + newCommentReports,
     lastSeenAt: lastSeenAt?.toISOString() ?? null,
   });
 }

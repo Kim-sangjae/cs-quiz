@@ -21,7 +21,7 @@ const questionSelect = {
   correctCount: true,
   createdAt: true,
   author: { select: { nickname: true } },
-  _count: { select: { likes: true, comments: { where: { deletedAt: null } } } },
+  _count: { select: { likes: true, comments: { where: { deletedAt: null, blinded: false } } } },
 } as const;
 
 interface PageProps {
