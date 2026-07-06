@@ -2,7 +2,7 @@ import { check, foreign } from '@/lib/korcen-check';
 import { prisma } from '@/lib/prisma';
 
 // 관리자도 사용 불가 (욕설)
-const PROFANITY_WORDS = [
+export const PROFANITY_WORDS = [
   '씨발', '씨빨', '쌍년', '쌍놈', '존나', '존내', '졸라', 'ㅈㄴ',
   '미친', '미칠', 'ㅁㅊ',
   '애미', '애비', '에미', '에비',

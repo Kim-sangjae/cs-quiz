@@ -1020,7 +1020,7 @@ const REPORTS_PAGE_SIZE = 10;
 
 function ReportsTab({ prevSeenAt }: { prevSeenAt: string | null }) {
   const queryClient = useQueryClient();
-  const [reportKind, setReportKind] = useState<'question' | 'user'>('question');
+  const [reportKind, setReportKind] = useState<'question' | 'user' | 'comment'>('question');
   const [reasonFilter, setReasonFilter] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<'pending' | 'dismissed' | 'all'>('pending');
   const [sortOrder, setSortOrder] = useState<'count' | 'asc'>('count');
@@ -1056,6 +1056,24 @@ function ReportsTab({ prevSeenAt }: { prevSeenAt: string | null }) {
     onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['admin', 'user-reports'] }); void queryClient.invalidateQueries({ queryKey: ['admin', 'badge'] }); setUserSelectedIds(new Set()); toast.success('처리되었습니다.'); },
   });
   const [userSelectedIds, setUserSelectedIds] = useState<Set<string>>(new Set());
+
+  // 댓글 신고
+  const { data: commentReportGroups = [], isLoading: commentReportsLoading } = useQuery<CommentReportGroup[]>({
+    queryKey: ['admin', 'comment-reports'],
+    queryFn: async () => { const r = await fetch('/api/admin/comment-reports'); if (!r.ok) return []; return r.json(); },
+  });
+  const commentReportMutation = useMutation({
+    mutationFn: ({ commentId, action }: { commentId: string; action: 'blind' | 'delete' | 'dismiss' }) =>
+      fetch('/api/admin/comment-reports', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ commentId, action }) }),
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['admin', 'comment-reports'] }); void queryClient.invalidateQueries({ queryKey: ['admin', 'badge'] }); toast.success('처리되었습니다.'); },
+  });
+  const [commentStatusFilter, setCommentStatusFilter] = useState<'pending' | 'dismissed' | 'all'>('pending');
+  const filteredCommentGroups = commentReportGroups.filter((g) => {
+    if (commentStatusFilter === 'pending' && g.dismissed) return false;
+    if (commentStatusFilter === 'dismissed' && !g.dismissed) return false;
+    return true;
+  });
+  const pendingCommentCount = commentReportGroups.filter((g) => !g.dismissed).length;
 
   function handleUserAction(id: string, action: 'blind' | 'change-nickname', reason: string) {
     if (action === 'blind') blindUserMutation.mutate({ id, reason });
@@ -1126,9 +1144,108 @@ function ReportsTab({ prevSeenAt }: { prevSeenAt: string | null }) {
           className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${reportKind === 'user' ? 'bg-white text-black' : 'text-neutral-400 hover:text-white border border-neutral-800 hover:border-neutral-600'}`}>
           닉네임 신고 {pendingUserReportCount > 0 && <span className="ml-1 text-[10px] bg-red-500 text-white rounded-full px-1.5 py-0.5">{pendingUserReportCount}</span>}
         </button>
+        <button onClick={() => setReportKind('comment')}
+          className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${reportKind === 'comment' ? 'bg-white text-black' : 'text-neutral-400 hover:text-white border border-neutral-800 hover:border-neutral-600'}`}>
+          댓글 신고 {pendingCommentCount > 0 && <span className="ml-1 text-[10px] bg-red-500 text-white rounded-full px-1.5 py-0.5">{pendingCommentCount}</span>}
+        </button>
       </div>
 
-      {reportKind === 'user' ? (
+      {reportKind === 'comment' ? (
+        <div className="space-y-4">
+          <div className="flex gap-1.5">
+            {([
+              { key: 'pending', label: `대기 중 ${pendingCommentCount}` },
+              { key: 'dismissed', label: '처리됨' },
+              { key: 'all', label: '전체' },
+            ] as const).map(({ key, label }) => (
+              <button key={key} onClick={() => setCommentStatusFilter(key)}
+                className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${commentStatusFilter === key ? 'bg-white text-black' : 'text-neutral-400 hover:text-white border border-neutral-800 hover:border-neutral-600'}`}>
+                {label}
+              </button>
+            ))}
+          </div>
+          {commentReportsLoading ? (
+            <p className="text-neutral-500 text-sm text-center py-8">로딩 중...</p>
+          ) : filteredCommentGroups.length === 0 ? (
+            <p className="text-neutral-500 text-sm text-center py-8">신고가 없습니다.</p>
+          ) : (
+            <div className="space-y-3">
+              {filteredCommentGroups.map((group) => {
+                const isPending = !group.dismissed;
+                const isActing = commentReportMutation.isPending;
+                return (
+                  <div key={group.commentId} className={`bg-[#111111] border rounded-lg p-4 ${isPending ? 'border-neutral-800' : 'border-neutral-800/40 opacity-60'}`}>
+                    <div className="space-y-2.5">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-xs text-neutral-500 border border-neutral-800 rounded px-2 py-0.5">
+                            {CATEGORY_LABEL[group.comment.question.category] ?? group.comment.question.category}
+                          </span>
+                          <span className="text-xs text-neutral-500">신고 {group.reportCount}건</span>
+                          {group.comment.blinded && <span className="text-xs text-orange-400 border border-orange-500/30 rounded px-1.5 py-0.5">블라인드됨</span>}
+                          {group.comment.deletedAt && <span className="text-xs text-red-400 border border-red-500/30 rounded px-1.5 py-0.5">삭제됨</span>}
+                          {!group.dismissed && <span className="text-[10px] font-bold text-amber-400 border border-amber-500/40 rounded px-1.5 py-0.5">PENDING</span>}
+                        </div>
+                        <a
+                          href={`/board/${group.comment.question.id}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-xs text-neutral-500 hover:text-white transition-colors underline flex-shrink-0"
+                        >
+                          게시글 보기 →
+                        </a>
+                      </div>
+                      <div className="bg-neutral-900/60 rounded-md px-3 py-2 border border-neutral-800/60">
+                        <p className="text-[10px] text-neutral-600 mb-0.5">문제</p>
+                        <p className="text-xs text-neutral-400 truncate">{group.comment.question.question}</p>
+                      </div>
+                      <div className="bg-neutral-900/60 rounded-md px-3 py-2 border border-neutral-800/60">
+                        <p className="text-[10px] text-neutral-600 mb-0.5">댓글 작성자: <span className="text-neutral-400">{group.comment.user.nickname ?? '(탈퇴)'}</span></p>
+                        <p className="text-sm text-neutral-200 leading-relaxed">{group.comment.content}</p>
+                      </div>
+                      <div className="space-y-1">
+                        {group.reports.map((r) => (
+                          <div key={r.id} className="text-xs text-neutral-500 flex gap-2">
+                            <span className="text-neutral-600">{r.reporter.nickname ?? '(탈퇴)'}</span>
+                            <span>{COMMENT_REPORT_REASON_LABEL[r.reason] ?? r.reason}</span>
+                            {r.description && <span className="text-neutral-600 italic">— {r.description}</span>}
+                          </div>
+                        ))}
+                      </div>
+                      {isPending && (
+                        <div className="flex gap-1.5 flex-wrap">
+                          {!group.comment.blinded && (
+                            <button
+                              onClick={() => commentReportMutation.mutate({ commentId: group.commentId, action: 'blind' })}
+                              disabled={isActing}
+                              className="rounded-md bg-orange-500/10 border border-orange-500/30 text-orange-400 text-xs px-3 py-1.5 hover:bg-orange-500/20 transition-colors disabled:opacity-40">
+                              블라인드
+                            </button>
+                          )}
+                          {!group.comment.deletedAt && (
+                            <button
+                              onClick={() => commentReportMutation.mutate({ commentId: group.commentId, action: 'delete' })}
+                              disabled={isActing}
+                              className="rounded-md bg-red-500/10 border border-red-500/30 text-red-400 text-xs px-3 py-1.5 hover:bg-red-500/20 transition-colors disabled:opacity-40">
+                              삭제
+                            </button>
+                          )}
+                          <button
+                            onClick={() => commentReportMutation.mutate({ commentId: group.commentId, action: 'dismiss' })}
+                            disabled={isActing}
+                            className="rounded-md border border-neutral-700 text-neutral-400 text-xs px-3 py-1.5 hover:text-white transition-colors disabled:opacity-40">
+                            무시
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      ) : reportKind === 'user' ? (
         <div className="space-y-4">
           <div className="flex gap-1.5">
             {([
@@ -3370,4 +3487,37 @@ interface UserReportItem {
   reporter: { id: string; nickname: string | null; email: string };
   reported: { id: string; nickname: string | null; email: string };
 }
+
+interface CommentReportItem {
+  id: string;
+  reason: string;
+  description: string | null;
+  status: string;
+  createdAt: string;
+  reporter: { nickname: string | null };
+}
+
+interface CommentReportGroup {
+  commentId: string;
+  comment: {
+    id: string;
+    content: string;
+    blinded: boolean;
+    deletedAt: string | null;
+    userId: string;
+    user: { nickname: string | null };
+    question: { id: string; question: string; category: string };
+  };
+  reportCount: number;
+  latestReportAt: string;
+  dismissed: boolean;
+  reports: CommentReportItem[];
+}
+
+const COMMENT_REPORT_REASON_LABEL: Record<string, string> = {
+  INAPPROPRIATE: '부적절한 내용',
+  SPAM: '스팸/광고',
+  HARASSMENT: '욕설/비방',
+  OTHER: '기타',
+};
 

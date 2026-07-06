@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { maskProfanity } from '@/lib/content-filter';
 
 const PAGE_SIZE = 10;
 
@@ -14,7 +15,7 @@ export async function GET(
 
   const [comments, total] = await Promise.all([
     prisma.questionComment.findMany({
-      where: { questionId, deletedAt: null },
+      where: { questionId, deletedAt: null, blinded: false },
       orderBy: { createdAt: 'asc' },
       skip: page * PAGE_SIZE,
       take: PAGE_SIZE,
@@ -26,7 +27,7 @@ export async function GET(
         user: { select: { nickname: true } },
       },
     }),
-    prisma.questionComment.count({ where: { questionId, deletedAt: null } }),
+    prisma.questionComment.count({ where: { questionId, deletedAt: null, blinded: false } }),
   ]);
 
   return NextResponse.json({ comments, total, pageCount: Math.ceil(total / PAGE_SIZE) });
@@ -50,10 +51,13 @@ export async function POST(
   }
 
   const body = await req.json() as { content?: unknown };
-  const content = typeof body.content === 'string' ? body.content.trim() : '';
-  if (!content || content.length > 500) {
+  const raw = typeof body.content === 'string' ? body.content.trim() : '';
+  if (!raw || raw.length > 500) {
     return NextResponse.json({ error: 'Invalid content' }, { status: 400 });
   }
+
+  const dbWords = await prisma.blockedWord.findMany({ select: { word: true } });
+  const content = maskProfanity(raw, dbWords.map((w) => w.word));
 
   const comment = await prisma.questionComment.create({
     data: { userId: session.user.id, questionId, content },
