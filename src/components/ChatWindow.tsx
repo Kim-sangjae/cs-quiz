@@ -2,20 +2,19 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { supabaseBrowser } from '@/lib/supabase-browser';
-import { loadMessages, appendMessage, ChatMessage } from '@/lib/chat-store';
-import { maskProfanity } from '@/lib/content-filter';
+import { ChatMessage } from '@/lib/chat-store';
 
 interface Props {
   myId: string;
-  myNickname: string;
   friend: { userId: string; nickname: string };
   onClose: () => void;
 }
 
 const MAX_LENGTH = 200;
 
-export default function ChatWindow({ myId, myNickname, friend, onClose }: Props) {
-  const [messages, setMessages] = useState<ChatMessage[]>(() => loadMessages(myId, friend.userId));
+export default function ChatWindow({ myId, friend, onClose }: Props) {
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [loading, setLoading] = useState(true);
   const [input, setInput] = useState('');
   const [channelReady, setChannelReady] = useState(false);
   const channelRef = useRef<ReturnType<typeof supabaseBrowser.channel> | null>(null);
@@ -24,57 +23,68 @@ export default function ChatWindow({ myId, myNickname, friend, onClose }: Props)
 
   const channelName = `csora-chat-${[myId, friend.userId].sort().join('-')}`;
 
+  // DB에서 대화 기록 로드
+  useEffect(() => {
+    setLoading(true);
+    setMessages([]);
+    fetch(`/api/chat/messages?friendId=${friend.userId}`)
+      .then((r) => r.json())
+      .then((data: { messages: ChatMessage[] }) => setMessages(data.messages))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [friend.userId]);
+
+  // Supabase Broadcast 구독 (실시간 수신)
   useEffect(() => {
     const ch = supabaseBrowser
       .channel(channelName)
       .on('broadcast', { event: 'message' }, ({ payload }: { payload: ChatMessage }) => {
         if (payload.senderId === myId) return;
-        // 비속어 마스킹 후 저장
-        const masked: ChatMessage = { ...payload, content: maskProfanity(payload.content) };
-        appendMessage(myId, friend.userId, masked);
-        setMessages(loadMessages(myId, friend.userId));
+        setMessages((prev) => [...prev, payload]);
       })
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') setChannelReady(true);
       });
     channelRef.current = ch;
     return () => { void supabaseBrowser.removeChannel(ch); };
-  }, [channelName, myId, friend.userId]);
+  }, [channelName, myId]);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'instant' });
-  }, [friend.userId]);
+    if (!loading) bottomRef.current?.scrollIntoView({ behavior: 'instant' });
+  }, [loading]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages.length]);
 
   useEffect(() => {
-    inputRef.current?.focus();
-  }, [friend.userId]);
+    if (!loading) inputRef.current?.focus();
+  }, [friend.userId, loading]);
 
   async function send() {
     const raw = input.trim();
     if (!raw || !channelReady) return;
-    const content = maskProfanity(raw);
-    const msg: ChatMessage = {
-      id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-      senderId: myId,
-      senderNickname: myNickname,
-      content,
-      sentAt: Date.now(),
-    };
     setInput('');
-    appendMessage(myId, friend.userId, msg);
-    setMessages(loadMessages(myId, friend.userId));
 
-    // 채팅 채널로 전송
-    await channelRef.current?.send({ type: 'broadcast', event: 'message', payload: msg });
+    // DB 저장 (비속어 마스킹은 서버에서 처리)
+    const res = await fetch('/api/chat/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ receiverId: friend.userId, content: raw }),
+    });
+    if (!res.ok) return;
+    const { message } = await res.json() as { message: ChatMessage };
 
-    // 상대방 알림 채널에도 전송 (채팅창이 닫혀 있을 때 메시지 수신 + 뱃지용)
+    // 로컬 상태 즉시 반영
+    setMessages((prev) => [...prev, message]);
+
+    // 상대방 채팅 채널에 실시간 전송
+    await channelRef.current?.send({ type: 'broadcast', event: 'message', payload: message });
+
+    // 상대방 알림 채널에 전송 (채팅창 미열림 시 뱃지용)
     const notifCh = supabaseBrowser.channel(`csora-chat-notif-${friend.userId}`);
     try {
-      await notifCh.send({ type: 'broadcast', event: 'chat_message', payload: msg });
+      await notifCh.send({ type: 'broadcast', event: 'chat_message', payload: message });
     } finally {
       void supabaseBrowser.removeChannel(notifCh);
     }
@@ -92,7 +102,7 @@ export default function ChatWindow({ myId, myNickname, friend, onClose }: Props)
             {friend.nickname[0]?.toUpperCase() ?? '?'}
           </div>
           <span className="text-xs font-medium text-white truncate">{friend.nickname}</span>
-          {!channelReady && (
+          {!channelReady && !loading && (
             <span className="text-[10px] text-neutral-600 flex-shrink-0">연결 중...</span>
           )}
         </div>
@@ -109,8 +119,17 @@ export default function ChatWindow({ myId, myNickname, friend, onClose }: Props)
 
       {/* 메시지 목록 */}
       <div className="flex-1 overflow-y-auto px-3 py-2 space-y-1.5">
-        {messages.length === 0 ? (
-          <p className="text-[11px] text-neutral-600 text-center pt-6">대화를 시작해보세요</p>
+        {/* 안내 문구 (항상 상단 고정) */}
+        <p className="text-[10px] text-neutral-600 text-center py-1.5 border-b border-neutral-800/60 mb-1">
+          로그아웃 시 채팅 기록이 삭제됩니다
+        </p>
+
+        {loading ? (
+          <div className="flex items-center justify-center py-6">
+            <span className="text-[11px] text-neutral-600">불러오는 중...</span>
+          </div>
+        ) : messages.length === 0 ? (
+          <p className="text-[11px] text-neutral-600 text-center pt-4">대화를 시작해보세요</p>
         ) : (
           messages.map((m) => {
             const isMe = m.senderId === myId;

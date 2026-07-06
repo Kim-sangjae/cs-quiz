@@ -52,6 +52,8 @@ model User {
   bookmarkFolders            BookmarkFolder[]
   pointTransactions          PointTransaction[]
   weeklyGoalClaims           WeeklyGoalClaim[]
+  sentMessages               ChatMessage[]     @relation("ChatSender")
+  receivedMessages           ChatMessage[]     @relation("ChatReceiver")
 }
 
 model Account {
@@ -536,6 +538,20 @@ model PointTransaction {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, createdAt])
+}
+
+model ChatMessage {
+  id         String   @id @default(cuid())
+  senderId   String
+  receiverId String
+  content    String
+  createdAt  DateTime @default(now())
+
+  sender   User @relation("ChatSender",   fields: [senderId],   references: [id], onDelete: Cascade)
+  receiver User @relation("ChatReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
+
+  @@index([senderId, receiverId, createdAt])
+  @@index([receiverId, senderId, createdAt])
 }
 
 model WeeklyGoalClaim {

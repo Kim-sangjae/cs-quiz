@@ -9,7 +9,7 @@ import { useSupabaseRealtime } from '@/hooks/useSupabaseRealtime';
 import { supabaseBrowser } from '@/lib/supabase-browser';
 import UserProfileModal from './UserProfileModal';
 import ChatWindow from './ChatWindow';
-import { appendMessage, ChatMessage } from '@/lib/chat-store';
+import { ChatMessage } from '@/lib/chat-store';
 
 interface Friend {
   friendshipId: string;
@@ -38,7 +38,6 @@ function formatLastSeen(lastSeenAt: string | null, isOnline: boolean): string {
 export default function FriendPanel() {
   const { data: session, status } = useSession();
   const myId = session?.user?.id ?? '';
-  const myNickname = session?.user?.nickname ?? session?.user?.name ?? '';
   const [open, setOpen] = useState(false);
   const [addingFriend, setAddingFriend] = useState(false);
   const [nickname, setNickname] = useState('');
@@ -91,9 +90,8 @@ export default function FriendPanel() {
     const ch = supabaseBrowser
       .channel(`csora-chat-notif-${myId}`)
       .on('broadcast', { event: 'chat_message' }, ({ payload }: { payload: ChatMessage }) => {
-        // 해당 친구와 채팅창이 열려 있으면 ChatWindow가 이미 처리함
+        // 해당 친구와 채팅창이 열려 있으면 이미 실시간으로 표시 중
         if (chatFriendRef.current?.userId === payload.senderId) return;
-        appendMessage(myId, payload.senderId, payload);
         setUnreadCounts((prev) => ({
           ...prev,
           [payload.senderId]: (prev[payload.senderId] ?? 0) + 1,
@@ -219,7 +217,6 @@ export default function FriendPanel() {
       {chatFriend && myId && (
         <ChatWindow
           myId={myId}
-          myNickname={myNickname}
           friend={chatFriend}
           onClose={() => setChatFriend(null)}
         />
