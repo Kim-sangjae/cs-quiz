@@ -218,6 +218,7 @@ export default function FriendPanel() {
         <ChatWindow
           myId={myId}
           friend={chatFriend}
+          isOnline={onlineUserIds.has(chatFriend.userId)}
           onClose={() => setChatFriend(null)}
         />
       )}
@@ -425,21 +426,16 @@ export default function FriendPanel() {
                              formatLastSeen(f.lastSeenAt, f.isOnline)}
                           </p>
                         </div>
-                        {!f.battleStatus && !f.isPlayingQuiz && f.isOnline && (
-                          <div className="flex items-center gap-1.5 flex-shrink-0">
-                            <button
-                              onClick={(e) => { e.stopPropagation(); openChat(); }}
-                              className="flex items-center justify-center w-7 h-7 rounded-full bg-sky-500/15 border border-sky-500/30 text-sky-400 hover:bg-sky-500/30 hover:border-sky-400 transition-colors"
-                              title="채팅"
-                            >
-                              <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                              </svg>
-                            </button>
-                            <span className="text-[9px] text-emerald-800 border border-emerald-900/50 rounded px-1 py-0.5">
-                              대전
-                            </span>
-                          </div>
+                        {f.isOnline && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); openChat(); }}
+                            className="flex items-center justify-center w-7 h-7 rounded-full bg-sky-500/15 border border-sky-500/30 text-sky-400 hover:bg-sky-500/30 hover:border-sky-400 transition-colors flex-shrink-0"
+                            title="채팅"
+                          >
+                            <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                            </svg>
+                          </button>
                         )}
                       </div>
                     </li>

@@ -2,15 +2,17 @@
 
 import { useSession, signOut } from 'next-auth/react';
 import { useEffect, useRef, useState } from 'react';
+import { clearAllChats } from '@/lib/chat-store';
+import { supabaseBrowser } from '@/lib/supabase-browser';
 
 export default function SessionGuard() {
-  const { status } = useSession();
+  const { data: session, status } = useSession();
   const prevStatus = useRef<string>('loading');
   const [show, setShow] = useState(false);
+  const userId = session?.user?.id;
 
   useEffect(() => {
     if (prevStatus.current === 'authenticated' && status === 'unauthenticated') {
-      // 서버가 살아있을 때만 표시 (서버 다운이면 네트워크 에러로 catch)
       fetch('/api/auth/session')
         .then((res) => { if (res.ok) setShow(true); })
         .catch(() => { /* 서버 다운 — 모달 표시 안 함 */ });
@@ -31,7 +33,16 @@ export default function SessionGuard() {
           <p className="text-sm text-neutral-400">계속 사용하려면 다시 로그인이 필요합니다.</p>
         </div>
         <button
-          onClick={() => signOut({ callbackUrl: '/' })}
+          onClick={async () => {
+            clearAllChats();
+            try { await fetch('/api/chat/messages', { method: 'DELETE' }); } catch { /* ignore */ }
+            if (userId) {
+              const ch = supabaseBrowser.channel(`csora-chat-notif-${userId}`);
+              try { await ch.send({ type: 'broadcast', event: 'user_offline', payload: {} }); } catch { /* ignore */ }
+              void supabaseBrowser.removeChannel(ch);
+            }
+            void signOut({ callbackUrl: '/' });
+          }}
           className="w-full rounded-md bg-white text-black text-sm font-medium px-6 py-2.5 hover:bg-neutral-200 transition-colors"
         >
           확인 (재로그인)

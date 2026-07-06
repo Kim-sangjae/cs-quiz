@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
 import { clearAllChats } from '@/lib/chat-store';
+import { supabaseBrowser } from '@/lib/supabase-browser';
 import { useQuery } from '@tanstack/react-query';
 import NotificationBell from './NotificationBell';
 
@@ -50,6 +51,11 @@ export default function Header() {
   async function handleSignOut() {
     clearAllChats();
     try { await fetch('/api/chat/messages', { method: 'DELETE' }); } catch { /* ignore */ }
+    if (user?.id) {
+      const ch = supabaseBrowser.channel(`csora-chat-notif-${user.id}`);
+      try { await ch.send({ type: 'broadcast', event: 'user_offline', payload: {} }); } catch { /* ignore */ }
+      void supabaseBrowser.removeChannel(ch);
+    }
     void signOut({ callbackUrl: '/' });
   }
 

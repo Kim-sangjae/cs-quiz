@@ -7,16 +7,18 @@ import { ChatMessage } from '@/lib/chat-store';
 interface Props {
   myId: string;
   friend: { userId: string; nickname: string };
+  isOnline: boolean;
   onClose: () => void;
 }
 
 const MAX_LENGTH = 200;
 
-export default function ChatWindow({ myId, friend, onClose }: Props) {
+export default function ChatWindow({ myId, friend, isOnline, onClose }: Props) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [input, setInput] = useState('');
   const [channelReady, setChannelReady] = useState(false);
+  const [friendOffline, setFriendOffline] = useState(!isOnline);
   const channelRef = useRef<ReturnType<typeof supabaseBrowser.channel> | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -34,7 +36,12 @@ export default function ChatWindow({ myId, friend, onClose }: Props) {
       .finally(() => setLoading(false));
   }, [friend.userId]);
 
-  // Supabase Broadcast 구독 (실시간 수신)
+  // isOnline prop 변경 감지
+  useEffect(() => {
+    if (!isOnline) setFriendOffline(true);
+  }, [isOnline]);
+
+  // Supabase Broadcast 구독 (실시간 수신 + 상대방 오프라인 감지)
   useEffect(() => {
     const ch = supabaseBrowser
       .channel(channelName)
@@ -46,8 +53,20 @@ export default function ChatWindow({ myId, friend, onClose }: Props) {
         if (status === 'SUBSCRIBED') setChannelReady(true);
       });
     channelRef.current = ch;
-    return () => { void supabaseBrowser.removeChannel(ch); };
-  }, [channelName, myId]);
+
+    // 상대방 로그아웃 감지 채널
+    const notifCh = supabaseBrowser
+      .channel(`csora-chat-notif-${friend.userId}`)
+      .on('broadcast', { event: 'user_offline' }, () => {
+        setFriendOffline(true);
+      })
+      .subscribe();
+
+    return () => {
+      void supabaseBrowser.removeChannel(ch);
+      void supabaseBrowser.removeChannel(notifCh);
+    };
+  }, [channelName, myId, friend.userId]);
 
   useEffect(() => {
     if (!loading) bottomRef.current?.scrollIntoView({ behavior: 'instant' });
@@ -151,30 +170,40 @@ export default function ChatWindow({ myId, friend, onClose }: Props) {
         <div ref={bottomRef} />
       </div>
 
+      {/* 오프라인 배너 */}
+      {friendOffline && (
+        <div className="px-3 py-2 border-t border-neutral-800 bg-neutral-900/80 flex items-center gap-1.5 flex-shrink-0">
+          <span className="w-1.5 h-1.5 rounded-full bg-neutral-600 flex-shrink-0" />
+          <p className="text-[11px] text-neutral-500">{friend.nickname}님이 오프라인 상태입니다</p>
+        </div>
+      )}
+
       {/* 입력창 */}
-      <div className="px-2.5 py-2 border-t border-neutral-800 flex gap-2 flex-shrink-0">
-        <input
-          ref={inputRef}
-          type="text"
-          value={input}
-          onChange={(e) => setInput(e.target.value.slice(0, MAX_LENGTH))}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
-              e.preventDefault();
-              void send();
-            }
-          }}
-          placeholder="메시지 입력..."
-          className="flex-1 min-w-0 bg-neutral-800 border border-neutral-700 rounded-md px-2.5 py-1.5 text-xs text-white placeholder-neutral-600 focus:outline-none focus:border-neutral-500 transition-colors"
-        />
-        <button
-          onClick={() => void send()}
-          disabled={!input.trim() || !channelReady}
-          className="flex-shrink-0 text-xs bg-white text-black font-medium rounded-md px-2.5 py-1.5 hover:bg-neutral-200 disabled:opacity-40 transition-colors"
-        >
-          전송
-        </button>
-      </div>
+      {!friendOffline && (
+        <div className="px-2.5 py-2 border-t border-neutral-800 flex gap-2 flex-shrink-0">
+          <input
+            ref={inputRef}
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value.slice(0, MAX_LENGTH))}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+                e.preventDefault();
+                void send();
+              }
+            }}
+            placeholder="메시지 입력..."
+            className="flex-1 min-w-0 bg-neutral-800 border border-neutral-700 rounded-md px-2.5 py-1.5 text-xs text-white placeholder-neutral-600 focus:outline-none focus:border-neutral-500 transition-colors"
+          />
+          <button
+            onClick={() => void send()}
+            disabled={!input.trim() || !channelReady}
+            className="flex-shrink-0 text-xs bg-white text-black font-medium rounded-md px-2.5 py-1.5 hover:bg-neutral-200 disabled:opacity-40 transition-colors"
+          >
+            전송
+          </button>
+        </div>
+      )}
     </div>
   );
 }

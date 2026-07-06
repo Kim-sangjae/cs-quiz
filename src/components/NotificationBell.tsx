@@ -10,7 +10,9 @@ const BADGE_LABELS: Record<string, string> = {
   CAT_DS: '자료구조 마스터', CAT_ALGO: '알고리즘 마스터', CAT_OS: 'OS 마스터',
   CAT_NETWORK: '네트워크 마스터', CAT_DB: 'DB 마스터', CAT_ARCH: '컴퓨터구조 마스터',
   FIRST_SUBMIT: '첫 기여', APPROVED_1: '문제 기여자', APPROVED_5: '활동 기여자', APPROVED_10: '핵심 기여자',
+  APPROVED_20: '핵심 기여자+',
   COMEBACK: '오답 극복', COMPLETIONIST: '완주', LIKED_QUESTION: '인기 출제자',
+  BATTLE_FIRST: '첫 대결', BATTLE_WIN_1: '첫 승리', BATTLE_WIN_10: '대결 고수', BATTLE_WIN_30: '대결 달인',
 };
 
 interface NotificationPayload {
