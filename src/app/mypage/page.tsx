@@ -1090,7 +1090,17 @@ export default function MyPage() {
                     )}
                   </div>
                 ))}
-                <p className="text-[10px] text-neutral-700 pt-1">포인트는 퀴즈 힌트 사용에 활용됩니다 (힌트 20P)</p>
+                {(() => {
+                  const d = new Date();
+                  d.setHours(0, 0, 0, 0);
+                  d.setDate(d.getDate() - ((d.getDay() + 6) % 7) + 7);
+                  return (
+                    <p className="text-[10px] text-neutral-600 pt-1">
+                      매주 월요일 00:00 초기화 · 다음 초기화: {d.getMonth() + 1}월 {d.getDate()}일
+                    </p>
+                  );
+                })()}
+                <p className="text-[10px] text-neutral-700 pt-0.5">포인트는 퀴즈 힌트 사용에 활용됩니다 (힌트 20P)</p>
               </div>
             )}
           </div>

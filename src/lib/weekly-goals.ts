@@ -7,10 +7,10 @@ export type GoalDef = {
 };
 
 export const WEEKLY_GOALS: GoalDef[] = [
-  { key: 'QUIZ_3',      label: '퀴즈 3회 완료',        description: '이번 주 일반 퀴즈를 3회 이상 완료하세요',   target: 3,  points: 30 },
-  { key: 'ACCURACY_70', label: '고득점 달성',           description: '정답률 70% 이상으로 퀴즈를 1회 완료하세요', target: 1,  points: 20 },
-  { key: 'CATEGORY_3',  label: '다양한 카테고리 도전', description: '이번 주 3가지 이상의 카테고리를 완료하세요',  target: 3,  points: 25 },
-  { key: 'REVIEW_1',    label: '오답 복습 완료',        description: '오답 복습 모드로 퀴즈를 1회 완료하세요',     target: 1,  points: 15 },
+  { key: 'QUIZ_3',      label: '퀴즈 7회 완료',        description: '이번 주 일반 퀴즈를 7회 이상 완료하세요',          target: 7,  points: 50 },
+  { key: 'ACCURACY_70', label: '고득점 3회 달성',       description: '정답률 70% 이상으로 퀴즈를 3회 이상 완료하세요',   target: 3,  points: 40 },
+  { key: 'CATEGORY_3',  label: '5개 카테고리 도전',    description: '이번 주 5가지 이상의 카테고리를 완료하세요',        target: 5,  points: 45 },
+  { key: 'REVIEW_1',    label: '오답 복습 3회',         description: '오답 복습 모드로 퀴즈를 3회 이상 완료하세요',       target: 3,  points: 30 },
 ];
 
 export function getISOWeek(): string {

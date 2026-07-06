@@ -30,7 +30,7 @@ export async function GET() {
   const goals = WEEKLY_GOALS.map((g) => {
     let progress = 0;
     if (g.key === 'QUIZ_3') progress = normalSessions.length;
-    if (g.key === 'ACCURACY_70') progress = normalSessions.filter((s) => s.score >= 14).length > 0 ? 1 : 0;
+    if (g.key === 'ACCURACY_70') progress = normalSessions.filter((s) => s.score >= 14).length;
     if (g.key === 'CATEGORY_3') progress = categories.size;
     if (g.key === 'REVIEW_1') progress = reviewSessions.length;
 
@@ -72,10 +72,10 @@ export async function POST(req: NextRequest) {
   const categories = new Set(normalSessions.map((s) => s.category));
 
   let completed = false;
-  if (goalKey === 'QUIZ_3') completed = normalSessions.length >= 3;
-  if (goalKey === 'ACCURACY_70') completed = normalSessions.some((s) => s.score >= 14);
-  if (goalKey === 'CATEGORY_3') completed = categories.size >= 3;
-  if (goalKey === 'REVIEW_1') completed = reviewSessions.length >= 1;
+  if (goalKey === 'QUIZ_3') completed = normalSessions.length >= goal.target;
+  if (goalKey === 'ACCURACY_70') completed = normalSessions.filter((s) => s.score >= 14).length >= goal.target;
+  if (goalKey === 'CATEGORY_3') completed = categories.size >= goal.target;
+  if (goalKey === 'REVIEW_1') completed = reviewSessions.length >= goal.target;
 
   if (!completed) return NextResponse.json({ error: 'Goal not completed' }, { status: 400 });
 
