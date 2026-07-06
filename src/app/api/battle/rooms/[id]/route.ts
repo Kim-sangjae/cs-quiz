@@ -82,7 +82,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
             await broadcastBattleUpdate(id); // 타임아웃 자동제출 → 상대방에게 즉시 알림
             if (updated.status === 'FINISHED') {
               after(broadcastBattleStatusChange());
-              if (updated.guestId) after(checkBattleBadges(updated.hostId, updated.guestId).catch(() => {}));
+              const wasVoid = updated.consecutiveAllSkip >= 3;
+              if (updated.guestId && !wasVoid) after(checkBattleBadges(updated.hostId, updated.guestId).catch(() => {}));
             }
           }
         } catch { /* 동시 업데이트 무시 */ }

@@ -96,7 +96,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   await broadcastBattleUpdate(id);
   if (newStatus === 'FINISHED') {
     after(broadcastBattleStatusChange());
-    if (room.guestId) after(checkBattleBadges(room.hostId, room.guestId).catch(() => {}));
+    if (room.guestId && !isVoid) after(checkBattleBadges(room.hostId, room.guestId).catch(() => {}));
   }
   return NextResponse.json({ correct: isCorrect });
 }
