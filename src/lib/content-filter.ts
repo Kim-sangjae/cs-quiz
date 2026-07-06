@@ -1,4 +1,4 @@
-import { PROFANITY_WORDS } from './nickname-filter';
+import { PROFANITY_WORDS } from './profanity-words';
 
 export function maskProfanity(text: string, extraWords: string[] = []): string {
   let result = text;

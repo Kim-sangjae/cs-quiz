@@ -9,6 +9,7 @@ import { useSupabaseRealtime } from '@/hooks/useSupabaseRealtime';
 import { supabaseBrowser } from '@/lib/supabase-browser';
 import UserProfileModal from './UserProfileModal';
 import ChatWindow from './ChatWindow';
+import { appendMessage, ChatMessage } from '@/lib/chat-store';
 
 interface Friend {
   friendshipId: string;
@@ -36,6 +37,8 @@ function formatLastSeen(lastSeenAt: string | null, isOnline: boolean): string {
 
 export default function FriendPanel() {
   const { data: session, status } = useSession();
+  const myId = session?.user?.id ?? '';
+  const myNickname = session?.user?.nickname ?? session?.user?.name ?? '';
   const [open, setOpen] = useState(false);
   const [addingFriend, setAddingFriend] = useState(false);
   const [nickname, setNickname] = useState('');
@@ -43,6 +46,8 @@ export default function FriendPanel() {
   const [onlineOnly, setOnlineOnly] = useState(false);
   const [selectedFriend, setSelectedFriend] = useState<Friend | null>(null);
   const [chatFriend, setChatFriend] = useState<{ userId: string; nickname: string } | null>(null);
+  const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
+  const chatFriendRef = useRef<{ userId: string; nickname: string } | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const pathname = usePathname();
@@ -76,6 +81,27 @@ export default function FriendPanel() {
       .subscribe();
     return () => { void supabaseBrowser.removeChannel(channel); };
   }, [queryClient, status]);
+
+  // chatFriendRef: closure에서 최신 chatFriend 참조용
+  useEffect(() => { chatFriendRef.current = chatFriend; }, [chatFriend]);
+
+  // 내 알림 채널 구독 — 상대가 보낸 메시지를 채팅창이 닫혀 있어도 수신
+  useEffect(() => {
+    if (!myId || status !== 'authenticated') return;
+    const ch = supabaseBrowser
+      .channel(`csora-chat-notif-${myId}`)
+      .on('broadcast', { event: 'chat_message' }, ({ payload }: { payload: ChatMessage }) => {
+        // 해당 친구와 채팅창이 열려 있으면 ChatWindow가 이미 처리함
+        if (chatFriendRef.current?.userId === payload.senderId) return;
+        appendMessage(myId, payload.senderId, payload);
+        setUnreadCounts((prev) => ({
+          ...prev,
+          [payload.senderId]: (prev[payload.senderId] ?? 0) + 1,
+        }));
+      })
+      .subscribe();
+    return () => { void supabaseBrowser.removeChannel(ch); };
+  }, [myId, status]);
 
   const { data: battleRoomsData } = useQuery<{ rooms: { id: string; status: string }[] }>({
     queryKey: ['battle', 'rooms'],
@@ -186,9 +212,7 @@ export default function FriendPanel() {
   });
 
   const playingRoom = (battleRoomsData?.rooms ?? []).find(r => r.status === 'PLAYING');
-
-  const myId = session?.user?.id ?? '';
-  const myNickname = session?.user?.nickname ?? session?.user?.name ?? '';
+  const totalUnread = Object.values(unreadCounts).reduce((a, b) => a + b, 0);
 
   return (
     <>
@@ -374,7 +398,14 @@ export default function FriendPanel() {
                         <span className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-[#0f0f0f] ${f.isOnline ? 'bg-emerald-500' : 'bg-neutral-600'}`} />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="text-xs font-medium text-neutral-200 truncate">{f.nickname}</p>
+                        <div className="flex items-center gap-1.5">
+                          <p className="text-xs font-medium text-neutral-200 truncate">{f.nickname}</p>
+                          {(unreadCounts[f.userId] ?? 0) > 0 && (
+                            <span className="flex-shrink-0 min-w-[16px] h-4 bg-sky-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1 leading-none">
+                              {unreadCounts[f.userId]}
+                            </span>
+                          )}
+                        </div>
                         <p className={`text-[10px] ${
                           f.battleStatus === 'PLAYING' ? 'text-red-500' :
                           f.battleStatus === 'WAITING' ? 'text-amber-500' :
@@ -393,6 +424,7 @@ export default function FriendPanel() {
                             onClick={(e) => {
                               e.stopPropagation();
                               setChatFriend({ userId: f.userId, nickname: f.nickname });
+                              setUnreadCounts((prev) => { const next = { ...prev }; delete next[f.userId]; return next; });
                               setOpen(false);
                             }}
                             className="text-[9px] text-sky-800 border border-sky-900/50 rounded px-1 py-0.5 hover:text-sky-400 hover:border-sky-600 transition-colors"
@@ -455,6 +487,10 @@ export default function FriendPanel() {
               activeRoom.status === 'PLAYING' ? 'bg-red-500 text-white' : 'bg-amber-500 text-black'
             }`}>
               {activeRoom.status === 'PLAYING' ? '⚔' : '⏳'}
+            </span>
+          ) : totalUnread > 0 ? (
+            <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-sky-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1 leading-none">
+              {totalUnread > 99 ? '99+' : totalUnread}
             </span>
           ) : onlineCount > 0 ? (
             <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-emerald-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1 leading-none">

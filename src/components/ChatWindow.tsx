@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabaseBrowser } from '@/lib/supabase-browser';
 import { loadMessages, appendMessage, ChatMessage } from '@/lib/chat-store';
+import { maskProfanity } from '@/lib/content-filter';
 
 interface Props {
   myId: string;
@@ -28,7 +29,9 @@ export default function ChatWindow({ myId, myNickname, friend, onClose }: Props)
       .channel(channelName)
       .on('broadcast', { event: 'message' }, ({ payload }: { payload: ChatMessage }) => {
         if (payload.senderId === myId) return;
-        appendMessage(myId, friend.userId, payload);
+        // 비속어 마스킹 후 저장
+        const masked: ChatMessage = { ...payload, content: maskProfanity(payload.content) };
+        appendMessage(myId, friend.userId, masked);
         setMessages(loadMessages(myId, friend.userId));
       })
       .subscribe((status) => {
@@ -51,19 +54,30 @@ export default function ChatWindow({ myId, myNickname, friend, onClose }: Props)
   }, [friend.userId]);
 
   async function send() {
-    const text = input.trim();
-    if (!text || !channelReady) return;
+    const raw = input.trim();
+    if (!raw || !channelReady) return;
+    const content = maskProfanity(raw);
     const msg: ChatMessage = {
       id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
       senderId: myId,
       senderNickname: myNickname,
-      content: text,
+      content,
       sentAt: Date.now(),
     };
     setInput('');
     appendMessage(myId, friend.userId, msg);
     setMessages(loadMessages(myId, friend.userId));
+
+    // 채팅 채널로 전송
     await channelRef.current?.send({ type: 'broadcast', event: 'message', payload: msg });
+
+    // 상대방 알림 채널에도 전송 (채팅창이 닫혀 있을 때 메시지 수신 + 뱃지용)
+    const notifCh = supabaseBrowser.channel(`csora-chat-notif-${friend.userId}`);
+    try {
+      await notifCh.send({ type: 'broadcast', event: 'chat_message', payload: msg });
+    } finally {
+      void supabaseBrowser.removeChannel(notifCh);
+    }
   }
 
   return (
@@ -103,9 +117,7 @@ export default function ChatWindow({ myId, myNickname, friend, onClose }: Props)
             return (
               <div key={m.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
                 <div className={`max-w-[80%] px-2.5 py-1.5 rounded-lg text-xs leading-relaxed break-words ${
-                  isMe
-                    ? 'bg-white text-black'
-                    : 'bg-neutral-800 text-neutral-200'
+                  isMe ? 'bg-white text-black' : 'bg-neutral-800 text-neutral-200'
                 }`}>
                   {m.content}
                 </div>
