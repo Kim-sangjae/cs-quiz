@@ -52,7 +52,7 @@ export async function POST(
 
   const body = await req.json() as { content?: unknown };
   const raw = typeof body.content === 'string' ? body.content.trim() : '';
-  if (!raw || raw.length > 500) {
+  if (!raw || raw.length > 50) {
     return NextResponse.json({ error: 'Invalid content' }, { status: 400 });
   }
 

@@ -286,14 +286,14 @@ export default function CommentSection({ questionId }: { questionId: string }) {
           <textarea
             value={content}
             onChange={(e) => setContent(e.target.value)}
-            placeholder="댓글을 입력하세요 (최대 500자)"
+            placeholder="댓글을 입력하세요 (최대 50자)"
             rows={2}
-            maxLength={500}
+            maxLength={50}
             className="w-full rounded-md border border-neutral-800 bg-[#1a1a1a] px-3 py-2 text-sm text-neutral-200 placeholder-neutral-600 focus:border-neutral-600 focus:outline-none resize-none transition-colors"
           />
           <div className="flex items-center justify-between">
-            <span className={`text-[11px] ${content.length > 480 ? 'text-amber-400' : 'text-neutral-600'}`}>
-              {content.length} / 500
+            <span className={`text-[11px] ${content.length > 40 ? 'text-amber-400' : 'text-neutral-600'}`}>
+              {content.length} / 50
             </span>
             <button
               type="submit"
