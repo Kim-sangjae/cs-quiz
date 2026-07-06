@@ -21,7 +21,7 @@ const questionSelect = {
   correctCount: true,
   createdAt: true,
   author: { select: { nickname: true } },
-  _count: { select: { likes: true } },
+  _count: { select: { likes: true, comments: { where: { deletedAt: null } } } },
 } as const;
 
 interface PageProps {
@@ -77,7 +77,7 @@ export default async function BoardPage({ searchParams }: PageProps) {
     correctCount: number;
     createdAt: Date;
     author: { nickname: string | null } | null;
-    _count: { likes: number };
+    _count: { likes: number; comments: number };
   }>;
   let totalCount: number;
 
@@ -176,6 +176,7 @@ export default async function BoardPage({ searchParams }: PageProps) {
               createdAt: q.createdAt.toISOString(),
               author: q.author,
               likeCount: q._count.likes,
+              commentCount: q._count.comments,
             }))}
             myAttempts={myAttempts}
           />

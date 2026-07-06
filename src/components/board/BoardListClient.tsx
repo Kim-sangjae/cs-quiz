@@ -14,6 +14,7 @@ interface BoardQuestion {
   createdAt: Date | string;
   author: { nickname: string | null } | null;
   likeCount: number;
+  commentCount: number;
 }
 
 type MyAttempts = Record<string, { count: number; lastCorrect: boolean }>;
@@ -34,6 +35,7 @@ export default function BoardListClient({
           <QuestionCard
             key={q.id}
             {...q}
+            commentCount={q.commentCount}
             myAttempt={myAttempts[q.id] ?? null}
             onClick={() => setDrawerQuestionId(q.id)}
           />
