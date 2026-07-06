@@ -28,11 +28,12 @@ interface NotificationPayload {
   friendshipId?: string;
   badge?: string;
   reason?: string;
+  commentPreview?: string;
 }
 
 interface Notification {
   id: string;
-  type: 'QUESTION_APPROVED' | 'QUESTION_REJECTED' | 'ROLE_CHANGED' | 'INQUIRY_REPLIED' | 'LEVEL_UP' | 'BADGE_EARNED' | 'FRIEND_REQUEST' | 'FRIEND_ACCEPTED' | 'FRIEND_REJECTED' | 'BATTLE_INVITE' | 'BATTLE_REJECTED' | 'BATTLE_QUIT_REQUEST' | 'NICKNAME_FORCED_CHANGED' | 'ACCOUNT_BLINDED';
+  type: 'QUESTION_APPROVED' | 'QUESTION_REJECTED' | 'ROLE_CHANGED' | 'INQUIRY_REPLIED' | 'LEVEL_UP' | 'BADGE_EARNED' | 'FRIEND_REQUEST' | 'FRIEND_ACCEPTED' | 'FRIEND_REJECTED' | 'BATTLE_INVITE' | 'BATTLE_REJECTED' | 'BATTLE_QUIT_REQUEST' | 'NICKNAME_FORCED_CHANGED' | 'ACCOUNT_BLINDED' | 'COMMENT_DELETED';
   payload: NotificationPayload;
   actionUrl: string | null;
   isRead: boolean;
@@ -60,6 +61,7 @@ function getNotificationMessage(n: Notification): string {
   if (n.type === 'BATTLE_QUIT_REQUEST') return `${payload.fromNickname ?? '누군가'}님이 대결 중단을 요청했습니다.`;
   if (n.type === 'NICKNAME_FORCED_CHANGED') return `닉네임이 강제 변경되었습니다. 사유: ${payload.reason ?? '부적절한 닉네임 사용'}`;
   if (n.type === 'ACCOUNT_BLINDED') return `계정이 정지되었습니다. 사유: ${payload.reason ?? '부적절한 닉네임 사용'}`;
+  if (n.type === 'COMMENT_DELETED') return `작성하신 댓글이 삭제되었습니다. 사유: ${payload.reason ?? '신고 처리'} · "${payload.commentPreview ?? ''}"`;
   return '새 알림이 있습니다.';
 }
 

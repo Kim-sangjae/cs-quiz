@@ -73,13 +73,43 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
   }
 
-  const comment = await prisma.questionComment.findUnique({ where: { id: commentId } });
+  const comment = await prisma.questionComment.findUnique({
+    where: { id: commentId },
+    select: { userId: true, questionId: true, content: true },
+  });
   if (!comment) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
   if (action === 'delete') {
+    // 신고 사유 수집 (대표 사유 1개)
+    const pendingReports = await prisma.commentReport.findMany({
+      where: { commentId, status: 'PENDING' },
+      select: { reason: true },
+    });
+    const reasonLabel: Record<string, string> = {
+      INAPPROPRIATE: '부적절한 내용',
+      SPAM: '스팸/광고',
+      HARASSMENT: '욕설/비방',
+      OTHER: '기타',
+    };
+    const primaryReason = pendingReports[0]?.reason ?? 'OTHER';
+    const commentPreview = comment.content.length > 30
+      ? comment.content.slice(0, 30) + '…'
+      : comment.content;
+
     await prisma.$transaction([
       prisma.questionComment.update({ where: { id: commentId }, data: { deletedAt: new Date() } }),
       prisma.commentReport.updateMany({ where: { commentId, status: 'PENDING' }, data: { status: 'REVIEWED' } }),
+      prisma.notification.create({
+        data: {
+          userId: comment.userId,
+          type: 'COMMENT_DELETED',
+          payload: {
+            reason: reasonLabel[primaryReason] ?? '기타',
+            commentPreview,
+          },
+          actionUrl: `/board/${comment.questionId}`,
+        },
+      }),
     ]);
     writeLog({ actorId: user.id, actorRole: user.role, action: 'COMMENT_DELETE', targetType: 'Comment', targetId: commentId });
   } else {
