@@ -8,8 +8,11 @@ import { supabaseBrowser } from '@/lib/supabase-browser';
 export default function SessionGuard() {
   const { data: session, status } = useSession();
   const prevStatus = useRef<string>('loading');
+  const lastUserId = useRef<string | undefined>(undefined);
   const [show, setShow] = useState(false);
-  const userId = session?.user?.id;
+
+  // 세션이 살아있는 동안 userId 보존 (만료 후엔 session이 null이 되므로)
+  if (session?.user?.id) lastUserId.current = session.user.id;
 
   useEffect(() => {
     if (prevStatus.current === 'authenticated' && status === 'unauthenticated') {
@@ -36,8 +39,8 @@ export default function SessionGuard() {
           onClick={async () => {
             clearAllChats();
             try { await fetch('/api/chat/messages', { method: 'DELETE' }); } catch { /* ignore */ }
-            if (userId) {
-              const ch = supabaseBrowser.channel(`csora-chat-notif-${userId}`);
+            if (lastUserId.current) {
+              const ch = supabaseBrowser.channel(`csora-chat-notif-${lastUserId.current}`);
               try { await ch.send({ type: 'broadcast', event: 'user_offline', payload: {} }); } catch { /* ignore */ }
               void supabaseBrowser.removeChannel(ch);
             }
