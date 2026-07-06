@@ -29,6 +29,20 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 
   // 서버사이드 타임아웃 자동제출
   if (room.status === 'PLAYING' && room.questionStartedAt) {
+    // 장기 미응답 감지: 5분 이상 questionStartedAt이 변하지 않으면 즉시 무효화
+    // (서버 재시작 후 잔여 세션, 양쪽 동시 연결 끊김 등)
+    const STALE_QUESTION_MS = 5 * 60 * 1000;
+    if (Date.now() - room.questionStartedAt.getTime() > STALE_QUESTION_MS) {
+      room = await prisma.gameRoom.update({
+        where: { id },
+        data: { status: 'FINISHED', consecutiveAllSkip: 999 },
+        include: {
+          host: { select: { id: true, nickname: true } },
+          guest: { select: { id: true, nickname: true } },
+        },
+      });
+      after(broadcastBattleStatusChange());
+    } else {
     // consecutiveAllSkip >= 1 이면 단축 타이머(5s) 적용
     const effectiveTimeoutMs = room.consecutiveAllSkip >= 1 ? SKIP_TIMEOUT_MS : QUESTION_TIMEOUT_MS;
     const elapsed = Date.now() - room.questionStartedAt.getTime();
@@ -89,6 +103,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
         } catch { /* 동시 업데이트 무시 */ }
       }
     }
+    } // end else (stale 아닌 경우)
   }
 
   const myRole = isHost ? 'host' : 'guest';
