@@ -4,6 +4,12 @@ import { getServerUser } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { awardBadges } from '@/lib/award-badges';
 import { writeLog } from '@/lib/audit';
+import { sendMail, ADMIN_EMAIL } from '@/lib/mailer';
+
+const CATEGORY_LABELS: Record<string, string> = {
+  ds: '자료구조', algo: '알고리즘', os: '운영체제',
+  network: '네트워크', db: '데이터베이스', arch: '컴퓨터 구조', se: '소프트웨어공학',
+};
 
 const VALID_CATEGORIES = ['ds', 'algo', 'os', 'network', 'db', 'arch', 'se'] as const;
 const PAGE_SIZE = 20;
@@ -142,6 +148,20 @@ export async function POST(req: NextRequest) {
   });
 
   writeLog({ actorId: user.id, actorRole: user.role, action: 'QUESTION_SUBMIT', targetType: 'Question', targetId: created.id, payload: { category, questionTitle: (question as string).slice(0, 50) } });
+
+  sendMail({
+    to: ADMIN_EMAIL(),
+    subject: `[CSORA] 새 문제 요청: [${CATEGORY_LABELS[category] ?? category}] ${(question as string).slice(0, 40)}`,
+    html: `
+      <h3>새 문제 요청이 등록되었습니다</h3>
+      <table style="border-collapse:collapse;width:100%;font-family:sans-serif">
+        <tr><td style="padding:6px 12px;color:#888">카테고리</td><td style="padding:6px 12px">${CATEGORY_LABELS[category] ?? category}</td></tr>
+        <tr><td style="padding:6px 12px;color:#888">작성자</td><td style="padding:6px 12px">${user.nickname ?? user.email}</td></tr>
+        <tr><td style="padding:6px 12px;color:#888;vertical-align:top">문제</td><td style="padding:6px 12px;white-space:pre-wrap">${(question as string)}</td></tr>
+      </table>
+      <p style="margin-top:16px"><a href="${process.env.NEXTAUTH_URL}/admin?tab=pending" style="color:#6366f1">관리자 패널에서 확인 →</a></p>
+    `,
+  }).catch(() => {});
 
   // 첫 문제 등록 뱃지 체크
   const submitCount = await prisma.question.count({ where: { authorId: user.id } });
