@@ -39,12 +39,20 @@
 | `Property 'mode' does not exist on type 'QuizSession'` (빌드 오류) | 스키마에 `mode` 필드를 추가했지만 `npx prisma generate`를 빠뜨림 | `npx prisma generate` 실행 |
 | `Property 'APPROVED_20' does not exist on type 'typeof BadgeType'` (빌드 오류) | `BadgeType`은 Prisma enum — 스키마에 추가 후 반드시 마이그레이션 + generate 필요 | `npx prisma migrate dev && npx prisma generate` |
 | `[Error [PageNotFoundError]: Cannot find module for page: /api/...]` (빌드 오류) | `.next` 캐시가 삭제된 API 라우트를 여전히 참조함 | `Remove-Item -Recurse -Force .next` 후 재빌드 |
+| `EINVAL: invalid argument` (빌드 중, `.next` 파일) | `.next` 캐시 파일이 손상됨 (Windows에서 빌드 중단 또는 이름 충돌로 발생) | `Remove-Item -Recurse -Force .next` 후 재빌드 |
 
 ### Windows / OneDrive
 
 | 문제 | 원인 | 해결 |
 |------|------|------|
 | `EBUSY: resource busy or locked, open '.../.next/server/...nft.json'` (빌드 중) | 프로젝트가 OneDrive 동기화 폴더에 있을 때 빌드 마지막 단계에서 OneDrive가 파일을 잠금 | 실제 컴파일·정적 페이지 생성은 완료된 상태이므로 빌드 결과물은 정상. 재빌드하거나 OneDrive 동기화 일시 중지 후 빌드 |
+
+### git commit (PowerShell)
+
+| 문제 | 원인 | 해결 |
+|------|------|------|
+| `git commit -m "$(cat <<'EOF'...)"` 사용 불가 | PowerShell은 Bash heredoc 문법을 지원하지 않음 | PowerShell here-string 사용: `git commit -m @'`↵`메시지`↵`'@` (닫는 `'@`는 반드시 줄 맨 앞에) |
+| PowerShell here-string에서 `$` 리터럴 필요 | `@"..."@` (double-quoted)는 `$var`를 변수로 해석함 | `@'...'@` (single-quoted) 사용 — 모든 문자를 리터럴로 처리 |
 
 ### Claude Code 토큰 소비
 
@@ -66,6 +74,7 @@
 | 문제 | 원인 | 해결 |
 |------|------|------|
 | `cannot add 'presence' callbacks for realtime:online-users after subscribe()` | `useSupabaseRealtime` 훅을 `FriendPanel`과 `AnalyticsTab` 두 곳에서 호출 → Supabase JS가 동일 채널명을 캐시하여 이미 구독된 채널 객체를 반환 → `.on()` 재호출 오류 | `RealtimeContext`(Provider 패턴)로 구독을 앱 최상단에서 **한 번만** 실행. 모든 컴포넌트는 `useRealtime()` 훅으로 동일 Context 소비 |
+| 친구 패널에서 프로필 공개 설정 변경 후 새로고침해야 반영됨 | `UserProfileModal`의 `staleTime: 60_000` + Supabase 구독 없음 | `staleTime: 0` + `csora-profile-modal-{userId}` 채널 구독 → `queryClient.invalidateQueries` |
 
 ---
 
