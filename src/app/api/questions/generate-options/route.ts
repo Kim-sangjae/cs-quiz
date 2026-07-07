@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import { getServerUser } from '@/lib/auth';
+import { writeLog } from '@/lib/audit';
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -58,6 +59,8 @@ export async function POST(req: NextRequest) {
   if (distractors.length < 3) {
     return NextResponse.json({ error: '오답 보기 생성에 실패했습니다.' }, { status: 500 });
   }
+
+  writeLog({ actorId: user.id, actorRole: user.role, action: 'AI_OPTION_GENERATE', targetType: 'Question', payload: { questionPreview: (question as string).slice(0, 60) } });
 
   return NextResponse.json({ distractors, explanation });
 }

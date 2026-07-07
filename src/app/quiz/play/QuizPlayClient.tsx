@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { Question, UserAnswer } from "@/types";
@@ -36,8 +36,32 @@ export default function QuizPlayClient({ questions, category, mode = 'normal', i
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const [points, setPoints] = useState(initialPoints ?? 0);
   const [hintPending, setHintPending] = useState(false);
-  // questionId -> eliminated option index
+  // questionId -> eliminated option index (original index)
   const [hints, setHints] = useState<Record<string, number>>({});
+
+  // 보기 순서 셔플 (question당 1회, Fisher-Yates on [0,1,2,3])
+  // optionOrders[qId][visualPos] = originalIndex
+  const optionOrders = useMemo<Record<string, [number, number, number, number]>>(() => {
+    const result: Record<string, [number, number, number, number]> = {};
+    for (const q of questions) {
+      const order: [number, number, number, number] = [0, 1, 2, 3];
+      for (let i = 3; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [order[i], order[j]] = [order[j], order[i]];
+      }
+      result[q.id] = order;
+    }
+    return result;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [questions.map((q) => q.id).join(',')]);
+
+  // 시각 위치(visual) ↔ 원본 인덱스(original) 변환
+  function visualToOrig(qId: string, visual: number): 0 | 1 | 2 | 3 {
+    return (optionOrders[qId]?.[visual] ?? visual) as 0 | 1 | 2 | 3;
+  }
+  function origToVisual(qId: string, orig: number): number {
+    return optionOrders[qId]?.indexOf(orig) ?? orig;
+  }
 
   const QUESTION_SECONDS = 15;
   const isDirty = answers.length > 0 && !isSubmitting;
@@ -59,7 +83,8 @@ export default function QuizPlayClient({ questions, category, mode = 'normal', i
         setCurrentIndex((i) => i + 1);
       } else if (['1', '2', '3', '4'].includes(e.key)) {
         const questionId = questions[currentIndex].id;
-        const idx = (parseInt(e.key) - 1) as 0 | 1 | 2 | 3;
+        const visualIdx = parseInt(e.key) - 1;
+        const idx = visualToOrig(questionId, visualIdx);
         setAnswers((prev) => {
           const existing = prev.findIndex((a) => a.questionId === questionId);
           if (existing !== -1) {
@@ -445,18 +470,18 @@ export default function QuizPlayClient({ questions, category, mode = 'normal', i
         <ProgressBar answered={answers.length} total={questions.length} />
       </div>
 
-      {/* 문제 카드 */}
+      {/* 문제 카드 — 보기 순서는 optionOrders에 따라 셔플 */}
       <QuizCard
         questionNumber={currentIndex + 1}
         total={questions.length}
         category={current.category}
         question={current.question}
-        options={current.options}
-        selectedIndex={selectedIndex}
-        onSelect={(idx) => handleSelect(current.id, idx)}
+        options={(optionOrders[current.id] ?? [0, 1, 2, 3]).map((i) => current.options[i]) as [string, string, string, string]}
+        selectedIndex={selectedIndex === null ? null : origToVisual(current.id, selectedIndex)}
+        onSelect={(visualIdx) => handleSelect(current.id, visualToOrig(current.id, visualIdx))}
         questionId={current.id}
         authorNickname={current.authorNickname}
-        eliminatedIndex={hints[current.id] ?? null}
+        eliminatedIndex={hints[current.id] !== undefined ? origToVisual(current.id, hints[current.id]) : null}
       />
 
       {/* 북마크 + 힌트 버튼 */}

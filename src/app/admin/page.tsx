@@ -2605,8 +2605,10 @@ function PointsLogTab() {
 
 interface InfraStats {
   dbSize: string;
-  aiCountToday: number;
-  aiCountTotal: number;
+  aiQGenToday: number;
+  aiQGenTotal: number;
+  aiOptGenToday: number;
+  aiOptGenTotal: number;
 }
 
 function InfraTooltip({ text }: { text: string }) {
@@ -3028,41 +3030,62 @@ function AnalyticsTab() {
               대시보드 →
             </a>
           </div>
-          {/* AI 생성 — 오늘 */}
+          {/* AI 문제생성 — 오늘 */}
           <div className="flex items-center justify-between px-4 py-3">
             <div className="flex items-center gap-2">
               <span className="w-1.5 h-1.5 rounded-full bg-violet-500" />
               <span className="text-xs text-neutral-400">AI 문제생성 (오늘)</span>
-              <InfraTooltip text="오늘(자정~현재) 관리자가 AI 문제생성 기능을 실행한 횟수. 실행 1회 = 최대 10문제 배치 1번. AuditLog(AI_QUESTION_GENERATE)에서 집계." />
+              <InfraTooltip text="오늘(자정~현재) 관리자가 [AI 문제 자동생성] 기능을 실행한 횟수. 실행 1회 = 배치 최대 10문제(GPT-4o). AuditLog(AI_QUESTION_GENERATE)에서 집계." />
             </div>
             {infraLoading ? (
               <div className="h-4 w-10 bg-neutral-800 rounded animate-pulse" />
             ) : (
-              <span className="text-xs font-semibold text-violet-300">{infraData?.aiCountToday ?? 0}회</span>
+              <span className="text-xs font-semibold text-violet-300">{infraData?.aiQGenToday ?? 0}회</span>
             )}
           </div>
-          {/* AI 생성 — 누적 */}
+          {/* AI 문제생성 — 누적 */}
           <div className="flex items-center justify-between px-4 py-3">
             <div className="flex items-center gap-2">
               <span className="w-1.5 h-1.5 rounded-full bg-violet-400" />
               <span className="text-xs text-neutral-400">AI 문제생성 (누적)</span>
-              <InfraTooltip text="감지 시작 이후 총 AI 문제생성 실행 횟수. ※ 감지 로그(AuditLog)는 2026-07-07 이후부터 기록됨 — 그 이전 생성분은 집계에서 제외. OpenAI 실제 토큰 사용량은 대시보드에서 확인." />
+              <InfraTooltip text="2026-07-07 이후 AI 문제생성 실행 횟수 누적. 그 이전 생성분은 미집계. 실제 토큰·비용은 OpenAI 대시보드에서 확인." />
             </div>
             <div className="flex items-center gap-3">
               {infraLoading ? (
                 <div className="h-4 w-10 bg-neutral-800 rounded animate-pulse" />
               ) : (
-                <span className="text-xs font-semibold text-violet-300">{infraData?.aiCountTotal ?? 0}회</span>
+                <span className="text-xs font-semibold text-violet-300">{infraData?.aiQGenTotal ?? 0}회</span>
               )}
-              <a
-                href="https://platform.openai.com/usage"
-                target="_blank"
-                rel="noreferrer"
-                className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
-              >
+              <a href="https://platform.openai.com/usage" target="_blank" rel="noreferrer" className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors">
                 OpenAI 대시보드 →
               </a>
             </div>
+          </div>
+          {/* AI 오답보기생성 — 오늘 */}
+          <div className="flex items-center justify-between px-4 py-3">
+            <div className="flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-fuchsia-500" />
+              <span className="text-xs text-neutral-400">AI 오답보기생성 (오늘)</span>
+              <InfraTooltip text="오늘 유저들이 문제 등록 시 [보기+해설 자동생성] 버튼을 누른 횟수. 1회 = 오답 3개+해설 생성(GPT-4o-mini). AuditLog(AI_OPTION_GENERATE)에서 집계." />
+            </div>
+            {infraLoading ? (
+              <div className="h-4 w-10 bg-neutral-800 rounded animate-pulse" />
+            ) : (
+              <span className="text-xs font-semibold text-fuchsia-300">{infraData?.aiOptGenToday ?? 0}회</span>
+            )}
+          </div>
+          {/* AI 오답보기생성 — 누적 */}
+          <div className="flex items-center justify-between px-4 py-3">
+            <div className="flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-fuchsia-400" />
+              <span className="text-xs text-neutral-400">AI 오답보기생성 (누적)</span>
+              <InfraTooltip text="2026-07-07 이후 유저 오답보기 자동생성 누적 횟수. 그 이전 생성분은 미집계." />
+            </div>
+            {infraLoading ? (
+              <div className="h-4 w-10 bg-neutral-800 rounded animate-pulse" />
+            ) : (
+              <span className="text-xs font-semibold text-fuchsia-300">{infraData?.aiOptGenTotal ?? 0}회</span>
+            )}
           </div>
         </div>
       </div>

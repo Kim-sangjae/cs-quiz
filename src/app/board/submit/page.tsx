@@ -47,6 +47,24 @@ function SubmitContent() {
 
   const [similarQuestions, setSimilarQuestions] = useState<SimilarQuestion[]>([]);
   const similarTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // 유사문제 슬라이드 패널
+  const [panelId, setPanelId] = useState<string | null>(null);
+  const [panelData, setPanelData] = useState<{
+    question: string; options: string[]; answer: number; explanation: string; category: string;
+  } | null>(null);
+  const [panelLoading, setPanelLoading] = useState(false);
+
+  useEffect(() => {
+    if (!panelId) { setPanelData(null); return; }
+    setPanelLoading(true);
+    fetch(`/api/questions/${panelId}`)
+      .then((r) => r.json())
+      .then((d) => setPanelData(d))
+      .catch(() => {})
+      .finally(() => setPanelLoading(false));
+  }, [panelId]);
+
   const [generating, setGenerating] = useState(false);
   const [generateCount, setGenerateCount] = useState(0);
   const MAX_GENERATE = 3;
@@ -166,8 +184,71 @@ function SubmitContent() {
     );
   }
 
+  const OPTION_LABELS_EN = ['A', 'B', 'C', 'D'] as const;
+
   return (
     <main className="max-w-2xl mx-auto px-4 sm:px-6 py-8">
+      {/* ── 유사문제 슬라이드 패널 ── */}
+      <div
+        className={`fixed inset-0 z-40 transition-opacity duration-200 ${panelId ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
+        style={{ background: 'rgba(0,0,0,0.5)' }}
+        onClick={() => setPanelId(null)}
+      />
+      <div
+        className={`fixed top-0 right-0 h-full z-50 w-full max-w-sm bg-[#0d0d0d] border-l border-neutral-800 shadow-2xl flex flex-col transition-transform duration-200 ${panelId ? 'translate-x-0' : 'translate-x-full'}`}
+      >
+        <div className="flex items-center justify-between px-5 py-4 border-b border-neutral-800 flex-shrink-0">
+          <p className="text-sm font-semibold text-white">유사문제 확인</p>
+          <button onClick={() => setPanelId(null)} className="text-neutral-500 hover:text-white text-lg leading-none transition-colors">✕</button>
+        </div>
+        <div className="flex-1 overflow-y-auto px-5 py-5">
+          {panelLoading ? (
+            <div className="space-y-3">
+              <div className="h-4 bg-neutral-800 rounded animate-pulse w-3/4" />
+              <div className="h-4 bg-neutral-800 rounded animate-pulse" />
+              <div className="h-4 bg-neutral-800 rounded animate-pulse w-5/6" />
+            </div>
+          ) : panelData ? (
+            <div className="space-y-5">
+              <div>
+                <p className="text-[10px] text-neutral-600 uppercase font-bold tracking-widest mb-2">문제</p>
+                <p className="text-sm text-neutral-200 leading-relaxed whitespace-pre-wrap">{panelData.question}</p>
+              </div>
+              <div>
+                <p className="text-[10px] text-neutral-600 uppercase font-bold tracking-widest mb-2">보기</p>
+                <div className="space-y-2">
+                  {panelData.options.map((opt, i) => (
+                    <div
+                      key={i}
+                      className={`flex items-start gap-2.5 rounded-lg px-3 py-2.5 text-sm ${i === panelData.answer ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-300' : 'bg-neutral-900 border border-neutral-800 text-neutral-300'}`}
+                    >
+                      <span className={`font-semibold flex-shrink-0 text-xs mt-0.5 ${i === panelData.answer ? 'text-emerald-400' : 'text-neutral-600'}`}>{OPTION_LABELS_EN[i as 0|1|2|3]}</span>
+                      <span className="leading-relaxed">{opt}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              {panelData.explanation && (
+                <div>
+                  <p className="text-[10px] text-neutral-600 uppercase font-bold tracking-widest mb-2">해설</p>
+                  <p className="text-xs text-neutral-400 leading-relaxed">{panelData.explanation}</p>
+                </div>
+              )}
+              <a
+                href={`/board/${panelId}`}
+                target="_blank"
+                rel="noreferrer"
+                className="block text-center text-xs text-indigo-400 hover:text-indigo-300 border border-indigo-500/30 rounded-lg py-2 transition-colors"
+              >
+                게시판에서 전체 보기 →
+              </a>
+            </div>
+          ) : (
+            <p className="text-xs text-neutral-600 text-center py-8">문제를 불러올 수 없습니다</p>
+          )}
+        </div>
+      </div>
+
       <div className="mb-6">
         <Link href="/board" className="text-xs text-neutral-600 hover:text-neutral-400 transition-colors mb-4 inline-block">← 게시판</Link>
         <h1 className="text-2xl font-semibold text-white mb-1">
@@ -215,21 +296,20 @@ function SubmitContent() {
           />
           {similarQuestions.length > 0 && (
             <div className="mt-2 rounded-lg border border-amber-500/20 bg-amber-500/5 p-3">
-              <p className="text-xs text-amber-400 mb-2 font-medium">비슷한 문제가 이미 있습니다</p>
+              <p className="text-xs text-amber-400 mb-2 font-medium">비슷한 문제가 이미 있습니다 — 클릭하면 내용 확인</p>
               <ul className="space-y-1.5">
                 {similarQuestions.map((sq) => (
                   <li key={sq.id} className="flex items-start gap-2">
                     <span className="text-xs text-neutral-600 border border-neutral-800 rounded px-1.5 py-0.5 flex-shrink-0">
                       {CATEGORY_LABEL[sq.category] ?? sq.category}
                     </span>
-                    <a
-                      href={`/board/${sq.id}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-xs text-neutral-400 hover:text-white transition-colors leading-relaxed"
+                    <button
+                      type="button"
+                      onClick={() => setPanelId(sq.id)}
+                      className="text-xs text-neutral-400 hover:text-white transition-colors leading-relaxed text-left"
                     >
                       {sq.question.length > 80 ? sq.question.slice(0, 80) + '…' : sq.question}
-                    </a>
+                    </button>
                   </li>
                 ))}
               </ul>

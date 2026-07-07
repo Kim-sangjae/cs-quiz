@@ -30,6 +30,7 @@ export async function POST(req: NextRequest) {
     errorCount,
     dbSizeResult,
     aiGenerateCount,
+    aiOptionCount,
   ] = await Promise.all([
     prisma.dailyVisit.count({ where: { date: yesterdayStr } }),
     prisma.quizSession.count({ where: { submittedAt: { gte: start, lt: end } } }),
@@ -48,6 +49,7 @@ export async function POST(req: NextRequest) {
     prisma.errorLog.count({ where: { createdAt: { gte: start, lt: end } } }),
     prisma.$queryRaw<[{ size: string }]>`SELECT pg_size_pretty(pg_database_size(current_database())) AS size`,
     prisma.auditLog.count({ where: { action: 'AI_QUESTION_GENERATE', createdAt: { gte: start, lt: end } } }),
+    prisma.auditLog.count({ where: { action: 'AI_OPTION_GENERATE', createdAt: { gte: start, lt: end } } }),
   ]);
 
   const dbSize = dbSizeResult[0]?.size ?? '-';
@@ -93,7 +95,8 @@ export async function POST(req: NextRequest) {
     <table style="width:100%;border-collapse:collapse;margin-bottom:24px;background:#1a1a1a;border-radius:8px;overflow:hidden">
       <tr><td style="padding:10px 16px;color:#888;width:160px">Supabase DB 크기</td><td style="padding:10px 16px;font-weight:600">${dbSize} <span style="color:#888;font-size:12px;font-weight:400">/ 500MB 무료 한도</span></td></tr>
       <tr style="background:#222"><td style="padding:10px 16px;color:#888">Supabase Realtime</td><td style="padding:10px 16px;font-size:13px"><a href="https://supabase.com/dashboard/project/deyxefkihidlbskrjxsw/reports/realtime" style="color:#6366f1">대시보드에서 확인</a> <span style="color:#555;font-size:12px">— 무료 한도: 200 동시접속 / 월 200만 메시지</span></td></tr>
-      <tr><td style="padding:10px 16px;color:#888">AI 문제생성 (어제)</td><td style="padding:10px 16px;font-weight:600">${aiGenerateCount}회 <span style="color:#555;font-size:12px;font-weight:400">— <a href="https://platform.openai.com/usage" style="color:#6366f1">OpenAI 사용량 대시보드</a></span></td></tr>
+      <tr><td style="padding:10px 16px;color:#888">AI 문제생성 (어제)</td><td style="padding:10px 16px;font-weight:600">${aiGenerateCount}회 <span style="color:#555;font-size:12px;font-weight:400">— <a href="https://platform.openai.com/usage" style="color:#6366f1">OpenAI 대시보드</a></span></td></tr>
+      <tr style="background:#222"><td style="padding:10px 16px;color:#888">AI 오답보기생성 (어제)</td><td style="padding:10px 16px;font-weight:600">${aiOptionCount}회 <span style="color:#555;font-size:12px;font-weight:400">— 유저 문제등록 시 자동생성</span></td></tr>
     </table>
 
     <h3 style="margin:0 0 10px;color:#f87171;font-size:15px;letter-spacing:.5px">🚨 어제 오류 (${errorCount}건)</h3>

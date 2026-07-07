@@ -21,7 +21,8 @@ export type AuditAction =
   | 'INQUIRY_REPLY'
   | 'INQUIRY_STATUS_CHANGE'
   | 'COMMENT_DELETE'
-  | 'AI_QUESTION_GENERATE';
+  | 'AI_QUESTION_GENERATE'
+  | 'AI_OPTION_GENERATE';
 
 interface WriteLogParams {
   actorId?: string;
