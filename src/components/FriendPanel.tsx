@@ -406,17 +406,7 @@ export default function FriendPanel() {
                           <span className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-[#0f0f0f] ${f.isOnline ? 'bg-emerald-500' : 'bg-neutral-600'}`} />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-1.5">
-                            <p className="text-xs font-medium text-neutral-200 truncate">{f.nickname}</p>
-                            {unread > 0 && (
-                              <span className="flex-shrink-0 flex items-center gap-0.5 text-orange-400">
-                                <svg width={11} height={11} viewBox="0 0 24 24" fill="currentColor">
-                                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                                </svg>
-                                <span className="text-[10px] font-bold">{unread}</span>
-                              </span>
-                            )}
-                          </div>
+                          <p className="text-xs font-medium text-neutral-200 truncate">{f.nickname}</p>
                           <p className={`text-[10px] ${
                             f.battleStatus === 'PLAYING' ? 'text-red-500' :
                             f.battleStatus === 'WAITING' ? 'text-amber-500' :
@@ -429,15 +419,24 @@ export default function FriendPanel() {
                              formatLastSeen(f.lastSeenAt, f.isOnline)}
                           </p>
                         </div>
-                        {f.isOnline && (
+                        {(f.isOnline || unread > 0) && (
                           <button
                             onClick={(e) => { e.stopPropagation(); openChat(); }}
-                            className="flex items-center justify-center w-7 h-7 rounded-full bg-sky-500/15 border border-sky-500/30 text-sky-400 hover:bg-sky-500/30 hover:border-sky-400 transition-colors flex-shrink-0"
+                            className={`relative flex items-center justify-center w-7 h-7 rounded-full transition-colors flex-shrink-0 ${
+                              unread > 0
+                                ? 'bg-orange-500/20 border border-orange-500/50 text-orange-400 hover:bg-orange-500/30 hover:border-orange-400'
+                                : 'bg-sky-500/15 border border-sky-500/30 text-sky-400 hover:bg-sky-500/30 hover:border-sky-400'
+                            }`}
                             title="채팅"
                           >
                             <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                               <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
                             </svg>
+                            {unread > 0 && (
+                              <span className="absolute -top-1 -right-1 min-w-[14px] h-3.5 bg-orange-500 text-white text-[8px] font-bold rounded-full flex items-center justify-center px-0.5 leading-none">
+                                {unread > 9 ? '9+' : unread}
+                              </span>
+                            )}
                           </button>
                         )}
                       </div>

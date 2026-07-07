@@ -359,53 +359,51 @@ function AttendanceCalendar({ completions }: { completions: DailyCompletion[] })
 
   const activeDays = new Set<string>(completions.map((c) => c.date));
 
-  // 최근 28일 (4주) 슬라이딩 윈도우
-  const days = Array.from({ length: 28 }, (_, i) => {
-    const d = new Date(today);
-    d.setDate(today.getDate() - (27 - i));
-    return d;
-  });
+  const year = today.getFullYear();
+  const month = today.getMonth();
+  const firstDay = new Date(year, month, 1);
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const startOffset = firstDay.getDay(); // 0=일
 
-  const activeCount = days.filter((d) => activeDays.has(d.toLocaleDateString("en-CA"))).length;
+  const activeCount = Array.from({ length: daysInMonth }, (_, i) => {
+    const d = new Date(year, month, i + 1);
+    return activeDays.has(d.toLocaleDateString("en-CA"));
+  }).filter(Boolean).length;
+
+  const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
 
   return (
     <div>
       <div className="flex items-center justify-between mb-2">
-        <p className="text-xs text-neutral-500">출석 현황 (최근 4주)</p>
+        <p className="text-xs text-neutral-500">{year}년 {month + 1}월 출석</p>
         <span className="text-xs font-medium text-emerald-400">{activeCount}일 출석</span>
       </div>
-      <div className="grid grid-cols-7 gap-0.5">
-        {days.map((day) => {
-          const key = day.toLocaleDateString("en-CA");
+      <div className="grid grid-cols-7 gap-px">
+        {WEEKDAYS.map((d) => (
+          <div key={d} className="text-center text-[10px] text-neutral-600 py-1">{d}</div>
+        ))}
+        {Array.from({ length: startOffset }, (_, i) => (
+          <div key={`empty-${i}`} />
+        ))}
+        {Array.from({ length: daysInMonth }, (_, i) => {
+          const dayNum = i + 1;
+          const d = new Date(year, month, dayNum);
+          const key = d.toLocaleDateString("en-CA");
           const active = activeDays.has(key);
-          const isToday = day.getTime() === today.getTime();
+          const isToday = d.getTime() === today.getTime();
           return (
-            <div key={key} className="flex items-center justify-center">
-              {active ? (
-                <div
-                  title={`${key} — 출석`}
-                  className={`w-6 h-6 rounded-full flex items-center justify-center ${
-                    isToday
-                      ? "bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.4)]"
-                      : "bg-emerald-500/15 border border-emerald-500/30"
-                  }`}
-                >
-                  <svg width={10} height={10} viewBox="0 0 24 24" fill="none"
-                    stroke={isToday ? "#000" : "#34d399"} strokeWidth={3}
-                    strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M4.5 12.75l6 6 9-13.5" />
-                  </svg>
-                </div>
-              ) : (
-                <div
-                  title={key}
-                  className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] ${
-                    isToday ? "ring-1 ring-amber-600/60 text-amber-500" : "text-neutral-600"
-                  }`}
-                >
-                  {day.getDate()}
-                </div>
-              )}
+            <div key={key} className="flex items-center justify-center py-0.5">
+              <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-medium ${
+                active && isToday
+                  ? "bg-emerald-400 text-black shadow-[0_0_6px_rgba(52,211,153,0.4)]"
+                  : active
+                  ? "bg-emerald-500/20 border border-emerald-500/40 text-emerald-400"
+                  : isToday
+                  ? "ring-1 ring-amber-500/60 text-amber-400"
+                  : "text-neutral-600"
+              }`}>
+                {dayNum}
+              </div>
             </div>
           );
         })}
