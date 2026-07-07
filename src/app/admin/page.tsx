@@ -2609,6 +2609,27 @@ interface InfraStats {
   aiCountTotal: number;
 }
 
+function InfraTooltip({ text }: { text: string }) {
+  const [visible, setVisible] = useState(false);
+  return (
+    <span className="relative inline-flex items-center">
+      <button
+        type="button"
+        onMouseEnter={() => setVisible(true)}
+        onMouseLeave={() => setVisible(false)}
+        className="w-3.5 h-3.5 rounded-full bg-neutral-700 text-neutral-400 text-[9px] font-bold leading-none flex items-center justify-center hover:bg-neutral-600 hover:text-white transition-colors flex-shrink-0"
+      >
+        !
+      </button>
+      {visible && (
+        <span className="absolute left-5 top-1/2 -translate-y-1/2 z-50 w-56 bg-neutral-900 border border-neutral-700 rounded-lg px-3 py-2 text-[11px] text-neutral-300 leading-relaxed shadow-xl pointer-events-none whitespace-normal">
+          {text}
+        </span>
+      )}
+    </span>
+  );
+}
+
 function AnalyticsTab() {
   const [chartPeriod, setChartPeriod] = useState<'month' | 'year'>('month');
   const [targetYear, setTargetYear] = useState(String(new Date().getFullYear()));
@@ -2981,6 +3002,7 @@ function AnalyticsTab() {
             <div className="flex items-center gap-2">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
               <span className="text-xs text-neutral-400">Supabase DB 크기</span>
+              <InfraTooltip text="PostgreSQL DB 전체 크기. pg_size_pretty(pg_database_size()) 로 서버에서 직접 조회. 무료 플랜 한도 500MB — 초과 시 업그레이드 필요." />
             </div>
             {infraLoading ? (
               <div className="h-4 w-16 bg-neutral-800 rounded animate-pulse" />
@@ -2995,6 +3017,7 @@ function AnalyticsTab() {
             <div className="flex items-center gap-2">
               <span className="w-1.5 h-1.5 rounded-full bg-sky-500" />
               <span className="text-xs text-neutral-400">Supabase Realtime</span>
+              <InfraTooltip text="대결·채팅·알림·친구 패널 실시간 동기화에 사용. 무료 한도: 동시접속 200명 / 월 200만 메시지. 수치는 Supabase 대시보드에서 확인." />
             </div>
             <a
               href="https://supabase.com/dashboard/project/deyxefkihidlbskrjxsw/reports/realtime"
@@ -3010,6 +3033,7 @@ function AnalyticsTab() {
             <div className="flex items-center gap-2">
               <span className="w-1.5 h-1.5 rounded-full bg-violet-500" />
               <span className="text-xs text-neutral-400">AI 문제생성 (오늘)</span>
+              <InfraTooltip text="오늘(자정~현재) 관리자가 AI 문제생성 기능을 실행한 횟수. 실행 1회 = 최대 10문제 배치 1번. AuditLog(AI_QUESTION_GENERATE)에서 집계." />
             </div>
             {infraLoading ? (
               <div className="h-4 w-10 bg-neutral-800 rounded animate-pulse" />
@@ -3022,6 +3046,7 @@ function AnalyticsTab() {
             <div className="flex items-center gap-2">
               <span className="w-1.5 h-1.5 rounded-full bg-violet-400" />
               <span className="text-xs text-neutral-400">AI 문제생성 (누적)</span>
+              <InfraTooltip text="감지 시작 이후 총 AI 문제생성 실행 횟수. ※ 감지 로그(AuditLog)는 2026-07-07 이후부터 기록됨 — 그 이전 생성분은 집계에서 제외. OpenAI 실제 토큰 사용량은 대시보드에서 확인." />
             </div>
             <div className="flex items-center gap-3">
               {infraLoading ? (
