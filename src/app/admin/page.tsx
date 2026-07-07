@@ -1960,6 +1960,7 @@ const ACTION_LABEL: Record<string, string> = {
   NICKNAME_CHANGE: '닉네임 변경',
   INQUIRY_REPLY: '문의 답변',
   INQUIRY_STATUS_CHANGE: '문의 상태 변경',
+  COMMENT_DELETE: '댓글 삭제',
 };
 
 const ACTION_COLOR: Record<string, string> = {
@@ -1982,6 +1983,7 @@ const ACTION_COLOR: Record<string, string> = {
   NICKNAME_CHANGE: 'text-violet-400 border-violet-500/30',
   INQUIRY_REPLY: 'text-sky-400 border-sky-500/30',
   INQUIRY_STATUS_CHANGE: 'text-neutral-400 border-neutral-600',
+  COMMENT_DELETE: 'text-red-400 border-red-500/30',
 };
 
 interface AuditLogItem {

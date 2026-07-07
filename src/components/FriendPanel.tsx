@@ -409,8 +409,11 @@ export default function FriendPanel() {
                           <div className="flex items-center gap-1.5">
                             <p className="text-xs font-medium text-neutral-200 truncate">{f.nickname}</p>
                             {unread > 0 && (
-                              <span className="flex-shrink-0 min-w-[16px] h-4 bg-sky-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1 leading-none">
-                                {unread}
+                              <span className="flex-shrink-0 flex items-center gap-0.5 text-orange-400">
+                                <svg width={11} height={11} viewBox="0 0 24 24" fill="currentColor">
+                                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                                </svg>
+                                <span className="text-[10px] font-bold">{unread}</span>
                               </span>
                             )}
                           </div>
@@ -490,8 +493,11 @@ export default function FriendPanel() {
               {activeRoom.status === 'PLAYING' ? '⚔' : '⏳'}
             </span>
           ) : totalUnread > 0 ? (
-            <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-sky-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1 leading-none">
-              {totalUnread > 99 ? '99+' : totalUnread}
+            <span className="absolute -top-1.5 -right-1.5 flex items-center gap-0.5 bg-orange-500 text-white rounded-full min-w-[20px] h-5 justify-center px-1.5 leading-none animate-pulse">
+              <svg width={8} height={8} viewBox="0 0 24 24" fill="currentColor" className="flex-shrink-0">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+              </svg>
+              <span className="text-[9px] font-bold">{totalUnread > 99 ? '99+' : totalUnread}</span>
             </span>
           ) : onlineCount > 0 ? (
             <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-emerald-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1 leading-none">

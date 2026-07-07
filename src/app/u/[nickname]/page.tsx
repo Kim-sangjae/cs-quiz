@@ -4,6 +4,7 @@ import type { Metadata } from 'next';
 import { prisma } from '@/lib/prisma';
 import { getServerUser } from '@/lib/auth';
 import { BADGE_META } from '@/lib/badges';
+import ProfileVisibilityListener from '@/components/ProfileVisibilityListener';
 
 const CATEGORIES = ['ds', 'algo', 'os', 'network', 'db', 'arch', 'se'] as const;
 type Cat = typeof CATEGORIES[number];
@@ -117,6 +118,7 @@ export default async function PublicProfilePage({ params }: PageProps) {
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
+      <ProfileVisibilityListener userId={user.id} />
       <Link href="/" className="text-sm text-neutral-500 hover:text-white transition-colors">← 홈</Link>
 
       {/* 프로필 헤더 */}
