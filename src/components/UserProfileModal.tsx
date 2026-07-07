@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useEffect, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { BADGE_META } from '@/lib/badges';
 import type { BadgeType } from '@/lib/badges';
+import { supabaseBrowser } from '@/lib/supabase-browser';
 
 const CATEGORIES = [
   { key: 'all', label: '전체' },
@@ -69,6 +70,7 @@ export default function UserProfileModal({
   onAddFriend,
   friendActions,
 }: UserProfileModalProps) {
+  const queryClient = useQueryClient();
   const [friendRequested, setFriendRequested] = useState(false);
   const [addingFriend, setAddingFriend] = useState(false);
   const [hoveredBadge, setHoveredBadge] = useState<string | null>(null);
@@ -89,9 +91,20 @@ export default function UserProfileModal({
       if (!r.ok) throw new Error('fetch failed');
       return r.json() as Promise<ProfileData>;
     },
-    staleTime: 60_000,
+    staleTime: 0,
     retry: false,
   });
+
+  // visibility 변경 실시간 반영
+  useEffect(() => {
+    const ch = supabaseBrowser
+      .channel(`csora-profile-modal-${userId}`)
+      .on('broadcast', { event: 'visibility_changed' }, () => {
+        void queryClient.invalidateQueries({ queryKey: ['user-profile', userId] });
+      })
+      .subscribe();
+    return () => { void supabaseBrowser.removeChannel(ch); };
+  }, [userId, queryClient]);
 
   async function handleReport() {
     if (reportLoading) return;
