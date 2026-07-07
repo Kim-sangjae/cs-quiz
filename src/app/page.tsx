@@ -53,15 +53,15 @@ export default async function Home() {
           <div className="flex items-center gap-2 mb-5 flex-wrap">
             <div className="inline-flex items-center gap-1.5 text-xs text-neutral-500 border border-neutral-800 rounded-full px-3 py-1">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              {total}문제 · 7개 카테고리
+              {total}문제 수록
             </div>
             <OnlineCountBadge />
           </div>
 
           <h1 className="text-4xl font-bold text-white tracking-tight mb-3">CSORA</h1>
           <p className="text-neutral-400 text-sm leading-relaxed mb-7 max-w-sm">
-            자료구조부터 네트워크까지, CS 핵심 개념을 퀴즈로 빠르게 점검하세요.
-            나만의 문제를 등록해 지식을 공유하고, 친구와 실시간 대결로 실력을 겨뤄볼 수 있습니다.
+            CS 핵심 개념을 문제로 빠르게 점검하세요.
+            틀린 문제는 자동으로 복습 예약되고, 친구와 실시간 1:1 대결도 즐길 수 있습니다.
           </p>
 
           <div className="flex items-center gap-3 flex-wrap">
@@ -154,7 +154,7 @@ export default async function Home() {
                 className="bg-[#111111] border border-neutral-800 rounded-lg px-4 py-3.5 hover:bg-[#181818] hover:border-neutral-700 transition-colors group"
               >
                 <p className="text-sm font-medium text-white mb-0.5">{c.label}</p>
-                <p className="text-[11px] text-neutral-600 group-hover:text-neutral-500 transition-colors">{c.sub}</p>
+                <p className="text-[11px] text-neutral-500 group-hover:text-neutral-400 transition-colors">{c.sub}</p>
               </Link>
             ))}
           </div>

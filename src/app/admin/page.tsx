@@ -116,17 +116,17 @@ export default function AdminPage() {
   }
 
   const tabs: { key: Tab; label: string; count?: number }[] = [
-    { key: 'analytics', label: '애널리틱스' },
+    { key: 'analytics', label: '통계' },
     { key: 'questions', label: '승인 대기', count: badge?.questions },
     { key: 'board', label: '게시판 관리' },
     { key: 'reports', label: '신고 접수', count: (badge?.reports ?? 0) + (badge?.userReports ?? 0) + (badge?.commentReports ?? 0) || undefined },
     { key: 'users', label: '유저 관리' },
     { key: 'inquiries', label: '문의 관리', count: badge?.inquiries },
-    { key: 'logs', label: '감사 로그' },
-    { key: 'errors', label: '오류 로그' },
+    { key: 'logs', label: '활동 로그' },
+    { key: 'errors', label: '오류 내역' },
     { key: 'generate', label: 'AI 문제 생성' },
     { key: 'blocked-words', label: '금칙어 관리' },
-    { key: 'points-log', label: '포인트 로그' },
+    { key: 'points-log', label: '포인트 내역' },
   ];
 
   return (

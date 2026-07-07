@@ -3,14 +3,14 @@ import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
   title: '서비스 소개',
-  description: 'CSORA 서비스 소개 — 퀴즈 시스템, 문제 등록, 대결, 복습 스케줄까지.',
+  description: 'CSORA 서비스 소개 — CS 퀴즈, 문제 등록, 친구 대결, 오답 복습까지.',
 };
 
 const FEATURES = [
   {
     icon: '🎯',
-    title: '7개 영역 CS 퀴즈',
-    desc: '자료구조·알고리즘·운영체제·네트워크·데이터베이스·컴퓨터 구조에서 랜덤 20문제. 틀린 문제는 즉시 해설과 함께 확인.',
+    title: '분야별 CS 퀴즈',
+    desc: '자료구조부터 네트워크까지, CS 핵심 영역에서 매번 다른 20문제를 뽑아 출제합니다. 틀린 문제는 해설과 함께 바로 확인할 수 있습니다.',
   },
   {
     icon: '📝',
@@ -20,17 +20,17 @@ const FEATURES = [
   {
     icon: '🔁',
     title: '자동 오답 복습 스케줄',
-    desc: '틀린 문제는 1일→3일→7일→30일 간격으로 자동 예약. 맞추면 다음 단계로, 또 틀리면 리셋. 30일 통과 시 완전 마스터.',
+    desc: '틀린 문제는 1일→3일→7일→30일 간격으로 자동 복습 일정이 잡힙니다. 맞히면 다음 단계로 넘어가고, 또 틀리면 처음부터 다시 시작합니다.',
   },
   {
     icon: '⚔️',
     title: '친구 대결 (실시간)',
-    desc: '친구를 추가하고 카테고리를 골라 실시간 1:1 대결. 20초 제한, 자동 진행 모드, Supabase Realtime으로 양측 동기화.',
+    desc: '친구를 추가하고 카테고리를 골라 실시간 1:1 대결. 문제당 20초 제한, 자동 진행 모드로 긴장감 있게 풀 수 있습니다.',
   },
   {
     icon: '🏆',
     title: '레벨 & 업적 시스템',
-    desc: '카테고리별 누적 풀이 횟수로 입문→학습→숙련→마스터 레벨 획득. 퀴즈·대결·기여 관련 20종 배지 수집.',
+    desc: '카테고리별 누적 풀이 횟수에 따라 입문 → 학습 → 숙련 → 마스터 레벨로 성장합니다. 퀴즈·대결·기여 등 다양한 활동으로 배지를 수집하세요.',
   },
   {
     icon: '📊',
@@ -65,7 +65,7 @@ export default function AboutPage() {
         <Link href="/" className="text-sm text-neutral-500 hover:text-white transition-colors">← 홈</Link>
         <h1 className="text-3xl font-bold text-white mt-4 mb-3">CSORA</h1>
         <p className="text-neutral-400 leading-relaxed">
-          CS 기초 지식을 <span className="text-white font-medium">7개 영역 20문제</span>로 빠르게 점검하고,
+          CS 기초 지식을 <span className="text-white font-medium">분야별 20문제</span>로 빠르게 점검하고,
           오답을 자동으로 복습하며, 친구와 실시간 대결할 수 있는 학습 플랫폼입니다.
         </p>
         <div className="flex gap-3 mt-5 flex-wrap">
@@ -116,7 +116,7 @@ export default function AboutPage() {
 
       {/* 출제 영역 */}
       <section className="mb-10">
-        <h2 className="text-lg font-semibold text-white mb-4">출제 영역 (7개)</h2>
+        <h2 className="text-lg font-semibold text-white mb-4">출제 영역</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {CATEGORIES.map((c) => (
             <Link
@@ -135,7 +135,7 @@ export default function AboutPage() {
       <section className="bg-[#0f0f0f] border border-neutral-800 rounded-xl px-5 py-5">
         <h2 className="text-base font-semibold text-white mb-2">같이 만들어 가는 문제 은행</h2>
         <p className="text-sm text-neutral-400 leading-relaxed mb-4">
-          현재 120문제로 시작했지만, 사용자 제출로 계속 늘어납니다.
+          처음에는 100여 개 문제로 시작했지만, 사용자들의 제출로 계속 늘어나고 있습니다.
           제출한 문제가 승인되면 기여도 순위에 이름이 올라가고 업적 배지를 획득합니다.
           AI 자동 생성 덕분에 부담 없이 문제를 출제할 수 있습니다.
         </p>
