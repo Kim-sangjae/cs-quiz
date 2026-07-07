@@ -2603,6 +2603,12 @@ function PointsLogTab() {
   );
 }
 
+interface InfraStats {
+  dbSize: string;
+  aiCountToday: number;
+  aiCountTotal: number;
+}
+
 function AnalyticsTab() {
   const [chartPeriod, setChartPeriod] = useState<'month' | 'year'>('month');
   const [targetYear, setTargetYear] = useState(String(new Date().getFullYear()));
@@ -2610,6 +2616,13 @@ function AnalyticsTab() {
   const [sidePanel, setSidePanel] = useState<'online' | 'visitors' | 'newusers' | 'quizzes' | null>(null);
 
   const availableYears = Array.from({ length: 5 }, (_, i) => String(new Date().getFullYear() - i));
+
+  const { data: infraData, isLoading: infraLoading } = useQuery<InfraStats>({
+    queryKey: ['admin', 'infra-stats'],
+    queryFn: () => fetch('/api/admin/infra-stats').then((r) => r.json()),
+    refetchInterval: 60_000,
+    staleTime: 30_000,
+  });
 
   // TODAY 고정 조회
   const { data: todayData, isLoading: todayLoading } = useQuery<AnalyticsData>({
@@ -2954,6 +2967,76 @@ function AnalyticsTab() {
                   { key: 'reviewed', label: '처리 완료', color: 'bg-emerald-500', value: rStats?.reviewed ?? 0 },
                 ]}
               />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── 외부 서비스 현황 ── */}
+      <div>
+        <p className="text-[10px] text-neutral-600 font-bold uppercase tracking-widest mb-3">외부 서비스</p>
+        <div className="bg-[#111111] border border-neutral-800 rounded-xl divide-y divide-neutral-800">
+          {/* DB 크기 */}
+          <div className="flex items-center justify-between px-4 py-3">
+            <div className="flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+              <span className="text-xs text-neutral-400">Supabase DB 크기</span>
+            </div>
+            {infraLoading ? (
+              <div className="h-4 w-16 bg-neutral-800 rounded animate-pulse" />
+            ) : (
+              <span className="text-xs font-semibold text-white">
+                {infraData?.dbSize ?? '-'} <span className="text-neutral-600 font-normal">/ 500MB 무료</span>
+              </span>
+            )}
+          </div>
+          {/* Realtime */}
+          <div className="flex items-center justify-between px-4 py-3">
+            <div className="flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-sky-500" />
+              <span className="text-xs text-neutral-400">Supabase Realtime</span>
+            </div>
+            <a
+              href="https://supabase.com/dashboard/project/deyxefkihidlbskrjxsw/reports/realtime"
+              target="_blank"
+              rel="noreferrer"
+              className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
+            >
+              대시보드 →
+            </a>
+          </div>
+          {/* AI 생성 — 오늘 */}
+          <div className="flex items-center justify-between px-4 py-3">
+            <div className="flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-violet-500" />
+              <span className="text-xs text-neutral-400">AI 문제생성 (오늘)</span>
+            </div>
+            {infraLoading ? (
+              <div className="h-4 w-10 bg-neutral-800 rounded animate-pulse" />
+            ) : (
+              <span className="text-xs font-semibold text-violet-300">{infraData?.aiCountToday ?? 0}회</span>
+            )}
+          </div>
+          {/* AI 생성 — 누적 */}
+          <div className="flex items-center justify-between px-4 py-3">
+            <div className="flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-violet-400" />
+              <span className="text-xs text-neutral-400">AI 문제생성 (누적)</span>
+            </div>
+            <div className="flex items-center gap-3">
+              {infraLoading ? (
+                <div className="h-4 w-10 bg-neutral-800 rounded animate-pulse" />
+              ) : (
+                <span className="text-xs font-semibold text-violet-300">{infraData?.aiCountTotal ?? 0}회</span>
+              )}
+              <a
+                href="https://platform.openai.com/usage"
+                target="_blank"
+                rel="noreferrer"
+                className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
+              >
+                OpenAI 대시보드 →
+              </a>
             </div>
           </div>
         </div>
