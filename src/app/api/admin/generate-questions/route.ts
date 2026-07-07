@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerUser } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { generateEmbedding, toVectorString } from '@/lib/embedding';
+import { writeLog } from '@/lib/audit';
 import OpenAI from 'openai';
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -166,6 +167,8 @@ export async function POST(req: NextRequest) {
       console.error('[generate-questions] save error:', e);
     }
   }
+
+  writeLog({ actorId: user.id, actorRole: user.role, action: 'AI_QUESTION_GENERATE', targetType: 'Question', payload: { category, requested: count, generated: allGenerated.length, saved, skipped } });
 
   return NextResponse.json({ generated: allGenerated.length, saved, skipped });
 }

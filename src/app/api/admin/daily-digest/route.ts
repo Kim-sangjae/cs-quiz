@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { sendMail, ADMIN_EMAIL } from '@/lib/mailer';
 
-// GitHub Actions가 CRON_SECRET Bearer 토큰으로 호출
 export async function POST(req: NextRequest) {
   const auth = req.headers.get('authorization');
   if (!process.env.CRON_SECRET || auth !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -29,22 +28,17 @@ export async function POST(req: NextRequest) {
     pendingInquiries,
     errorLogs,
     errorCount,
+    dbSizeResult,
+    aiGenerateCount,
   ] = await Promise.all([
-    // 어제 방문자 수 (DailyVisit date 컬럼은 "YYYY-MM-DD" string)
     prisma.dailyVisit.count({ where: { date: yesterdayStr } }),
-    // 어제 퀴즈 세션 (QuizSession은 submittedAt 사용)
     prisma.quizSession.count({ where: { submittedAt: { gte: start, lt: end } } }),
-    // 어제 신규 가입자
     prisma.user.count({ where: { createdAt: { gte: start, lt: end } } }),
-    // 어제 문제 제출 (PENDING)
     prisma.question.count({ where: { status: 'PENDING', createdAt: { gte: start, lt: end } } }),
-    // 어제 대결 게임
     prisma.gameRoom.count({ where: { createdAt: { gte: start, lt: end } } }),
-    // 현재 처리 대기
     prisma.question.count({ where: { status: 'PENDING' } }),
     prisma.report.count({ where: { status: 'PENDING' } }),
     prisma.inquiry.count({ where: { status: 'PENDING' } }),
-    // 어제 오류 상위 10건
     prisma.errorLog.findMany({
       where: { createdAt: { gte: start, lt: end } },
       orderBy: { createdAt: 'desc' },
@@ -52,7 +46,11 @@ export async function POST(req: NextRequest) {
       select: { statusCode: true, errorCode: true, message: true, path: true, createdAt: true },
     }),
     prisma.errorLog.count({ where: { createdAt: { gte: start, lt: end } } }),
+    prisma.$queryRaw<[{ size: string }]>`SELECT pg_size_pretty(pg_database_size(current_database())) AS size`,
+    prisma.auditLog.count({ where: { action: 'AI_QUESTION_GENERATE', createdAt: { gte: start, lt: end } } }),
   ]);
+
+  const dbSize = dbSizeResult[0]?.size ?? '-';
 
   const errorRows = errorLogs.map(e => `
     <tr>
@@ -89,6 +87,13 @@ export async function POST(req: NextRequest) {
       <tr><td style="padding:10px 16px;color:#888;width:160px">승인 대기 문제</td><td style="padding:10px 16px">${pendingBadge(pendingQuestions)}</td></tr>
       <tr style="background:#222"><td style="padding:10px 16px;color:#888">미처리 신고</td><td style="padding:10px 16px">${pendingBadge(pendingReports)}</td></tr>
       <tr><td style="padding:10px 16px;color:#888">미처리 문의</td><td style="padding:10px 16px">${pendingBadge(pendingInquiries)}</td></tr>
+    </table>
+
+    <h3 style="margin:0 0 10px;color:#38bdf8;font-size:15px;letter-spacing:.5px">🔧 외부 서비스 현황</h3>
+    <table style="width:100%;border-collapse:collapse;margin-bottom:24px;background:#1a1a1a;border-radius:8px;overflow:hidden">
+      <tr><td style="padding:10px 16px;color:#888;width:160px">Supabase DB 크기</td><td style="padding:10px 16px;font-weight:600">${dbSize} <span style="color:#888;font-size:12px;font-weight:400">/ 500MB 무료 한도</span></td></tr>
+      <tr style="background:#222"><td style="padding:10px 16px;color:#888">Supabase Realtime</td><td style="padding:10px 16px;font-size:13px"><a href="https://supabase.com/dashboard/project/deyxefkihidlbskrjxsw/reports/realtime" style="color:#6366f1">대시보드에서 확인</a> <span style="color:#555;font-size:12px">— 무료 한도: 200 동시접속 / 월 200만 메시지</span></td></tr>
+      <tr><td style="padding:10px 16px;color:#888">AI 문제생성 (어제)</td><td style="padding:10px 16px;font-weight:600">${aiGenerateCount}회 <span style="color:#555;font-size:12px;font-weight:400">— <a href="https://platform.openai.com/usage" style="color:#6366f1">OpenAI 사용량 대시보드</a></span></td></tr>
     </table>
 
     <h3 style="margin:0 0 10px;color:#f87171;font-size:15px;letter-spacing:.5px">🚨 어제 오류 (${errorCount}건)</h3>

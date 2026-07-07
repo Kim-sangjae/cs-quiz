@@ -20,7 +20,8 @@ export type AuditAction =
   | 'NICKNAME_CHANGE'
   | 'INQUIRY_REPLY'
   | 'INQUIRY_STATUS_CHANGE'
-  | 'COMMENT_DELETE';
+  | 'COMMENT_DELETE'
+  | 'AI_QUESTION_GENERATE';
 
 interface WriteLogParams {
   actorId?: string;
