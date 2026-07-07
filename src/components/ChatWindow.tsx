@@ -36,9 +36,9 @@ export default function ChatWindow({ myId, friend, isOnline, onClose }: Props) {
       .finally(() => setLoading(false));
   }, [friend.userId]);
 
-  // isOnline prop 변경 감지
+  // isOnline prop 변경 감지 (재로그인 시 복구 포함)
   useEffect(() => {
-    if (!isOnline) setFriendOffline(true);
+    setFriendOffline(!isOnline);
   }, [isOnline]);
 
   // Supabase Broadcast 구독 (실시간 수신 + 상대방 오프라인 감지)
