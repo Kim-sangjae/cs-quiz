@@ -235,7 +235,7 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
   useEffect(() => {
     if (room?.status !== 'PLAYING' || myAnswered) return;
     if ((room.consecutiveAllSkip ?? 0) >= 1) setIsAutoMode(true);
-  }, [room?.questionStartedAt, room?.consecutiveAllSkip, room?.status, myAnswered]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [room?.questionStartedAt, room?.consecutiveAllSkip, room?.status, myAnswered]);
 
   // 재진입 시 자동모드 복원 — 마운트 후 room 첫 도착 시 1회만
   // deps를 room 전체로 두고 hasRestoredAutoModeRef로 1회 실행 보장
@@ -247,7 +247,7 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
     if ((room.myPrevAnswers?.includes(-1) ?? false) || room.mySelected === -1) {
       setIsAutoMode(true);
     }
-  }, [room]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [room]);
 
   // 자동모드: questionStartedAt 기준 절대 시각으로 양쪽 동시 자동제출
   // 일반(20s): +3s 기준 / 5초 모드: +5s (서버 타임아웃과 동일) → 폴링 타이밍 무관하게 동시 발동

@@ -18,12 +18,14 @@ describe('isQuizResult', () => {
   });
 
   it('questions 필드 없음 → false', () => {
-    const { questions: _, ...rest } = validResult;
+    const { questions: _q, ...rest } = validResult;
+    void _q;
     expect(isQuizResult(rest)).toBe(false);
   });
 
   it('answers 필드 없음 → false', () => {
-    const { answers: _, ...rest } = validResult;
+    const { answers: _a, ...rest } = validResult;
+    void _a;
     expect(isQuizResult(rest)).toBe(false);
   });
 

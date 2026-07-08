@@ -69,7 +69,7 @@ export default function BattleInviteAlert() {
     tick();
     const tid = setInterval(tick, 1000);
     return () => clearInterval(tid);
-  }, [pending?.id, pending?.createdAt]);
+  }, [pending]);
 
   // 카운트다운 만료 시 자동 읽음 처리 (이 알림이 실제로 만료된 경우에만)
   useEffect(() => {

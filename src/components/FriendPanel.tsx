@@ -393,8 +393,8 @@ export default function FriendPanel() {
                       <div
                         role="button"
                         tabIndex={0}
-                        onClick={() => unread > 0 ? openChat() : setSelectedFriend(f)}
-                        onKeyDown={(e) => { if (e.key === 'Enter') unread > 0 ? openChat() : setSelectedFriend(f); }}
+                        onClick={() => { if (unread > 0) { openChat(); } else { setSelectedFriend(f); } }}
+                        onKeyDown={(e) => { if (e.key === 'Enter') { if (unread > 0) { openChat(); } else { setSelectedFriend(f); } } }}
                         className="w-full flex items-center gap-2.5 px-3.5 py-2.5 hover:bg-neutral-800/60 transition-colors cursor-pointer"
                       >
                         <div className="relative flex-shrink-0">

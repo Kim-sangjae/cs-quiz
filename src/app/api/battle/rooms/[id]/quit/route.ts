@@ -11,10 +11,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const { id } = await params;
   const { action } = await req.json() as { action: 'request' | 'accept' | 'reject' };
 
-  const [room, me] = await Promise.all([
-    prisma.gameRoom.findUnique({ where: { id } }),
-    prisma.user.findUnique({ where: { id: userId }, select: { nickname: true } }),
-  ]);
+  const room = await prisma.gameRoom.findUnique({ where: { id } });
   if (!room) return NextResponse.json({ error: 'Not found' }, { status: 404 });
   if (room.status !== 'PLAYING') return NextResponse.json({ error: '진행 중인 대전이 아닙니다' }, { status: 400 });
 

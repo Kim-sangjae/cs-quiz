@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { Question, UserAnswer } from "@/types";
@@ -56,12 +56,12 @@ export default function QuizPlayClient({ questions, category, mode = 'normal', i
   }, [questions.map((q) => q.id).join(',')]);
 
   // 시각 위치(visual) ↔ 원본 인덱스(original) 변환
-  function visualToOrig(qId: string, visual: number): 0 | 1 | 2 | 3 {
+  const visualToOrig = useCallback((qId: string, visual: number): 0 | 1 | 2 | 3 => {
     return (optionOrders[qId]?.[visual] ?? visual) as 0 | 1 | 2 | 3;
-  }
-  function origToVisual(qId: string, orig: number): number {
+  }, [optionOrders]);
+  const origToVisual = useCallback((qId: string, orig: number): number => {
     return optionOrders[qId]?.indexOf(orig) ?? orig;
-  }
+  }, [optionOrders]);
 
   const QUESTION_SECONDS = 15;
   const isDirty = answers.length > 0 && !isSubmitting;
@@ -104,7 +104,7 @@ export default function QuizPlayClient({ questions, category, mode = 'normal', i
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [showLoginPrompt, exitModal, currentIndex, questions, autoAdvance, isTimed]);
+  }, [showLoginPrompt, exitModal, currentIndex, questions, autoAdvance, isTimed, visualToOrig]);
 
   // 퀴즈 URL 저장
   useEffect(() => {
@@ -151,8 +151,6 @@ export default function QuizPlayClient({ questions, category, mode = 'normal', i
     }, 1000);
 
     return () => clearInterval(id);
-  // currentIndex 변경 시 타이머 리셋
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentIndex, isTimed, questions.length]);
 
   // 자동 이동 설정 복원
