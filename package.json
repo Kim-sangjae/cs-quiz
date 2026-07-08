@@ -9,6 +9,7 @@
     "lint": "eslint src --ext .ts,.tsx",
     "test": "vitest run",
     "db:seed": "tsx prisma/seed.ts",
+    "db:reset-dev": "tsx scripts/reset-dev-data.ts",
     "fresh": "powershell -Command \"Remove-Item -Recurse -Force .next -ErrorAction SilentlyContinue; npm run build; npm run start\""
   },
   "dependencies": {
