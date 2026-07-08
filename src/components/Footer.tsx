@@ -33,16 +33,16 @@ export default function Footer() {
           <div>
             <p className="text-neutral-400 text-[11px] font-medium uppercase tracking-wider mb-3">연락처</p>
             <a
-              href="mailto:kimsangjae94114@gmail.com"
+              href="mailto:csoraquiz@gmail.com"
               className="text-neutral-500 hover:text-white text-sm transition-colors break-all"
             >
-              kimsangjae94114@gmail.com
+              csoraquiz@gmail.com
             </a>
           </div>
         </div>
 
         <div className="border-t border-neutral-800/60 pt-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1.5">
-          <p className="text-neutral-600 text-xs">© 2025 CSORA. All rights reserved.</p>
+          <p className="text-neutral-600 text-xs">© 2025–2026 CSORA. All rights reserved.</p>
           <p className="text-neutral-700 text-xs">CS 학습자를 위해 만들었습니다</p>
         </div>
       </div>
