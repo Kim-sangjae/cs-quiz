@@ -8,7 +8,7 @@ export default function Footer() {
           <div className="col-span-2 md:col-span-1">
             <p className="text-white font-bold text-base tracking-tight mb-1.5">CSORA</p>
             <p className="text-neutral-500 text-xs leading-relaxed">
-              CS 퀴즈
+              CS 지식을 빠르게 점검할 수 있는 퀴즈 플랫폼
             </p>
           </div>
 
