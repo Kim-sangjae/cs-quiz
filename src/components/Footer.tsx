@@ -8,8 +8,11 @@ export default function Footer() {
           <div className="col-span-2 md:col-span-1">
             <p className="text-white font-bold text-base tracking-tight mb-1.5">CSORA</p>
             <p className="text-neutral-500 text-xs leading-relaxed">
-              CS + Aurora<br />
-              <span className="text-neutral-600">지식을 쌓을수록 빛나는 개발자</span>
+              CS + Aurora
+            </p>
+            <p className="text-neutral-600 text-xs leading-relaxed mt-1.5">
+              어둠 속에서 서서히 펼쳐지는 오로라처럼,<br />
+              배움을 통해 지식과 가능성이 빛나는 공간.
             </p>
           </div>
 
