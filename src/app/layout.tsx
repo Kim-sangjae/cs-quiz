@@ -8,6 +8,7 @@ export const viewport: Viewport = {
 };
 import Providers from "./providers";
 import Header from "@/components/Header";
+import Footer from "@/components/Footer";
 import ScrollButtons from "@/components/ScrollButtons";
 import DragScroll from "@/components/DragScroll";
 import SessionGuard from "@/components/SessionGuard";
@@ -51,6 +52,7 @@ export default function RootLayout({
         <Providers>
           <Header />
           {children}
+          <Footer />
           <ScrollButtons />
           <DragScroll />
           <FriendPanel />
