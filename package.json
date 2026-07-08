@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "powershell -Command \"Remove-Item -Recurse -Force .next -ErrorAction SilentlyContinue; next dev -H 0.0.0.0\"",
-    "build": "next build",
+    "build": "prisma generate && next build",
     "start": "next start",
     "lint": "eslint src --ext .ts,.tsx",
     "test": "vitest run",
