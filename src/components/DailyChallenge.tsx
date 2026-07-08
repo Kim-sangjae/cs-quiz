@@ -28,8 +28,8 @@ interface DailyResult {
   selected: number;
 }
 
-function storageKey(date: string) {
-  return `daily-${date}`;
+function storageKey(date: string, uid: string) {
+  return `daily-${date}-${uid}`;
 }
 
 interface Participant {
@@ -38,7 +38,8 @@ interface Participant {
 }
 
 export default function DailyChallenge() {
-  const { status } = useSession();
+  const { data: session, status } = useSession();
+  const userId = session?.user?.id;
   const router = useRouter();
   const [q, setQ] = useState<DailyQuestion | null>(null);
   const [result, setResult] = useState<DailyResult | null>(null);
@@ -68,19 +69,22 @@ export default function DailyChallenge() {
 
   useEffect(() => {
     if (status === 'loading' || !q) return;
-    if (status === 'authenticated') {
-      const saved = localStorage.getItem(storageKey(q.date));
+    if (status === 'authenticated' && userId) {
+      const key = storageKey(q.date, userId);
+      const saved = localStorage.getItem(key);
       if (saved) {
         try {
           setResult(JSON.parse(saved) as DailyResult);
         } catch {
-          localStorage.removeItem(storageKey(q.date));
+          localStorage.removeItem(key);
         }
+      } else {
+        setResult(null);
       }
     } else {
       setResult(null);
     }
-  }, [status, q]);
+  }, [status, q, userId]);
 
   async function handleSelect(selected: number) {
     if (!q || result || submitting) return;
@@ -94,7 +98,7 @@ export default function DailyChallenge() {
       const data = await res.json() as { correct: boolean; answer: number; explanation: string; correctRate: number | null; attemptCount: number };
       const r: DailyResult = { correct: data.correct, answer: data.answer, explanation: data.explanation, selected };
       setResult(r);
-      localStorage.setItem(storageKey(q.date), JSON.stringify(r));
+      if (userId) localStorage.setItem(storageKey(q.date, userId), JSON.stringify(r));
       setQ(prev => prev ? { ...prev, correctRate: data.correctRate, attemptCount: data.attemptCount } : prev);
     } finally {
       setSubmitting(false);

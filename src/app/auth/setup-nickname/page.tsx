@@ -58,8 +58,9 @@ function SetupNicknameForm() {
         return;
       }
 
-      await update({ nickname }); // JWT 토큰에 닉네임 반영
-      router.push(callbackUrl);
+      await update({ nickname });
+      toast.success('닉네임이 설정되었습니다!');
+      router.push(callbackUrl === '/auth/setup-nickname' ? '/' : callbackUrl);
     } finally {
       setSubmitting(false);
     }
