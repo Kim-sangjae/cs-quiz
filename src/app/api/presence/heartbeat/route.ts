@@ -7,18 +7,20 @@ export async function POST() {
   if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const today = new Date().toISOString().slice(0, 10);
-  await Promise.all([
+  const userId = session.user.id;
+
+  const [existing] = await Promise.all([
+    prisma.dailyVisit.findUnique({ where: { userId_date: { userId, date: today } }, select: { userId: true } }),
     prisma.userPresence.upsert({
-      where: { userId: session.user.id },
-      create: { userId: session.user.id },
+      where: { userId },
+      create: { userId },
       update: { lastSeenAt: new Date() },
     }),
-    prisma.dailyVisit.upsert({
-      where: { userId_date: { userId: session.user.id, date: today } },
-      create: { userId: session.user.id, date: today },
-      update: {},
-    }),
   ]);
+
+  if (!existing) {
+    await prisma.dailyVisit.create({ data: { userId, date: today } }).catch(() => {});
+  }
 
   return NextResponse.json({ ok: true });
 }

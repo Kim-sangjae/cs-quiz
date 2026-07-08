@@ -192,6 +192,9 @@ export default function Header() {
           </div>
 
           <nav className="flex flex-col px-6 py-8 gap-6">
+            <Link href="/about" onClick={closeMenu} className="text-lg text-neutral-300 hover:text-white transition-colors">
+              소개
+            </Link>
             <Link href="/quiz" onClick={closeMenu} className="text-lg text-neutral-300 hover:text-white transition-colors">
               퀴즈
             </Link>

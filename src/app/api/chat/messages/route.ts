@@ -53,10 +53,22 @@ export async function POST(req: NextRequest) {
   const content = maskProfanity(raw, dbWords.map((w) => w.word));
   const myId = session.user.id;
 
-  const message = await prisma.chatMessage.create({
-    data: { senderId: myId, receiverId, content },
-    include: { sender: { select: { nickname: true } } },
-  });
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  const [message] = await Promise.all([
+    prisma.chatMessage.create({
+      data: { senderId: myId, receiverId, content },
+      include: { sender: { select: { nickname: true } } },
+    }),
+    prisma.chatMessage.deleteMany({
+      where: {
+        createdAt: { lt: thirtyDaysAgo },
+        OR: [
+          { senderId: myId, receiverId },
+          { senderId: receiverId, receiverId: myId },
+        ],
+      },
+    }),
+  ]);
 
   return NextResponse.json({
     message: {

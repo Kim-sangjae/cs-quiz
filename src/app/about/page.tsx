@@ -135,7 +135,7 @@ export default function AboutPage() {
       <section className="bg-[#0f0f0f] border border-neutral-800 rounded-xl px-5 py-5">
         <h2 className="text-base font-semibold text-white mb-2">같이 만들어 가는 문제 은행</h2>
         <p className="text-sm text-neutral-400 leading-relaxed mb-4">
-          처음에는 100여 개 문제로 시작했지만, 사용자들의 제출로 계속 늘어나고 있습니다.
+          사용자들의 제출로 문제가 계속 늘어나고 있습니다.
           제출한 문제가 승인되면 기여도 순위에 이름이 올라가고 업적 배지를 획득합니다.
           AI 자동 생성 덕분에 부담 없이 문제를 출제할 수 있습니다.
         </p>

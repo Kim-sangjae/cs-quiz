@@ -18,6 +18,12 @@ export async function POST(req: NextRequest) {
     mode?: string;
   };
   const { category, questionIds, answers, mode = 'normal' } = body;
+
+  if (!Array.isArray(questionIds) || questionIds.length > 30 ||
+      !Array.isArray(answers) || answers.length > 30) {
+    return NextResponse.json({ error: 'Invalid' }, { status: 400 });
+  }
+
   const safeMode = ['normal', 'review', 'timed'].includes(mode) ? mode : 'normal';
   const isRanked = safeMode !== 'review'; // review 모드는 뱃지/레벨업/출석 제외
 

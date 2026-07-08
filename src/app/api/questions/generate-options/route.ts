@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import { getServerUser } from '@/lib/auth';
+import { prisma } from '@/lib/prisma';
 import { writeLog } from '@/lib/audit';
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -17,6 +18,19 @@ export async function POST(req: NextRequest) {
   }
   if (typeof answer !== 'string' || answer.trim().length === 0) {
     return NextResponse.json({ error: 'answer 필드가 필요합니다.' }, { status: 400 });
+  }
+  if (question.length > 500 || answer.length > 200) {
+    return NextResponse.json({ error: '입력이 너무 깁니다.' }, { status: 400 });
+  }
+
+  // 하루 20회 제한
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const todayCount = await prisma.auditLog.count({
+    where: { actorId: user.id, action: 'AI_OPTION_GENERATE', createdAt: { gte: today } },
+  });
+  if (todayCount >= 20) {
+    return NextResponse.json({ error: '하루 최대 20회까지 사용할 수 있습니다.' }, { status: 429 });
   }
 
   const completion = await openai.chat.completions.create({

@@ -45,42 +45,27 @@ async function getCounts(): Promise<Record<string, number>> {
 async function getUserAccuracy(
   userId: string
 ): Promise<Record<string, number | null>> {
-  const result: Record<string, number | null> = {};
-  for (const cat of CATEGORIES) {
-    result[cat] = null;
-  }
-  result.all = null;
+  const result: Record<string, number | null> = { all: null };
+  for (const cat of CATEGORIES) result[cat] = null;
 
-  const rows = await prisma.questionAttempt.groupBy({
-    by: ["questionId"],
-    where: { userId },
-    _count: { _all: true },
-  });
+  const rows = await prisma.$queryRaw<{ category: string; total: bigint; correct: bigint }[]>`
+    SELECT q.category,
+           COUNT(*)::bigint AS total,
+           SUM(CASE WHEN a."isCorrect" THEN 1 ELSE 0 END)::bigint AS correct
+    FROM "QuestionAttempt" a
+    JOIN "Question" q ON q.id = a."questionId"
+    WHERE a."userId" = ${userId}
+    GROUP BY q.category
+  `;
 
-  if (rows.length === 0) return result;
-
-  // Per-category accuracy from Question join
-  const attempts = await prisma.questionAttempt.findMany({
-    where: { userId },
-    select: { isCorrect: true, question: { select: { category: true } } },
-  });
-
-  const catStats: Record<string, { total: number; correct: number }> = {};
   let allTotal = 0;
   let allCorrect = 0;
-
-  for (const a of attempts) {
-    const cat = a.question.category;
-    if (!catStats[cat]) catStats[cat] = { total: 0, correct: 0 };
-    catStats[cat].total++;
-    if (a.isCorrect) catStats[cat].correct++;
-    allTotal++;
-    if (a.isCorrect) allCorrect++;
-  }
-
-  for (const cat of CATEGORIES) {
-    const s = catStats[cat];
-    result[cat] = s ? Math.round((s.correct / s.total) * 100) : null;
+  for (const row of rows) {
+    const total = Number(row.total);
+    const correct = Number(row.correct);
+    result[row.category] = Math.round((correct / total) * 100);
+    allTotal += total;
+    allCorrect += correct;
   }
   result.all = allTotal > 0 ? Math.round((allCorrect / allTotal) * 100) : null;
 

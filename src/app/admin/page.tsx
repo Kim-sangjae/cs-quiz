@@ -338,7 +338,7 @@ function SimilarQuestionsPanel({ questionText }: { questionText: string }) {
 
 const Q_CAT_LABELS: Record<string, string> = {
   all: '전체', ds: '자료구조', algo: '알고리즘', os: '운영체제',
-  network: '네트워크', db: '데이터베이스', arch: '컴퓨터구조', se: '소프트웨어공학',
+  network: '네트워크', db: '데이터베이스', arch: '컴퓨터 구조', se: '소프트웨어공학',
 };
 
 interface QuestionsResponse {
@@ -2482,7 +2482,7 @@ function StatusBar({ items, total, loading }: {
 
 const CAT_LABEL_MAP: Record<string, string> = {
   ds: '자료구조', algo: '알고리즘', os: '운영체제', network: '네트워크',
-  db: '데이터베이스', arch: '컴퓨터구조', se: '소프트웨어공학',
+  db: '데이터베이스', arch: '컴퓨터 구조', se: '소프트웨어공학',
 };
 
 function CategoryQuestionStats() {
