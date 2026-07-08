@@ -8,7 +8,7 @@ export default function Footer() {
           <div className="col-span-2 md:col-span-1">
             <p className="text-white font-bold text-base tracking-tight mb-1.5">CSORA</p>
             <p className="text-neutral-500 text-xs leading-relaxed">
-              CS 기초 지식을 퀴즈로<br />빠르게 점검하는 플랫폼
+              개발자를 위한 CS 퀴즈
             </p>
           </div>
 
@@ -42,7 +42,7 @@ export default function Footer() {
         </div>
 
         <div className="border-t border-neutral-800/60 pt-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1.5">
-          <p className="text-neutral-600 text-xs">© 2025–2026 CSORA. All rights reserved.</p>
+          <p className="text-neutral-600 text-xs">© 2026 CSORA. All rights reserved.</p>
           <p className="text-neutral-700 text-xs">CS 학습자를 위해 만들었습니다</p>
         </div>
       </div>
