@@ -9,10 +9,24 @@ on:
 jobs:
   send-digest:
     runs-on: ubuntu-latest
+    timeout-minutes: 100
     steps:
-      - name: Send daily digest
+      - name: Send daily digest (최대 3회, 30분 간격 재시도)
         run: |
-          curl -s -o /dev/null -w "%{http_code}" \
-            -X POST "${{ secrets.APP_URL }}/api/admin/daily-digest" \
-            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
-            | grep -q "^200$" && echo "✓ Digest sent" || (echo "✗ Failed" && exit 1)
+          for attempt in 1 2 3; do
+            echo "Attempt $attempt..."
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+              -X POST "${{ secrets.APP_URL }}/api/admin/daily-digest" \
+              -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}")
+            if [ "$STATUS" = "200" ]; then
+              echo "✓ Digest sent on attempt $attempt"
+              exit 0
+            fi
+            echo "✗ Attempt $attempt failed (HTTP $STATUS)"
+            if [ $attempt -lt 3 ]; then
+              echo "30분 후 재시도..."
+              sleep 1800
+            fi
+          done
+          echo "✗ 3회 모두 실패"
+          exit 1

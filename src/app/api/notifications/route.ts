@@ -19,14 +19,19 @@ export async function GET() {
     where: { userId: session.user.id, type: 'BATTLE_QUIT_REQUEST' },
   });
 
-  const notifications = await prisma.notification.findMany({
-    where: { userId: session.user.id },
-    orderBy: { createdAt: 'desc' },
-    take: 30,
-  });
+  // 안읽은 것은 전부, 읽은 것은 최근 5개만
+  const [unread, read] = await Promise.all([
+    prisma.notification.findMany({
+      where: { userId: session.user.id, isRead: false },
+      orderBy: { createdAt: 'desc' },
+    }),
+    prisma.notification.findMany({
+      where: { userId: session.user.id, isRead: true },
+      orderBy: { createdAt: 'desc' },
+      take: 5,
+    }),
+  ]);
 
-  const unread = notifications.filter((n) => !n.isRead);
-  const read = notifications.filter((n) => n.isRead).slice(0, 5);
   const result = [...unread, ...read].sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   );
