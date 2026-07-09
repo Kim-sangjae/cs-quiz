@@ -16,7 +16,7 @@ export async function PATCH(
   const body = await req.json() as { action: unknown };
   const { action } = body;
 
-  const VALID_ACTIONS = ['set-admin', 'set-user', 'deactivate', 'reactivate'];
+  const VALID_ACTIONS = ['set-admin', 'set-user', 'deactivate', 'reactivate', 'reset-stats'];
   if (!VALID_ACTIONS.includes(action as string)) {
     return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
   }
@@ -66,6 +66,24 @@ export async function PATCH(
       data: { deletedAt: null },
     });
     writeLog({ actorId: user.id, actorRole: user.role, action: 'USER_REACTIVATE', targetType: 'User', targetId: id, payload: { targetEmail: target.email } });
+  } else if (action === 'reset-stats') {
+    if (id === user.id) {
+      return NextResponse.json({ error: 'Cannot reset your own stats' }, { status: 400 });
+    }
+    await prisma.$transaction([
+      prisma.quizSession.deleteMany({ where: { userId: id } }),
+      prisma.questionAttempt.deleteMany({ where: { userId: id } }),
+      prisma.userBadge.deleteMany({ where: { userId: id } }),
+      prisma.dailyChallengeCompletion.deleteMany({ where: { userId: id } }),
+      prisma.pointTransaction.deleteMany({ where: { userId: id } }),
+      prisma.weeklyGoalClaim.deleteMany({ where: { userId: id } }),
+      prisma.reviewSchedule.deleteMany({ where: { userId: id } }),
+      prisma.user.update({
+        where: { id },
+        data: { points: 0, streakCount: 0, lastQuizDate: null },
+      }),
+    ]);
+    writeLog({ actorId: user.id, actorRole: user.role, action: 'USER_RESET_STATS', targetType: 'User', targetId: id, payload: { targetEmail: target.email, targetNickname: target.nickname } });
   }
 
   return NextResponse.json({ ok: true });

@@ -375,10 +375,11 @@ model DailyVisit {
 }
 
 model DailyChallengeCompletion {
-  userId    String
-  date      String    // YYYY-MM-DD
-  correct   Boolean
-  createdAt DateTime  @default(now())
+  userId         String
+  date           String    // YYYY-MM-DD
+  correct        Boolean
+  selectedAnswer Int?
+  createdAt      DateTime  @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 

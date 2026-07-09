@@ -117,18 +117,17 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
                 ).join(' · ');
                 setShareModal(null);
                 if (!window.Kakao?.isInitialized()) return;
-                const quizLink = `${window.location.origin}/quiz/play?sharedFrom=${sessionId}`;
+                const resultUrl = window.location.href;
                 window.Kakao.Share.sendDefault({
                   objectType: 'feed',
                   content: {
-                    title: `CS 퀴즈 도전해볼래? ${session.score}/${total}점 (${pct}%)`,
-                    description: `${catSummaryText}\n같은 문제로 실력 확인해봐 👇`,
+                    title: `CSORA 결과 — ${session.score}/${total}점 (${pct}%)`,
+                    description: `${catSummaryText} | 나도 도전해보기!`,
                     imageUrl: `${window.location.origin}/og-image-dark.png`,
-                    link: { mobileWebUrl: quizLink, webUrl: quizLink },
+                    link: { mobileWebUrl: resultUrl, webUrl: resultUrl },
                   },
                   buttons: [
-                    { title: '나도 풀어보기!', link: { mobileWebUrl: quizLink, webUrl: quizLink } },
-                    { title: '내 결과 보기', link: { mobileWebUrl: window.location.href, webUrl: window.location.href } },
+                    { title: '결과 보기', link: { mobileWebUrl: resultUrl, webUrl: resultUrl } },
                   ],
                 });
               }}

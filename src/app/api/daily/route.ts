@@ -56,6 +56,7 @@ export async function GET() {
         correct: completion.correct,
         answer: q.answer,
         explanation: q.explanation ?? '',
+        selectedAnswer: completion.selectedAnswer,
       },
     } : {}),
   });
@@ -110,7 +111,7 @@ export async function POST(req: Request) {
   });
 
   await prisma.dailyChallengeCompletion.create({
-    data: { userId, date: today, correct },
+    data: { userId, date: today, correct, selectedAnswer: selected },
   });
 
   try {

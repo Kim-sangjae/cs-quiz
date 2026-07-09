@@ -9,6 +9,7 @@ export type RankEntry = {
 };
 
 export type CategoryRankings = {
+  overall: RankEntry[];
   ds: RankEntry[];
   algo: RankEntry[];
   os: RankEntry[];
@@ -162,37 +163,77 @@ export async function getTopContributors(): Promise<ContributorEntry[]> {
     .map((r) => ({ userId: r.authorId!, nickname: userMap[r.authorId!] ?? '(알 수 없음)', approved: r._count.id }));
 }
 
+type OverallRawRow = {
+  userId: string;
+  nickname: string | null;
+  attemptCount: number | bigint;
+  correctCount: number | bigint;
+};
+
 export async function buildRankings(): Promise<CategoryRankings> {
-  const rows = await prisma.$queryRaw<RawRow[]>`
-    WITH ranked AS (
-      SELECT
-        qa."userId",
-        q.category,
-        COUNT(*)::int AS "attemptCount",
-        SUM(CASE WHEN qa."isCorrect" THEN 1 ELSE 0 END)::int AS "correctCount",
-        u.nickname,
-        ROW_NUMBER() OVER (
-          PARTITION BY q.category
-          ORDER BY
-            (SUM(CASE WHEN qa."isCorrect" THEN 1 ELSE 0 END)::float / NULLIF(COUNT(*), 0)) DESC,
-            COUNT(*) DESC
-        ) AS rn
-      FROM "QuestionAttempt" qa
-      JOIN "Question" q ON qa."questionId" = q.id
-      JOIN "User" u ON qa."userId" = u.id
-      JOIN "QuizSession" qs ON qa."sessionId" = qs.id AND qs.mode != 'review'
-      GROUP BY qa."userId", q.category, u.nickname
-      HAVING COUNT(*) >= 10
-    )
-    SELECT "userId", category, "attemptCount", "correctCount", nickname
-    FROM ranked
-    WHERE rn <= 5
-    ORDER BY category, rn
-  `;
+  const [rows, overallRows] = await Promise.all([
+    prisma.$queryRaw<RawRow[]>`
+      WITH ranked AS (
+        SELECT
+          qa."userId",
+          q.category,
+          COUNT(*)::int AS "attemptCount",
+          SUM(CASE WHEN qa."isCorrect" THEN 1 ELSE 0 END)::int AS "correctCount",
+          u.nickname,
+          ROW_NUMBER() OVER (
+            PARTITION BY q.category
+            ORDER BY
+              (SUM(CASE WHEN qa."isCorrect" THEN 1 ELSE 0 END)::float / NULLIF(COUNT(*), 0)) DESC,
+              COUNT(*) DESC
+          ) AS rn
+        FROM "QuestionAttempt" qa
+        JOIN "Question" q ON qa."questionId" = q.id
+        JOIN "User" u ON qa."userId" = u.id
+        JOIN "QuizSession" qs ON qa."sessionId" = qs.id AND qs.mode != 'review'
+        GROUP BY qa."userId", q.category, u.nickname
+        HAVING COUNT(*) >= 10
+      )
+      SELECT "userId", category, "attemptCount", "correctCount", nickname
+      FROM ranked
+      WHERE rn <= 5
+      ORDER BY category, rn
+    `,
+    prisma.$queryRaw<OverallRawRow[]>`
+      WITH totals AS (
+        SELECT
+          qa."userId",
+          u.nickname,
+          COUNT(*)::int AS "attemptCount",
+          SUM(CASE WHEN qa."isCorrect" THEN 1 ELSE 0 END)::int AS "correctCount",
+          ROW_NUMBER() OVER (
+            ORDER BY
+              (SUM(CASE WHEN qa."isCorrect" THEN 1 ELSE 0 END)::float / NULLIF(COUNT(*), 0)) DESC,
+              COUNT(*) DESC
+          ) AS rn
+        FROM "QuestionAttempt" qa
+        JOIN "User" u ON qa."userId" = u.id
+        JOIN "QuizSession" qs ON qa."sessionId" = qs.id AND qs.mode != 'review'
+        GROUP BY qa."userId", u.nickname
+        HAVING COUNT(*) >= 10
+      )
+      SELECT "userId", nickname, "attemptCount", "correctCount"
+      FROM totals
+      WHERE rn <= 5
+      ORDER BY rn
+    `,
+  ]);
 
   const result = Object.fromEntries(
-    CATEGORIES.map(cat => [cat, [] as RankEntry[]])
+    (['overall', ...CATEGORIES] as const).map(cat => [cat, [] as RankEntry[]])
   ) as CategoryRankings;
+
+  result.overall = overallRows.map((row, i) => ({
+    rank: i + 1,
+    userId: row.userId,
+    nickname: row.nickname ?? '(닉네임 없음)',
+    attemptCount: Number(row.attemptCount),
+    accuracy: Number(row.correctCount) / Number(row.attemptCount),
+  }));
 
   for (const cat of CATEGORIES) {
     result[cat] = rows

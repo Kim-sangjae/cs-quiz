@@ -23,6 +23,7 @@ interface DailyQuestion {
     correct: boolean;
     answer: number;
     explanation: string;
+    selectedAnswer: number | null;
   };
 }
 
@@ -76,19 +77,21 @@ export default function DailyChallenge() {
     if (status === 'loading' || !q) return;
     if (status === 'authenticated' && userId) {
       // 서버 완료 상태 우선 — 브라우저 간 결과 일관성 보장
-      // selected는 localStorage에서 가져옴 (이 브라우저에서 답한 경우 오답 강조 유지)
       if (q.userCompleted) {
+        // selectedAnswer: DB에 저장된 값 → 없으면 localStorage → 없으면 answer로 폴백
         const key = storageKey(q.date, userId);
-        const saved = localStorage.getItem(key);
-        let savedSelected = -1;
-        if (saved) {
-          try { savedSelected = (JSON.parse(saved) as DailyResult).selected; } catch {}
+        let selected = q.userCompleted.selectedAnswer;
+        if (selected === null || selected === undefined) {
+          const saved = localStorage.getItem(key);
+          if (saved) {
+            try { selected = (JSON.parse(saved) as DailyResult).selected; } catch {}
+          }
         }
         const r: DailyResult = {
           correct: q.userCompleted.correct,
           answer: q.userCompleted.answer,
           explanation: q.userCompleted.explanation,
-          selected: savedSelected !== -1 ? savedSelected : q.userCompleted.answer,
+          selected: selected ?? q.userCompleted.answer,
         };
         setResult(r);
         localStorage.setItem(key, JSON.stringify(r));

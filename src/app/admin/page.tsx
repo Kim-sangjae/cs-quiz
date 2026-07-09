@@ -1489,7 +1489,7 @@ function UsersTab({ currentUserId, requestConfirm }: { currentUserId: string; re
   const pagedUsers = data?.users ?? [];
   const pageCount = data?.pageCount ?? 1;
 
-  async function doAction(userId: string, action: 'set-admin' | 'set-user' | 'deactivate' | 'reactivate') {
+  async function doAction(userId: string, action: 'set-admin' | 'set-user' | 'deactivate' | 'reactivate' | 'reset-stats') {
     setActionLoading(userId + ':' + action);
     try {
       const res = await fetch(`/api/admin/users/${userId}`, {
@@ -1502,6 +1502,8 @@ function UsersTab({ currentUserId, requestConfirm }: { currentUserId: string; re
           toast.success('권한이 변경되었습니다.');
         } else if (action === 'deactivate') {
           toast.success('탈퇴 처리되었습니다.');
+        } else if (action === 'reset-stats') {
+          toast.success('통계가 초기화되었습니다.');
         } else {
           toast.success('계정이 복구되었습니다.');
         }
@@ -1643,6 +1645,13 @@ function UsersTab({ currentUserId, requestConfirm }: { currentUserId: string; re
                             disabled={!!actionLoading || isSelf}
                             className="rounded-md bg-red-500/10 border border-red-500/30 text-red-400 text-xs px-3 py-1.5 hover:bg-red-500/20 transition-colors disabled:opacity-40">
                             탈퇴처리
+                          </button>
+                        )}
+                        {!isSelf && (
+                          <button onClick={() => requestConfirm(`'${u.nickname ?? u.email}'의 퀴즈 데이터(풀이기록·포인트·뱃지·스트릭)를 초기화하시겠습니까?`, () => doAction(u.id, 'reset-stats'))}
+                            disabled={!!actionLoading || isSelf}
+                            className="rounded-md bg-orange-500/10 border border-orange-500/30 text-orange-400 text-xs px-3 py-1.5 hover:bg-orange-500/20 transition-colors disabled:opacity-40">
+                            통계초기화
                           </button>
                         )}
                       </div>
@@ -2692,6 +2701,7 @@ function AnalyticsTab() {
   return (
     <div className="space-y-6">
       <CategoryQuestionStats />
+      <DailyResetButton />
 
       {/* ── 슬라이드 패널 ── */}
       <div
@@ -3290,6 +3300,44 @@ function ErrorLogsTab() {
           </button>
         </div>
       )}
+    </div>
+  );
+}
+
+// ───────── 일일 도전 관리 ─────────
+function DailyResetButton() {
+  const [loading, setLoading] = useState(false);
+  const [msg, setMsg] = useState('');
+
+  async function handleReset() {
+    if (!confirm('오늘의 퀴즈 참여 기록을 전부 삭제하시겠습니까?\n(모든 유저가 오늘 다시 도전 가능해집니다)')) return;
+    setLoading(true);
+    setMsg('');
+    try {
+      const res = await fetch('/api/admin/daily-reset', { method: 'DELETE' });
+      const data = await res.json() as { deleted?: { completions: number } };
+      setMsg(`완료 — ${data.deleted?.completions ?? 0}개 기록 삭제됨`);
+    } catch {
+      setMsg('오류 발생');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-3 p-4 rounded-lg border border-neutral-800 bg-[#0d0d0d]">
+      <div className="flex-1">
+        <p className="text-sm font-medium text-white">오늘의 문제 초기화</p>
+        <p className="text-xs text-neutral-500 mt-0.5">오늘 도전자 기록 삭제 → 전원 재도전 가능</p>
+        {msg && <p className="text-xs text-emerald-400 mt-1">{msg}</p>}
+      </div>
+      <button
+        onClick={handleReset}
+        disabled={loading}
+        className="rounded-md bg-red-500/10 border border-red-500/30 text-red-400 text-xs px-4 py-2 hover:bg-red-500/20 transition-colors disabled:opacity-40 whitespace-nowrap"
+      >
+        {loading ? '처리 중...' : '초기화'}
+      </button>
     </div>
   );
 }

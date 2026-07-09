@@ -7,6 +7,7 @@ import type { CategoryRankings, RankEntry, MyRankEntry, ContributorEntry } from 
 import UserProfileModal from './UserProfileModal';
 
 const CATEGORY_TABS: { key: keyof CategoryRankings; label: string }[] = [
+  { key: 'overall', label: '전체' },
   { key: 'ds', label: 'DS' },
   { key: 'algo', label: 'Algo' },
   { key: 'os', label: 'OS' },
@@ -101,7 +102,7 @@ function FriendRankings({
 }
 
 export default function RankingSection({ rankings, currentUserId, myRanks, contributors }: RankingSectionProps) {
-  const [activeTab, setActiveTab] = useState<keyof CategoryRankings | 'friends' | 'contributors'>('ds');
+  const [activeTab, setActiveTab] = useState<keyof CategoryRankings | 'friends' | 'contributors'>('overall');
   const [profileModal, setProfileModal] = useState<{ userId: string; nickname: string } | null>(null);
   const isFriendsTab = activeTab === 'friends';
   const isContributorsTab = activeTab === 'contributors';
@@ -122,7 +123,7 @@ export default function RankingSection({ rankings, currentUserId, myRanks, contr
       )}
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-sm font-medium text-neutral-400">
-          {isContributorsTab ? '문제 기여자 TOP 5' : '카테고리별 TOP 5'}
+          {isContributorsTab ? '문제 기여자 TOP 5' : activeTab === 'overall' ? '전체 합산 TOP 5' : '카테고리별 TOP 5'}
         </h2>
         {isContributorsTab && (
           <Link href="/leaderboard" className="text-xs text-neutral-600 hover:text-white transition-colors">전체 보기 →</Link>

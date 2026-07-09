@@ -14,7 +14,7 @@ const getCachedTotal = unstable_cache(
 );
 
 const EMPTY_RANKINGS: CategoryRankings = {
-  ds: [], algo: [], os: [], network: [], db: [], arch: [], se: [],
+  overall: [], ds: [], algo: [], os: [], network: [], db: [], arch: [], se: [],
 };
 
 const getCachedRankings = unstable_cache(buildRankings, ['rankings'], { revalidate: 60 });
