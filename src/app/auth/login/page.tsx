@@ -10,12 +10,18 @@ function LoginContent() {
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get('callbackUrl') ?? '/';
   const [devNickname, setDevNickname] = useState('');
+  const [isKakaoWebView, setIsKakaoWebView] = useState(false);
 
   useEffect(() => {
     if (callbackUrl !== '/') {
       toast('로그인이 필요한 서비스입니다.', { id: 'auth-required' });
     }
   }, [callbackUrl]);
+
+  useEffect(() => {
+    const ua = navigator.userAgent;
+    setIsKakaoWebView(/KAKAOTALK/i.test(ua) || /kakaotalk/i.test(ua));
+  }, []);
 
   return (
     <div className="w-full max-w-sm">
@@ -26,10 +32,20 @@ function LoginContent() {
           로그인하면 풀이 기록, 오답 복습, 친구 대결을 이용할 수 있습니다.
         </p>
       </div>
+      {isKakaoWebView && (
+        <div className="mb-4 rounded-lg border border-amber-800/50 bg-amber-950/30 px-4 py-3">
+          <p className="text-xs text-amber-400 leading-relaxed">
+            카카오톡 앱 내 브라우저에서는 구글 로그인이 제한됩니다.
+            우측 상단 메뉴(⋮) → <strong>기본 브라우저로 열기</strong>를 선택 후 로그인해주세요.
+            카카오 로그인은 바로 이용 가능합니다.
+          </p>
+        </div>
+      )}
       <div className="flex flex-col gap-3">
         <button
           onClick={() => signIn('google', { callbackUrl })}
-          className="w-full flex items-center justify-center gap-3 rounded-lg bg-white text-black text-sm font-medium px-6 py-3 hover:bg-neutral-200 transition-colors"
+          disabled={isKakaoWebView}
+          className="w-full flex items-center justify-center gap-3 rounded-lg bg-white text-black text-sm font-medium px-6 py-3 hover:bg-neutral-200 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
             <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>

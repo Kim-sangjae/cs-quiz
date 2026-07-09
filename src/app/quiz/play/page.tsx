@@ -3,7 +3,26 @@ import { getServerUser } from "@/lib/auth";
 import { sample } from "@/lib/sample";
 import { QuestionStatus } from "@prisma/client";
 import type { Question, Category } from "@/types";
+import type { Metadata } from "next";
 import QuizPlayClient from "./QuizPlayClient";
+
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: Promise<{ sharedFrom?: string }>;
+}): Promise<Metadata> {
+  const { sharedFrom } = await searchParams;
+  if (!sharedFrom) return {};
+  return {
+    title: '같은 문제에 도전해보세요! — CSORA',
+    description: '친구가 풀었던 CS 퀴즈 문제에 도전해보세요.',
+    openGraph: {
+      title: '같은 문제에 도전해보세요!',
+      description: '친구가 풀었던 CS 퀴즈 문제에 도전해보세요. — CSORA',
+      images: [{ url: '/og-image-dark.png', width: 1200, height: 630 }],
+    },
+  };
+}
 
 export default async function QuizPlayPage({
   searchParams,

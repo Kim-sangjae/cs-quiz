@@ -66,8 +66,39 @@ export async function getMyRanks(
     WHERE "userId" = ${userId}
   `;
 
+  const overallRows = await prisma.$queryRaw<
+    { rank: bigint; attemptCount: number; correctCount: number; totalParticipants: bigint }[]
+  >`
+    WITH totals AS (
+      SELECT
+        qa."userId",
+        COUNT(*)::int AS "attemptCount",
+        SUM(CASE WHEN qa."isCorrect" THEN 1 ELSE 0 END)::int AS "correctCount",
+        RANK() OVER (
+          ORDER BY
+            (SUM(CASE WHEN qa."isCorrect" THEN 1 ELSE 0 END)::float / NULLIF(COUNT(*), 0)) DESC,
+            COUNT(*) DESC
+        ) AS rank,
+        COUNT(*) OVER () AS "totalParticipants"
+      FROM "QuestionAttempt" qa
+      JOIN "QuizSession" qs ON qa."sessionId" = qs.id AND qs.mode != 'review'
+      GROUP BY qa."userId"
+      HAVING COUNT(*) >= 10
+    )
+    SELECT rank, "attemptCount", "correctCount", "totalParticipants"
+    FROM totals
+    WHERE "userId" = ${userId}
+  `;
+
   const result: Record<string, MyRankEntry> = {};
   for (const cat of CATEGORIES) result[cat] = null;
+  result['overall'] = overallRows.length > 0 ? {
+    rank: Number(overallRows[0].rank),
+    accuracy: Number(overallRows[0].correctCount) / Number(overallRows[0].attemptCount),
+    attemptCount: Number(overallRows[0].attemptCount),
+    totalParticipants: Number(overallRows[0].totalParticipants),
+  } : null;
+
   for (const row of rows) {
     result[row.category] = {
       rank: Number(row.rank),

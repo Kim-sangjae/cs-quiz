@@ -97,17 +97,9 @@ export default function DailyChallenge() {
         localStorage.setItem(key, JSON.stringify(r));
         return;
       }
-      const key = storageKey(q.date, userId);
-      const saved = localStorage.getItem(key);
-      if (saved) {
-        try {
-          setResult(JSON.parse(saved) as DailyResult);
-        } catch {
-          localStorage.removeItem(key);
-        }
-      } else {
-        setResult(null);
-      }
+      // 서버가 미완료로 판단 → localStorage 클리어 (관리자 초기화 후 재도전 보장)
+      localStorage.removeItem(storageKey(q.date, userId));
+      setResult(null);
     } else {
       setResult(null);
     }

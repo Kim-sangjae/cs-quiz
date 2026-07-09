@@ -70,9 +70,10 @@ export async function PATCH(
     if (id === user.id) {
       return NextResponse.json({ error: 'Cannot reset your own stats' }, { status: 400 });
     }
+    // FK 제약 준수: QuestionAttempt(→QuizSession) 먼저 삭제
     await prisma.$transaction([
-      prisma.quizSession.deleteMany({ where: { userId: id } }),
       prisma.questionAttempt.deleteMany({ where: { userId: id } }),
+      prisma.quizSession.deleteMany({ where: { userId: id } }),
       prisma.userBadge.deleteMany({ where: { userId: id } }),
       prisma.dailyChallengeCompletion.deleteMany({ where: { userId: id } }),
       prisma.pointTransaction.deleteMany({ where: { userId: id } }),
