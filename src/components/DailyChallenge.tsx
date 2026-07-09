@@ -118,7 +118,13 @@ export default function DailyChallenge() {
       const r: DailyResult = { correct: data.correct, answer: data.answer, explanation: data.explanation, selected };
       setResult(r);
       if (userId) localStorage.setItem(storageKey(q.date, userId), JSON.stringify(r));
-      setQ(prev => prev ? { ...prev, correctRate: data.correctRate, attemptCount: data.attemptCount } : prev);
+      // userCompleted도 함께 업데이트 → useEffect 재실행 시 result 초기화 방지
+      setQ(prev => prev ? {
+        ...prev,
+        correctRate: data.correctRate,
+        attemptCount: data.attemptCount,
+        userCompleted: { correct: data.correct, answer: data.answer, explanation: data.explanation ?? '', selectedAnswer: selected },
+      } : prev);
     } finally {
       setSubmitting(false);
     }

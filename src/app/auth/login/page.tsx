@@ -36,8 +36,8 @@ function LoginContent() {
         <div className="mb-4 rounded-lg border border-amber-800/50 bg-amber-950/30 px-4 py-3">
           <p className="text-xs text-amber-400 leading-relaxed">
             카카오톡 앱 내 브라우저에서는 구글 로그인이 제한됩니다.
-            우측 상단 메뉴(⋮) → <strong>기본 브라우저로 열기</strong>를 선택 후 로그인해주세요.
-            카카오 로그인은 바로 이용 가능합니다.
+            하단 메뉴(⋮) → <strong>다른 브라우저로 열기</strong>를 선택 후 로그인해주세요.
+            메뉴 위치·문구는 기기마다 다를 수 있습니다. 카카오 로그인은 바로 이용 가능합니다.
           </p>
         </div>
       )}
