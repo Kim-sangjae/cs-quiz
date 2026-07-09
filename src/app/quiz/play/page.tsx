@@ -13,12 +13,35 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { sharedFrom } = await searchParams;
   if (!sharedFrom) return {};
+
+  try {
+    const shared = await prisma.quizSession.findUnique({
+      where: { id: sharedFrom },
+      select: {
+        score: true,
+        questionIds: true,
+        user: { select: { nickname: true } },
+      },
+    });
+
+    if (shared) {
+      const total = (shared.questionIds as string[]).length;
+      const pct = Math.round((shared.score / total) * 100);
+      const nick = shared.user?.nickname ?? '친구';
+      const title = `${nick}님이 ${pct}% 득점! 같은 문제에 도전해보세요`;
+      const description = `${total}문제 중 ${shared.score}개 정답 (${pct}%) — CSORA에서 나도 도전!`;
+      return {
+        title,
+        openGraph: { title, description, images: [{ url: '/og-image-dark.png', width: 1200, height: 630 }] },
+      };
+    }
+  } catch {}
+
   return {
     title: '같은 문제에 도전해보세요! — CSORA',
-    description: '친구가 풀었던 CS 퀴즈 문제에 도전해보세요.',
     openGraph: {
       title: '같은 문제에 도전해보세요!',
-      description: '친구가 풀었던 CS 퀴즈 문제에 도전해보세요. — CSORA',
+      description: '친구가 풀었던 CS 퀴즈 문제에 도전해보세요.',
       images: [{ url: '/og-image-dark.png', width: 1200, height: 630 }],
     },
   };

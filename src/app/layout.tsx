@@ -20,6 +20,10 @@ export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXTAUTH_URL ?? 'http://localhost:3000'),
   title: { default: 'CSORA', template: '%s | CSORA' },
   description: 'CS 기초 지식을 20문제로 점검하세요. 자료구조·알고리즘·OS·네트워크·DB·컴퓨터 구조 6개 영역에서 랜덤 출제.',
+  icons: {
+    icon: [{ url: '/csora-logo.png', type: 'image/png' }],
+    apple: '/csora-logo.png',
+  },
   openGraph: {
     title: 'CSORA',
     description: 'CS 기초 지식을 20문제로 점검하세요',
