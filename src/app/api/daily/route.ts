@@ -23,11 +23,20 @@ async function getDailyQuestion() {
 }
 
 export async function GET() {
+  const session = await auth();
   const q = await getDailyQuestion();
   if (!q) return NextResponse.json({ error: 'No questions' }, { status: 404 });
 
   const today = getToday();
-  const stat = await prisma.dailyChallengeStat.findUnique({ where: { date: today } });
+  const [stat, completion] = await Promise.all([
+    prisma.dailyChallengeStat.findUnique({ where: { date: today } }),
+    session?.user?.id
+      ? prisma.dailyChallengeCompletion.findUnique({
+          where: { userId_date: { userId: session.user.id, date: today } },
+        })
+      : Promise.resolve(null),
+  ]);
+
   const attemptCount = stat?.attemptCount ?? 0;
   const correctRate = attemptCount > 0
     ? Math.round((stat!.correctCount / attemptCount) * 100)
@@ -41,6 +50,14 @@ export async function GET() {
     options: q.options,
     attemptCount,
     correctRate,
+    // 인증 사용자가 이미 완료한 경우: 서버 결과 반환 (브라우저 간 일관성 보장)
+    ...(completion ? {
+      userCompleted: {
+        correct: completion.correct,
+        answer: q.answer,
+        explanation: q.explanation ?? '',
+      },
+    } : {}),
   });
 }
 

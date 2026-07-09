@@ -19,6 +19,11 @@ interface DailyQuestion {
   options: string[];
   attemptCount: number;
   correctRate: number | null;
+  userCompleted?: {
+    correct: boolean;
+    answer: number;
+    explanation: string;
+  };
 }
 
 interface DailyResult {
@@ -70,6 +75,18 @@ export default function DailyChallenge() {
   useEffect(() => {
     if (status === 'loading' || !q) return;
     if (status === 'authenticated' && userId) {
+      // 서버 완료 상태 우선 — 브라우저 간 결과 일관성 보장
+      if (q.userCompleted) {
+        const r: DailyResult = {
+          correct: q.userCompleted.correct,
+          answer: q.userCompleted.answer,
+          explanation: q.userCompleted.explanation,
+          selected: q.userCompleted.correct ? q.userCompleted.answer : -1,
+        };
+        setResult(r);
+        localStorage.setItem(storageKey(q.date, userId), JSON.stringify(r));
+        return;
+      }
       const key = storageKey(q.date, userId);
       const saved = localStorage.getItem(key);
       if (saved) {
