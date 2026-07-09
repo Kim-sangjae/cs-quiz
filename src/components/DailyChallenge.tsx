@@ -76,15 +76,22 @@ export default function DailyChallenge() {
     if (status === 'loading' || !q) return;
     if (status === 'authenticated' && userId) {
       // 서버 완료 상태 우선 — 브라우저 간 결과 일관성 보장
+      // selected는 localStorage에서 가져옴 (이 브라우저에서 답한 경우 오답 강조 유지)
       if (q.userCompleted) {
+        const key = storageKey(q.date, userId);
+        const saved = localStorage.getItem(key);
+        let savedSelected = -1;
+        if (saved) {
+          try { savedSelected = (JSON.parse(saved) as DailyResult).selected; } catch {}
+        }
         const r: DailyResult = {
           correct: q.userCompleted.correct,
           answer: q.userCompleted.answer,
           explanation: q.userCompleted.explanation,
-          selected: q.userCompleted.correct ? q.userCompleted.answer : -1,
+          selected: savedSelected !== -1 ? savedSelected : q.userCompleted.answer,
         };
         setResult(r);
-        localStorage.setItem(storageKey(q.date, userId), JSON.stringify(r));
+        localStorage.setItem(key, JSON.stringify(r));
         return;
       }
       const key = storageKey(q.date, userId);

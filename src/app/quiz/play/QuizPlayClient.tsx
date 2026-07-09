@@ -24,6 +24,7 @@ export default function QuizPlayClient({ questions, category, mode = 'normal', i
   const [answers, setAnswers] = useState<UserAnswer[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const isSubmittingRef = useRef(false);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [exitModal, setExitModal] = useState<{ url: string | null; isBack: boolean } | null>(null);
   const autoAdvanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -310,7 +311,8 @@ export default function QuizPlayClient({ questions, category, mode = 'normal', i
   }
 
   async function handleSubmit(): Promise<void> {
-    if (isSubmitting) return;
+    if (isSubmittingRef.current || isSubmitting) return;
+    isSubmittingRef.current = true;
     setIsSubmitting(true);
     try {
       const res = await fetch("/api/quiz/sessions", {
@@ -342,6 +344,7 @@ export default function QuizPlayClient({ questions, category, mode = 'normal', i
       console.error("[QuizPlay] submit failed:", e);
       router.replace("/");
     } finally {
+      isSubmittingRef.current = false;
       setIsSubmitting(false);
     }
   }

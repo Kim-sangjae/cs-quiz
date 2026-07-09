@@ -28,8 +28,9 @@ export async function GET() {
   if (!q) return NextResponse.json({ error: 'No questions' }, { status: 404 });
 
   const today = getToday();
-  const [stat, completion] = await Promise.all([
-    prisma.dailyChallengeStat.findUnique({ where: { date: today } }),
+  const [totalAttempts, correctAttempts, completion] = await Promise.all([
+    prisma.dailyChallengeCompletion.count({ where: { date: today } }),
+    prisma.dailyChallengeCompletion.count({ where: { date: today, correct: true } }),
     session?.user?.id
       ? prisma.dailyChallengeCompletion.findUnique({
           where: { userId_date: { userId: session.user.id, date: today } },
@@ -37,9 +38,8 @@ export async function GET() {
       : Promise.resolve(null),
   ]);
 
-  const attemptCount = stat?.attemptCount ?? 0;
-  const correctRate = attemptCount > 0
-    ? Math.round((stat!.correctCount / attemptCount) * 100)
+  const correctRate = totalAttempts > 0
+    ? Math.round((correctAttempts / totalAttempts) * 100)
     : null;
 
   return NextResponse.json({
@@ -48,7 +48,7 @@ export async function GET() {
     category: q.category,
     question: q.question,
     options: q.options,
-    attemptCount,
+    attemptCount: totalAttempts,
     correctRate,
     // 인증 사용자가 이미 완료한 경우: 서버 결과 반환 (브라우저 간 일관성 보장)
     ...(completion ? {
@@ -81,15 +81,16 @@ export async function POST(req: Request) {
   });
 
   if (existing) {
-    const stat = await prisma.dailyChallengeStat.findUnique({ where: { date: today } });
+    const [tot, cor] = await Promise.all([
+      prisma.dailyChallengeCompletion.count({ where: { date: today } }),
+      prisma.dailyChallengeCompletion.count({ where: { date: today, correct: true } }),
+    ]);
     return NextResponse.json({
       correct: existing.correct,
       answer: q.answer,
       explanation: q.explanation,
-      correctRate: stat && stat.attemptCount > 0
-        ? Math.round((stat.correctCount / stat.attemptCount) * 100)
-        : null,
-      attemptCount: stat?.attemptCount ?? 0,
+      correctRate: tot > 0 ? Math.round((cor / tot) * 100) : null,
+      attemptCount: tot,
       alreadyCompleted: true,
     });
   }
