@@ -9,6 +9,9 @@ const PROTECTED = ['/quiz', '/mypage', '/settings', '/board/submit', '/admin', '
 export default auth((req) => {
   const { pathname } = req.nextUrl;
 
+  // /quiz/play는 비로그인 접근 허용 (OG 스크래핑 + sharedFrom 공유 지원)
+  if (pathname === '/quiz/play') return NextResponse.next();
+
   const needsLogin = PROTECTED.some(
     (p) => pathname === p || pathname.startsWith(p + '/')
   );
