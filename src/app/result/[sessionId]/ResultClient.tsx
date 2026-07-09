@@ -13,6 +13,7 @@ declare global {
       isInitialized: () => boolean;
       Share: {
         sendDefault: (options: Record<string, unknown>) => void;
+        sendScrap: (options: { requestUrl: string; templateId?: number; templateArgs?: Record<string, string> }) => void;
       };
     };
   }
@@ -111,25 +112,9 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
           {process.env.NEXT_PUBLIC_KAKAO_APP_KEY && (
             <button
               onClick={() => {
-                const pct = Math.round((session.score / total) * 100);
-                const catSummaryText = catEntries.map(([cat, { correct, total: t }]) =>
-                  `${CATEGORY_LABEL[cat] ?? cat} ${correct}/${t}`
-                ).join(' · ');
                 setShareModal(null);
                 if (!window.Kakao?.isInitialized()) return;
-                const resultUrl = window.location.href;
-                window.Kakao.Share.sendDefault({
-                  objectType: 'feed',
-                  content: {
-                    title: `CSORA 결과 — ${session.score}/${total}점 (${pct}%)`,
-                    description: `${catSummaryText} | 나도 도전해보기!`,
-                    imageUrl: `${window.location.origin}/og-image-dark.png`,
-                    link: { mobileWebUrl: resultUrl, webUrl: resultUrl },
-                  },
-                  buttons: [
-                    { title: '결과 보기', link: { mobileWebUrl: resultUrl, webUrl: resultUrl } },
-                  ],
-                });
+                window.Kakao.Share.sendScrap({ requestUrl: window.location.href });
               }}
               className="w-full rounded-md bg-[#FEE500] text-[#3A1D1D] text-sm font-semibold py-3 hover:bg-[#F5DC00] transition-colors flex items-center justify-center gap-2"
             >
