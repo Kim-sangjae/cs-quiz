@@ -389,7 +389,7 @@ function SubmitContent() {
                   value={i}
                   checked={answer === i}
                   onChange={() => setAnswer(i)}
-                  className="accent-white"
+                  className="accent-blue-500"
                 />
                 <span className="text-sm text-neutral-300">{label}</span>
               </label>

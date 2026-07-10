@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabaseBrowser } from '@/lib/supabase-browser';
 import { ChatMessage } from '@/lib/chat-store';
-import { useScrollLock } from '@/lib/use-scroll-lock';
 
 interface Props {
   myId: string;
@@ -24,10 +23,8 @@ export default function ChatWindow({ myId, friend, isOnline, onClose }: Props) {
   const [vvHeight, setVvHeight] = useState<number | null>(null);
   const channelRef = useRef<ReturnType<typeof supabaseBrowser.channel> | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-
-  // 채팅창 열린 동안 뒷 배경 스크롤 방지
-  useScrollLock(true);
 
   // visualViewport로 소프트 키보드 감지 (Samsung Browser 포함)
   const handleViewport = useCallback(() => {
@@ -94,12 +91,17 @@ export default function ChatWindow({ myId, friend, isOnline, onClose }: Props) {
     };
   }, [channelName, myId, friend.userId]);
 
+  function scrollToBottom() {
+    const el = messagesContainerRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }
+
   useEffect(() => {
-    if (!loading) bottomRef.current?.scrollIntoView({ behavior: 'instant', block: 'nearest' });
+    if (!loading) scrollToBottom();
   }, [loading]);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    scrollToBottom();
   }, [messages.length]);
 
   useEffect(() => {
@@ -173,7 +175,7 @@ export default function ChatWindow({ myId, friend, isOnline, onClose }: Props) {
       </div>
 
       {/* 메시지 목록 */}
-      <div className="flex-1 overflow-y-auto px-3 py-2 space-y-1.5">
+      <div ref={messagesContainerRef} className="flex-1 overflow-y-auto px-3 py-2 space-y-1.5">
         {/* 안내 문구 */}
         <div className="flex items-center justify-center gap-1 py-1.5 mb-1 border-b border-amber-500/20 bg-amber-500/5 rounded-md">
           <svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="text-amber-500/80 flex-shrink-0">

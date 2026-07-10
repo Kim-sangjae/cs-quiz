@@ -570,9 +570,8 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
                         manualDismissedAutoModeRef.current = false;
                         setIsAutoMode(false);
                         if (autoModeTimerRef.current) clearTimeout(autoModeTimerRef.current);
-                        // 상대방이 이미 답한 경우 1.5초간 현재 문제+선택 표시 (폴링 무관)
-                        const oppAlreadyAnswered = room.myRole === 'host' ? !!room.guestAnswered : !!room.hostAnswered;
-                        if (oppAlreadyAnswered && room.question) {
+                        // 답 선택 직후 1.5초간 현재 문제+선택 표시 (둘 다 빨리 답해도 폴링 무관하게 유지)
+                        if (room.question) {
                           if (frozenAnswerTimerRef.current) clearTimeout(frozenAnswerTimerRef.current);
                           setFrozenAnswer({
                             questionText: room.question.question,
