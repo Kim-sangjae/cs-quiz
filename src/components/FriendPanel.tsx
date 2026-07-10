@@ -218,11 +218,10 @@ export default function FriendPanel() {
     function onMove(clientY: number) {
       if (Math.abs(startClientY - clientY) > 5) didDragRef.current = true;
       const moved = startDelta + (startClientY - clientY);
-      const panelH = panelRef.current?.offsetHeight ?? 56;
-      const vh = window.innerHeight;
-      const max = vh - panelH - 16;
-      const min = -96;
-      setDeltaY(Math.max(min, Math.min(max, moved)));
+      // min=0: 기본 위치보다 아래로 못 내림
+      // max: 버튼 센터가 화면 정중앙까지만 (baseBottom≈112, buttonHalf=24)
+      const max = Math.max(0, window.innerHeight / 2 - 136);
+      setDeltaY(Math.max(0, Math.min(max, moved)));
     }
     function onMouseMove(e: MouseEvent) { onMove(e.clientY); }
     function onTouchMoveDoc(e: TouchEvent) { onMove(e.touches[0].clientY); }

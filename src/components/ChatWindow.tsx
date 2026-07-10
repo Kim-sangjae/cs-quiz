@@ -147,9 +147,9 @@ export default function ChatWindow({ myId, friend, isOnline, onClose }: Props) {
   return (
     <>
     {/* 바깥 클릭 시 닫기 */}
-    <div className="fixed inset-0 z-[48]" onClick={onClose} />
+    <div className="fixed inset-0 z-[59]" onClick={onClose} />
     <div
-      className="fixed right-4 z-[49] flex flex-col bg-[#0f0f0f] border border-neutral-800 rounded-xl shadow-2xl w-72 max-w-[calc(100vw-2rem)]"
+      className="fixed right-4 z-[60] flex flex-col bg-[#0f0f0f] border border-neutral-800 rounded-xl shadow-2xl w-72 max-w-[calc(100vw-2rem)]"
       style={{ bottom: chatBottom, height: chatHeight }}
     >
       {/* 헤더 */}
