@@ -70,7 +70,7 @@ CS 지식을 점검하거나 학습하고 싶은 개발자 지망생 및 현직 
 - 페이지 진입 시 `/api/mypage/liked-questions`로 북마크 상태 일괄 조회해 초기 세팅
 
 #### 공유
-- 공유 모달: ① 카카오톡 (Kakao SDK `sendDefault`) ② 다른 앱 (Web Share API) ③ 링크 복사
+- 공유 모달: ① 카카오톡 (Kakao SDK `sendScrap` — OG 메타태그 자동 크롤) ② 다른 앱 (Web Share API) ③ 링크 복사
 
 ---
 
