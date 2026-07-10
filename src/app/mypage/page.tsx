@@ -891,7 +891,7 @@ export default function MyPage() {
 
       {/* 포인트 정보/내역 모달 */}
       {showPointsModal && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/60" onClick={() => setShowPointsModal(false)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60" onClick={() => setShowPointsModal(false)}>
           <div className="w-full max-w-sm bg-[#111111] border border-neutral-700 rounded-xl shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between px-5 py-4 border-b border-neutral-800">
               <h3 className="text-sm font-semibold text-white">포인트 안내</h3>

@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import UserProfileModal from './UserProfileModal';
+import { useScrollLock } from '@/lib/use-scroll-lock';
 
 interface OnlineUser {
   id: string;
@@ -64,6 +65,8 @@ export default function OnlineCountBadge() {
     setShowPanel(false);
     setSelectedUser(null);
   }, []);
+
+  useScrollLock(showPanel);
 
   if (count === null || count === 0) return null;
 
