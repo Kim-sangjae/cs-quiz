@@ -544,7 +544,7 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
                   let cls = 'w-full text-left rounded-md border px-4 py-2.5 text-sm flex items-start gap-3 transition-colors ';
                   if (myAnswered && !isAutoSubmitted) {
                     cls += i === room.mySelected
-                      ? 'border-neutral-500 bg-neutral-800/50 text-neutral-300 cursor-default'
+                      ? 'border-blue-500 bg-blue-500/20 text-blue-200 cursor-default'
                       : 'border-neutral-800 text-neutral-600 opacity-40 cursor-default';
                   } else {
                     cls += 'border-neutral-800 text-neutral-300 hover:border-neutral-600 hover:text-white cursor-pointer';

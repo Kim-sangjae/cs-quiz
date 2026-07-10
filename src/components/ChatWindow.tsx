@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabaseBrowser } from '@/lib/supabase-browser';
 import { ChatMessage } from '@/lib/chat-store';
 
@@ -19,9 +19,31 @@ export default function ChatWindow({ myId, friend, isOnline, onClose }: Props) {
   const [input, setInput] = useState('');
   const [channelReady, setChannelReady] = useState(false);
   const [friendOffline, setFriendOffline] = useState(!isOnline);
+  const [keyboardOffset, setKeyboardOffset] = useState(0);
+  const [vvHeight, setVvHeight] = useState<number | null>(null);
   const channelRef = useRef<ReturnType<typeof supabaseBrowser.channel> | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // visualViewport로 소프트 키보드 감지 (Samsung Browser 포함)
+  const handleViewport = useCallback(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    setVvHeight(vv.height);
+    setKeyboardOffset(Math.max(0, window.innerHeight - vv.height - vv.offsetTop));
+  }, []);
+
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    handleViewport();
+    vv.addEventListener('resize', handleViewport);
+    vv.addEventListener('scroll', handleViewport);
+    return () => {
+      vv.removeEventListener('resize', handleViewport);
+      vv.removeEventListener('scroll', handleViewport);
+    };
+  }, [handleViewport]);
 
   const channelName = `csora-chat-${[myId, friend.userId].sort().join('-')}`;
 
@@ -109,13 +131,18 @@ export default function ChatWindow({ myId, friend, isOnline, onClose }: Props) {
     }
   }
 
+  const chatBottom = keyboardOffset > 0 ? `${keyboardOffset + 8}px` : 'max(10.5rem, calc(env(safe-area-inset-bottom, 0px) + 10.5rem))';
+  const chatHeight = keyboardOffset > 0
+    ? `min(340px, calc(${vvHeight ?? 0}px - 5rem))`
+    : 'min(340px, calc(100dvh - 12rem))';
+
   return (
+    <>
+    {/* 바깥 클릭 시 닫기 */}
+    <div className="fixed inset-0 z-[48]" onClick={onClose} />
     <div
       className="fixed right-4 z-[49] flex flex-col bg-[#0f0f0f] border border-neutral-800 rounded-xl shadow-2xl w-72 max-w-[calc(100vw-2rem)]"
-      style={{
-        bottom: 'max(10.5rem, calc(env(safe-area-inset-bottom, 0px) + 10.5rem))',
-        height: 'min(340px, calc(100dvh - 12rem))',
-      }}
+      style={{ bottom: chatBottom, height: chatHeight }}
     >
       {/* 헤더 */}
       <div className="flex items-center justify-between px-3 py-2.5 border-b border-neutral-800 flex-shrink-0">
@@ -162,7 +189,7 @@ export default function ChatWindow({ myId, friend, isOnline, onClose }: Props) {
             return (
               <div key={m.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
                 <div className={`max-w-[80%] px-2.5 py-1.5 rounded-lg text-xs leading-relaxed break-words ${
-                  isMe ? 'bg-white text-black' : 'bg-neutral-800 text-neutral-200'
+                  isMe ? 'bg-blue-600 text-white' : 'bg-neutral-800 text-neutral-200'
                 }`}>
                   {m.content}
                 </div>
@@ -209,5 +236,6 @@ export default function ChatWindow({ myId, friend, isOnline, onClose }: Props) {
         </div>
       )}
     </div>
+    </>
   );
 }
