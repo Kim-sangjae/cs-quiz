@@ -111,6 +111,8 @@ export default function QuestionDrawer({
   const q = prefetched ?? fetched;
   const options = q ? (q.options as string[]) : [];
   const rejectionReason = fetched?.status === 'REJECTED' ? fetched.rejectionReason : null;
+  // fetched가 있으면 status 기준, 없으면(prefetched만) 기본 표시
+  const isApproved = fetched ? fetched.status === 'APPROVED' : true;
 
   return (
     <>
@@ -207,30 +209,32 @@ export default function QuestionDrawer({
                 </div>
               )}
 
-              <div className="flex items-center justify-between pt-2">
-                <button
-                  onClick={() => toggleBookmark(q.id)}
-                  disabled={bookmarkPending}
-                  className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border transition-colors disabled:opacity-50 ${
-                    bookmarked
-                      ? 'border-yellow-500/50 bg-yellow-500/10 text-yellow-400'
-                      : 'border-neutral-800 text-neutral-500 hover:border-neutral-600 hover:text-neutral-300'
-                  }`}
-                >
-                  <svg width={13} height={13} viewBox="0 0 24 24" fill={bookmarked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0z" />
-                  </svg>
-                  {bookmarked ? '북마크됨' : '북마크'}
-                </button>
-                <Link
-                  href={`/board/${q.id}`}
-                  onClick={onClose}
-                  className="text-xs text-neutral-500 hover:text-white transition-colors"
-                >
-                  게시판에서 보기 →
-                </Link>
-              </div>
-              <CommentSection questionId={q.id} />
+              {isApproved && (
+                <div className="flex items-center justify-between pt-2">
+                  <button
+                    onClick={() => toggleBookmark(q.id)}
+                    disabled={bookmarkPending}
+                    className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border transition-colors disabled:opacity-50 ${
+                      bookmarked
+                        ? 'border-yellow-500/50 bg-yellow-500/10 text-yellow-400'
+                        : 'border-neutral-800 text-neutral-500 hover:border-neutral-600 hover:text-neutral-300'
+                    }`}
+                  >
+                    <svg width={13} height={13} viewBox="0 0 24 24" fill={bookmarked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0z" />
+                    </svg>
+                    {bookmarked ? '북마크됨' : '북마크'}
+                  </button>
+                  <Link
+                    href={`/board/${q.id}`}
+                    onClick={onClose}
+                    className="text-xs text-neutral-500 hover:text-white transition-colors"
+                  >
+                    게시판에서 보기 →
+                  </Link>
+                </div>
+              )}
+              {isApproved && <CommentSection questionId={q.id} />}
             </>
           )}
         </div>
