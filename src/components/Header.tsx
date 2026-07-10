@@ -8,6 +8,7 @@ import { clearAllChats } from '@/lib/chat-store';
 import { supabaseBrowser } from '@/lib/supabase-browser';
 import { useQuery } from '@tanstack/react-query';
 import NotificationBell from './NotificationBell';
+import { useScrollLock } from '@/lib/use-scroll-lock';
 
 function AdminBadge() {
   const { data } = useQuery<{ newTotal: number }>({
@@ -38,6 +39,7 @@ export default function Header() {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  useScrollLock(menuOpen);
 
   useEffect(() => {
     const handler = (e: Event) => {

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useScrollLock } from '@/lib/use-scroll-lock';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { BADGE_META } from '@/lib/badges';
 import type { BadgeType } from '@/lib/badges';
@@ -70,6 +71,7 @@ export default function UserProfileModal({
   onAddFriend,
   friendActions,
 }: UserProfileModalProps) {
+  useScrollLock(true);
   const queryClient = useQueryClient();
   const [friendRequested, setFriendRequested] = useState(false);
   const [addingFriend, setAddingFriend] = useState(false);

@@ -3,6 +3,7 @@
 import { useSession } from 'next-auth/react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { usePathname } from 'next/navigation';
+import { useScrollLock } from '@/lib/use-scroll-lock';
 
 interface RejectedPayload {
   fromNickname: string;
@@ -47,12 +48,14 @@ export default function BattleRejectedAlert() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notifications'] }),
   });
 
-  // 배틀 페이지에서는 in-page 거절 모달이 처리하므로 전역 팝업 생략
-  if (pathname.startsWith('/battle/')) return null;
-
   const pending = (data?.notifications ?? []).find(
     (n) => n.type === 'BATTLE_REJECTED' && !n.isRead
   );
+
+  useScrollLock(!!pending && !pathname.startsWith('/battle/'));
+
+  // 배틀 페이지에서는 in-page 거절 모달이 처리하므로 전역 팝업 생략
+  if (pathname.startsWith('/battle/')) return null;
 
   if (!pending) return null;
 

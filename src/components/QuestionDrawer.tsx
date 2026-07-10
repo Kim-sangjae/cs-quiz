@@ -7,6 +7,7 @@ import ResultCard from './ResultCard';
 import CommentSection from './board/CommentSection';
 import AuthorButton from './AuthorButton';
 import type { Question } from '@/types';
+import { useScrollLock } from '@/lib/use-scroll-lock';
 
 const CATEGORY_LABELS: Record<string, string> = {
   ds: '자료구조', algo: '알고리즘', os: '운영체제',
@@ -98,15 +99,7 @@ export default function QuestionDrawer({
     }
   }
 
-  useEffect(() => {
-    if (!open) return;
-    const scrollY = window.scrollY;
-    document.body.style.cssText = `position:fixed;top:-${scrollY}px;left:0;right:0;`;
-    return () => {
-      document.body.style.cssText = '';
-      window.scrollTo(0, scrollY);
-    };
-  }, [open]);
+  useScrollLock(open);
 
   useEffect(() => {
     if (!open) return;
