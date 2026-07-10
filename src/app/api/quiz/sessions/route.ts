@@ -6,6 +6,7 @@ import type { UserAnswer } from '@/types';
 import type { BadgeType } from '@/lib/badges';
 import { awardBadges } from '@/lib/award-badges';
 import { updateReviewSchedules } from '@/lib/review-schedule';
+import { getKSTDateStr } from '@/lib/kst';
 
 export async function POST(req: NextRequest) {
   const user = await getServerUser();
@@ -114,15 +115,15 @@ export async function POST(req: NextRequest) {
 
     // Badge checks
     try {
-      const todayStr = new Date().toISOString().slice(0, 10);
-      const yesterdayStr = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+      const todayStr = getKSTDateStr();
+      const yesterdayStr = new Date(Date.now() + 9 * 3600_000 - 86400_000).toISOString().slice(0, 10);
       const userProfile = await prisma.user.findUnique({
         where: { id: user.id },
         select: { streakCount: true, lastQuizDate: true },
       });
       let newStreak = 1;
       if (userProfile?.lastQuizDate) {
-        const lastStr = new Date(userProfile.lastQuizDate).toISOString().slice(0, 10);
+        const lastStr = new Date(userProfile.lastQuizDate.getTime() + 9 * 3600_000).toISOString().slice(0, 10);
         if (lastStr === todayStr) {
           newStreak = userProfile.streakCount;
         } else if (lastStr === yesterdayStr) {

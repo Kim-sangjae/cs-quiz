@@ -14,8 +14,8 @@ export const WEEKLY_GOALS: GoalDef[] = [
 ];
 
 export function getISOWeek(): string {
-  const now = new Date();
-  const d = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+  const nowKST = new Date(Date.now() + 9 * 3600_000);
+  const d = new Date(Date.UTC(nowKST.getUTCFullYear(), nowKST.getUTCMonth(), nowKST.getUTCDate()));
   d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
   const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
   const weekNo = Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
@@ -23,9 +23,11 @@ export function getISOWeek(): string {
 }
 
 export function getWeekStart(): Date {
-  const now = new Date();
-  const d = new Date(now);
-  d.setHours(0, 0, 0, 0);
-  d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); // Monday
-  return d;
+  const nowKST = new Date(Date.now() + 9 * 3600_000);
+  const dayOfWeek = nowKST.getUTCDay(); // 0=Sun, 1=Mon, ..., 6=Sat
+  const daysToMonday = (dayOfWeek + 6) % 7;
+  const kstMidnightToday =
+    Date.UTC(nowKST.getUTCFullYear(), nowKST.getUTCMonth(), nowKST.getUTCDate()) -
+    9 * 3600_000;
+  return new Date(kstMidnightToday - daysToMonday * 86400_000);
 }
