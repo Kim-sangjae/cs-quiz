@@ -112,7 +112,10 @@ export default function ChatWindow({ myId, friend, isOnline, onClose }: Props) {
   return (
     <div
       className="fixed right-4 z-[49] flex flex-col bg-[#0f0f0f] border border-neutral-800 rounded-xl shadow-2xl w-72 max-w-[calc(100vw-2rem)]"
-      style={{ bottom: 'max(10.5rem, calc(env(safe-area-inset-bottom, 0px) + 10.5rem))', height: '340px' }}
+      style={{
+        bottom: 'max(10.5rem, calc(env(safe-area-inset-bottom, 0px) + 10.5rem))',
+        height: 'min(340px, calc(100dvh - 12rem))',
+      }}
     >
       {/* 헤더 */}
       <div className="flex items-center justify-between px-3 py-2.5 border-b border-neutral-800 flex-shrink-0">
@@ -184,6 +187,7 @@ export default function ChatWindow({ myId, friend, isOnline, onClose }: Props) {
           <input
             ref={inputRef}
             type="text"
+            enterKeyHint="send"
             value={input}
             onChange={(e) => setInput(e.target.value.slice(0, MAX_LENGTH))}
             onKeyDown={(e) => {
