@@ -175,7 +175,7 @@ export default function ChatWindow({ myId, friend, isOnline, onClose }: Props) {
       </div>
 
       {/* 메시지 목록 */}
-      <div ref={messagesContainerRef} className="flex-1 overflow-y-auto px-3 py-2 space-y-1.5">
+      <div ref={messagesContainerRef} className="flex-1 overflow-y-auto overscroll-contain px-3 py-2 space-y-1.5">
         {/* 안내 문구 */}
         <div className="flex items-center justify-center gap-1 py-1.5 mb-1 border-b border-amber-500/20 bg-amber-500/5 rounded-md">
           <svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="text-amber-500/80 flex-shrink-0">

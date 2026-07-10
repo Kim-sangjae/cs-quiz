@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { useScrollLock } from '@/lib/use-scroll-lock';
+import { sendNotification } from '@/lib/notify';
 
 const CATEGORY_LABEL: Record<string, string> = {
   ds: '자료구조', algo: '알고리즘', os: '운영체제',
@@ -48,6 +49,7 @@ export default function BattleInviteAlert() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [countdown, setCountdown] = useState(20);
+  const prevPendingIdRef = useRef<string | undefined>(undefined);
 
   const { data } = useQuery<NotificationsResponse>({
     queryKey: ['notifications'],
@@ -59,6 +61,15 @@ export default function BattleInviteAlert() {
   const pending = (data?.notifications ?? []).find(
     (n) => n.type === 'BATTLE_INVITE' && !n.isRead
   );
+
+  // 새 대전 신청 도착 시 시스템 알림
+  useEffect(() => {
+    if (!pending) { prevPendingIdRef.current = undefined; return; }
+    if (pending.id !== prevPendingIdRef.current) {
+      prevPendingIdRef.current = pending.id;
+      sendNotification('⚔ 대전 신청', `${pending.payload.fromNickname}님이 대전을 신청했습니다`);
+    }
+  }, [pending]);
 
   // createdAt 기준 카운트다운
   useEffect(() => {

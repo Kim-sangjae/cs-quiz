@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter, usePathname } from 'next/navigation';
@@ -10,6 +10,7 @@ import { supabaseBrowser } from '@/lib/supabase-browser';
 import UserProfileModal from './UserProfileModal';
 import ChatWindow from './ChatWindow';
 import { ChatMessage } from '@/lib/chat-store';
+import { sendNotification, requestNotificationPermission } from '@/lib/notify';
 
 interface Friend {
   friendshipId: string;
@@ -47,12 +48,17 @@ export default function FriendPanel() {
   const [chatFriend, setChatFriend] = useState<{ userId: string; nickname: string } | null>(null);
   const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
   const chatFriendRef = useRef<{ userId: string; nickname: string } | null>(null);
+  const friendsRef = useRef<Friend[]>([]);
   const panelRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const pathname = usePathname();
   const queryClient = useQueryClient();
   const { onlineUsers, realtimeActive } = useSupabaseRealtime();
   const prevActiveRoomStatusRef = useRef<string | undefined>(undefined);
+
+  // 드래그 위치 (양수 = 위로 이동, 음수 = 아래로 이동)
+  const [deltaY, setDeltaY] = useState(0);
+  const didDragRef = useRef(false);
 
   const { data } = useQuery<{ friends: Friend[] }>({
     queryKey: ['friends'],
@@ -81,8 +87,17 @@ export default function FriendPanel() {
     return () => { void supabaseBrowser.removeChannel(channel); };
   }, [queryClient, status]);
 
-  // chatFriendRef: closure에서 최신 chatFriend 참조용
+  // chatFriendRef / friendsRef: closure에서 최신 상태 참조용
   useEffect(() => { chatFriendRef.current = chatFriend; }, [chatFriend]);
+  useEffect(() => { friendsRef.current = data?.friends ?? []; }, [data?.friends]);
+
+  // 알림 권한 요청 (인증 후 1회)
+  useEffect(() => {
+    if (status === 'authenticated') void requestNotificationPermission();
+  }, [status]);
+
+  // pathname 변경 시 드래그 위치 초기화
+  useEffect(() => { setDeltaY(0); }, [pathname]);
 
   // 내 알림 채널 구독 — 상대가 보낸 메시지를 채팅창이 닫혀 있어도 수신
   useEffect(() => {
@@ -96,6 +111,8 @@ export default function FriendPanel() {
           ...prev,
           [payload.senderId]: (prev[payload.senderId] ?? 0) + 1,
         }));
+        const sender = friendsRef.current.find((f) => f.userId === payload.senderId);
+        sendNotification('💬 새 메시지', `${sender?.nickname ?? '친구'}님의 메시지가 도착했습니다`);
       })
       .subscribe();
     return () => { void supabaseBrowser.removeChannel(ch); };
@@ -194,6 +211,33 @@ export default function FriendPanel() {
     return () => document.removeEventListener('mousedown', handleOutside);
   }, [open]);
 
+  // 드래그: mousedown / touchstart 시 document에 move/up 리스너를 직접 붙임
+  const startDrag = useCallback((startClientY: number) => {
+    const startDelta = deltaY;
+    didDragRef.current = false;
+    function onMove(clientY: number) {
+      if (Math.abs(startClientY - clientY) > 5) didDragRef.current = true;
+      const moved = startDelta + (startClientY - clientY);
+      const panelH = panelRef.current?.offsetHeight ?? 56;
+      const vh = window.innerHeight;
+      const max = vh - panelH - 16;
+      const min = -96;
+      setDeltaY(Math.max(min, Math.min(max, moved)));
+    }
+    function onMouseMove(e: MouseEvent) { onMove(e.clientY); }
+    function onTouchMoveDoc(e: TouchEvent) { onMove(e.touches[0].clientY); }
+    function cleanup() {
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', cleanup);
+      document.removeEventListener('touchmove', onTouchMoveDoc);
+      document.removeEventListener('touchend', cleanup);
+    }
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', cleanup);
+    document.addEventListener('touchmove', onTouchMoveDoc, { passive: true });
+    document.addEventListener('touchend', cleanup);
+  }, [deltaY]);
+
   if (status !== 'authenticated') return null;
 
   const onlineUserIds = new Set(onlineUsers.map((u) => u.userId));
@@ -263,7 +307,7 @@ export default function FriendPanel() {
         />
       )}
 
-      <div ref={panelRef} className="fixed right-4 z-50 flex flex-col items-end" style={{ bottom: 'max(7rem, calc(env(safe-area-inset-bottom, 0px) + 7rem))' }}>
+      <div ref={panelRef} className="fixed right-4 z-50 flex flex-col items-end" style={{ bottom: 'max(7rem, calc(env(safe-area-inset-bottom, 0px) + 7rem))', transform: `translateY(${-deltaY}px)` }}>
         {open && (
           <div className="mb-2 w-64 bg-[#0f0f0f] border border-neutral-800 rounded-xl shadow-2xl overflow-hidden">
             <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-neutral-800">
@@ -449,7 +493,10 @@ export default function FriendPanel() {
         )}
 
         <button
+          onMouseDown={(e) => { e.preventDefault(); startDrag(e.clientY); }}
+          onTouchStart={(e) => { startDrag(e.touches[0].clientY); }}
           onClick={() => {
+            if (didDragRef.current) { didDragRef.current = false; return; }
             if (activeRoom && !open) {
               router.push(`/battle/${activeRoom.id}`);
               return;
@@ -457,7 +504,7 @@ export default function FriendPanel() {
             setOpen((v) => !v);
             if (!open) setAddingFriend(false);
           }}
-          className={`relative w-12 h-12 rounded-full flex items-center justify-center transition-colors shadow-lg ${
+          className={`relative w-12 h-12 rounded-full flex items-center justify-center transition-colors shadow-lg touch-none ${
             activeRoom?.status === 'PLAYING'
               ? 'bg-red-500/20 border-2 border-red-500 text-red-400 hover:bg-red-500/30'
               : activeRoom?.status === 'WAITING'
