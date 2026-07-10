@@ -49,10 +49,19 @@ export async function PATCH(request: NextRequest) {
   const { id, type } = body as { id?: string; type?: string };
 
   if (id) {
-    await prisma.notification.updateMany({
+    // NICKNAME_CHANGED는 확인 시 삭제 (재표시 방지)
+    const notif = await prisma.notification.findFirst({
       where: { id, userId: session.user.id },
-      data: { isRead: true },
+      select: { type: true },
     });
+    if (notif?.type === 'NICKNAME_CHANGED') {
+      await prisma.notification.deleteMany({ where: { id, userId: session.user.id } });
+    } else {
+      await prisma.notification.updateMany({
+        where: { id, userId: session.user.id },
+        data: { isRead: true },
+      });
+    }
   } else if (type) {
     await prisma.notification.updateMany({
       where: { userId: session.user.id, type: type as never, isRead: false },

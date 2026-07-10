@@ -95,11 +95,11 @@ export default function ChatWindow({ myId, friend, isOnline, onClose }: Props) {
   }, [channelName, myId, friend.userId]);
 
   useEffect(() => {
-    if (!loading) bottomRef.current?.scrollIntoView({ behavior: 'instant' });
+    if (!loading) bottomRef.current?.scrollIntoView({ behavior: 'instant', block: 'nearest' });
   }, [loading]);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }, [messages.length]);
 
   useEffect(() => {
@@ -122,6 +122,8 @@ export default function ChatWindow({ myId, friend, isOnline, onClose }: Props) {
 
     // 로컬 상태 즉시 반영
     setMessages((prev) => [...prev, message]);
+    // 키보드 유지 (키패드 보내기 후 닫힘 방지)
+    inputRef.current?.focus();
 
     // 상대방 채팅 채널에 실시간 전송
     await channelRef.current?.send({ type: 'broadcast', event: 'message', payload: message });

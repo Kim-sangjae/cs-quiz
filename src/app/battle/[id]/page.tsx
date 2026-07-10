@@ -60,8 +60,13 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
   const manualDismissedAutoModeRef = useRef(false);
   // 재진입 시 auto-mode 복원은 최초 1회만
   const hasRestoredAutoModeRef = useRef(false);
-  // 내가 답 제출 직후 상대방 이미 답변 → 선택한 답 파란색 보여주기 위해 1.5초 refetch 억제
-  const suppressRefetchUntil = useRef(0);
+  // 내가 답 제출 직후 상대방 이미 답변 → 선택한 답 파란색 1.5초 표시 (폴링 무관하게 화면 고정)
+  const [frozenAnswer, setFrozenAnswer] = useState<{
+    questionText: string;
+    options: string[];
+    selected: number;
+  } | null>(null);
+  const frozenAnswerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [bookmarks, setBookmarks] = useState<Record<string, boolean>>({});
 
@@ -110,7 +115,6 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
     const channel = supabaseBrowser
       .channel(`battle-room-${id}`)
       .on('broadcast', { event: 'room_updated' }, () => {
-        if (Date.now() < suppressRefetchUntil.current) return;
         void queryClient.invalidateQueries({ queryKey: ['battle', id] });
       })
       .subscribe();
@@ -291,11 +295,10 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
         return data;
       }),
     onSuccess: () => {
-      const remaining = Math.max(0, suppressRefetchUntil.current - Date.now());
-      setTimeout(() => void queryClient.invalidateQueries({ queryKey: ['battle', id] }), remaining);
+      void queryClient.invalidateQueries({ queryKey: ['battle', id] });
       // 첫 refetch가 stale할 수 있어(상대방 answer 미처리) 다단계 재폴링
       for (const ms of [300, 700, 1200]) {
-        setTimeout(() => void queryClient.invalidateQueries({ queryKey: ['battle', id] }), remaining + ms);
+        setTimeout(() => void queryClient.invalidateQueries({ queryKey: ['battle', id] }), ms);
       }
     },
     onError: (e: Error) => toast.error(e.message),
@@ -542,12 +545,16 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
           {/* 문제 (자동모드 시 블러 + 오버레이) */}
           <div className="relative">
             <div className={`bg-[#111111] border border-neutral-800 rounded-xl p-5${isAutoMode ? ' blur-sm pointer-events-none select-none' : ''}`}>
-              <p className="text-sm text-white leading-relaxed mb-4">{room.question.question}</p>
+              <p className="text-sm text-white leading-relaxed mb-4">
+                {frozenAnswer ? frozenAnswer.questionText : room.question.question}
+              </p>
               <div className="space-y-2">
-                {(room.question.options as string[]).map((opt, i) => {
+                {(frozenAnswer ? frozenAnswer.options : room.question.options as string[]).map((opt, i) => {
+                  const dispMyAnswered = frozenAnswer ? true : (myAnswered && !isAutoSubmitted);
+                  const dispSelected = frozenAnswer ? frozenAnswer.selected : room.mySelected;
                   let cls = 'w-full text-left rounded-md border px-4 py-2.5 text-sm flex items-start gap-3 transition-colors ';
-                  if (myAnswered && !isAutoSubmitted) {
-                    cls += i === room.mySelected
+                  if (dispMyAnswered) {
+                    cls += i === dispSelected
                       ? 'border-blue-500 bg-blue-500/20 text-blue-200 cursor-default'
                       : 'border-neutral-800 text-neutral-600 opacity-40 cursor-default';
                   } else {
@@ -563,12 +570,23 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
                         manualDismissedAutoModeRef.current = false;
                         setIsAutoMode(false);
                         if (autoModeTimerRef.current) clearTimeout(autoModeTimerRef.current);
-                        // 상대방이 이미 답한 경우 1.5초 동안 refetch 억제 (내 선택 파란색 확인용)
+                        // 상대방이 이미 답한 경우 1.5초간 현재 문제+선택 표시 (폴링 무관)
                         const oppAlreadyAnswered = room.myRole === 'host' ? !!room.guestAnswered : !!room.hostAnswered;
-                        if (oppAlreadyAnswered) suppressRefetchUntil.current = Date.now() + 1500;
+                        if (oppAlreadyAnswered && room.question) {
+                          if (frozenAnswerTimerRef.current) clearTimeout(frozenAnswerTimerRef.current);
+                          setFrozenAnswer({
+                            questionText: room.question.question,
+                            options: room.question.options as string[],
+                            selected: i,
+                          });
+                          frozenAnswerTimerRef.current = setTimeout(() => {
+                            setFrozenAnswer(null);
+                            frozenAnswerTimerRef.current = null;
+                          }, 1500);
+                        }
                         submitAnswer.mutate(i);
                       }}
-                      disabled={(myAnswered && !isAutoSubmitted) || submitAnswer.isPending}
+                      disabled={!!(frozenAnswer || (myAnswered && !isAutoSubmitted) || submitAnswer.isPending)}
                     >
                       <span className="text-xs font-mono opacity-70 flex-shrink-0 mt-0.5">{LABELS[i]}.</span>
                       <span>{opt}</span>
