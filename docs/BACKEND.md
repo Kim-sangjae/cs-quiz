@@ -182,6 +182,14 @@ return () => { void supabaseBrowser.removeChannel(ch); };
 | `POST /api/chat/messages` | 채팅 메시지 전송 + Broadcast 발화 |
 | `DELETE /api/chat/messages` | 로그아웃 시 채팅 기록 삭제 |
 | `POST /api/presence/heartbeat` | 온라인 상태 갱신 (15초 간격) |
-| `GET /api/achievements` | 주간 목표 진행률 |
+| `GET /api/mypage/weekly-goals` | 주간 목표 진행률 (achievements → 이 경로로 통합) |
+| `POST /api/mypage/weekly-goals` | 주간 목표 보상 수령 |
+| `GET /api/me/quiz-status` | 퀴즈 진행 상태 조회 |
+| `GET /api/stats/online` | 실시간 온라인 접속자 수 |
+| `GET /api/stats/online-users` | 온라인 유저 목록 |
+| `POST /api/battle/rooms/[id]/cancel` | 대결방 취소 (WAITING 상태) |
+| `GET /api/friends/rankings` | 친구 랭킹 |
+| `GET/POST /api/friends/requests` | 친구 요청 목록/처리 |
+| `GET /api/inquiries/public` | 공개 문의 목록 |
 | `GET /api/users/[id]/profile` | 공개 프로필 데이터 (visibility 포함) |
 | `POST /api/users/[id]/report` | 유저 신고 |

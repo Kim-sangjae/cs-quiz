@@ -79,7 +79,12 @@ src/
 │       │       ├── answer/route.ts       # POST — 답변 제출 + Broadcast 발화
 │       │       ├── join/route.ts         # POST — 대결 수락
 │       │       ├── reject/route.ts       # POST — 대결 거절
+│       │       ├── cancel/route.ts       # POST — 대결방 취소 (WAITING 상태)
 │       │       └── quit/route.ts         # POST — 대결 중단
+│       ├── me/quiz-status/route.ts       # GET — 퀴즈 진행 상태
+│       ├── stats/
+│       │   ├── online/route.ts            # GET — 실시간 온라인 수
+│       │   └── online-users/route.ts      # GET — 온라인 유저 목록
 │       └── admin/
 │           ├── badge/route.ts            # GET — 미처리 건수 + newTotal(방문 후 초기화)
 │           ├── badge/seen/route.ts       # POST — adminLastSeenAt 갱신
@@ -192,7 +197,9 @@ src/
 
 ## 미들웨어 (`src/middleware.ts`)
 
-보호 경로: `/quiz/*`, `/board/submit`, `/mypage/*`, `/settings`, `/admin/*`, `/battle/*`
+보호 경로: `/quiz/*`, `/board/submit`, `/mypage/*`, `/settings`, `/admin/*`, `/inquiry/*`, `/battle/*`, `/friends/*`
+
+예외: `/quiz/play` — 비로그인 허용 (Kakao OG 스크래핑 + `?sharedFrom=` 공유 링크 지원)
 
 1. 비로그인 → `/auth/login?callbackUrl=...`
 2. 닉네임 미설정 → `/auth/setup-nickname?callbackUrl=...`
@@ -200,6 +207,8 @@ src/
 
 미들웨어는 `auth.config.ts` (Edge Runtime, DB 미사용).  
 세션 무효화(`tokenVersion`, `deletedAt`)는 API 호출 시 `auth.ts` JWT 콜백에서 처리.
+
+**비로그인 접근 가능 경로**: `/`, `/about`, `/leaderboard`, `/board`, `/board/[id]`, `/result/[sessionId]`, `/u/[nickname]`, `/quiz/play?sharedFrom=...`
 
 ---
 
