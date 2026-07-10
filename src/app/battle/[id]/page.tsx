@@ -60,6 +60,8 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
   const manualDismissedAutoModeRef = useRef(false);
   // 재진입 시 auto-mode 복원은 최초 1회만
   const hasRestoredAutoModeRef = useRef(false);
+  // 내가 답 제출 직후 상대방 이미 답변 → 선택한 답 파란색 보여주기 위해 1.5초 refetch 억제
+  const suppressRefetchUntil = useRef(0);
 
   const [bookmarks, setBookmarks] = useState<Record<string, boolean>>({});
 
@@ -108,6 +110,7 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
     const channel = supabaseBrowser
       .channel(`battle-room-${id}`)
       .on('broadcast', { event: 'room_updated' }, () => {
+        if (Date.now() < suppressRefetchUntil.current) return;
         void queryClient.invalidateQueries({ queryKey: ['battle', id] });
       })
       .subscribe();
@@ -288,10 +291,11 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
         return data;
       }),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['battle', id] });
+      const remaining = Math.max(0, suppressRefetchUntil.current - Date.now());
+      setTimeout(() => void queryClient.invalidateQueries({ queryKey: ['battle', id] }), remaining);
       // 첫 refetch가 stale할 수 있어(상대방 answer 미처리) 다단계 재폴링
       for (const ms of [300, 700, 1200]) {
-        setTimeout(() => void queryClient.invalidateQueries({ queryKey: ['battle', id] }), ms);
+        setTimeout(() => void queryClient.invalidateQueries({ queryKey: ['battle', id] }), remaining + ms);
       }
     },
     onError: (e: Error) => toast.error(e.message),
@@ -559,6 +563,9 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
                         manualDismissedAutoModeRef.current = false;
                         setIsAutoMode(false);
                         if (autoModeTimerRef.current) clearTimeout(autoModeTimerRef.current);
+                        // 상대방이 이미 답한 경우 1.5초 동안 refetch 억제 (내 선택 파란색 확인용)
+                        const oppAlreadyAnswered = room.myRole === 'host' ? !!room.guestAnswered : !!room.hostAnswered;
+                        if (oppAlreadyAnswered) suppressRefetchUntil.current = Date.now() + 1500;
                         submitAnswer.mutate(i);
                       }}
                       disabled={(myAnswered && !isAutoSubmitted) || submitAnswer.isPending}

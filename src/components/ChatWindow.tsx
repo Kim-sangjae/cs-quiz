@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabaseBrowser } from '@/lib/supabase-browser';
 import { ChatMessage } from '@/lib/chat-store';
+import { useScrollLock } from '@/lib/use-scroll-lock';
 
 interface Props {
   myId: string;
@@ -24,6 +25,9 @@ export default function ChatWindow({ myId, friend, isOnline, onClose }: Props) {
   const channelRef = useRef<ReturnType<typeof supabaseBrowser.channel> | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // 채팅창 열린 동안 뒷 배경 스크롤 방지
+  useScrollLock(true);
 
   // visualViewport로 소프트 키보드 감지 (Samsung Browser 포함)
   const handleViewport = useCallback(() => {

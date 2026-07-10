@@ -104,6 +104,7 @@ function FriendRankings({
 export default function RankingSection({ rankings, currentUserId, myRanks, contributors }: RankingSectionProps) {
   const [activeTab, setActiveTab] = useState<keyof CategoryRankings | 'friends' | 'contributors'>('overall');
   const [profileModal, setProfileModal] = useState<{ userId: string; nickname: string } | null>(null);
+  const [showRankInfo, setShowRankInfo] = useState(false);
   const isFriendsTab = activeTab === 'friends';
   const isContributorsTab = activeTab === 'contributors';
   const entries: RankEntry[] = (isFriendsTab || isContributorsTab) ? [] : (rankings[activeTab as keyof CategoryRankings] ?? []);
@@ -122,9 +123,35 @@ export default function RankingSection({ rankings, currentUserId, myRanks, contr
         />
       )}
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-sm font-medium text-neutral-400">
-          {isContributorsTab ? '문제 기여자 TOP 5' : activeTab === 'overall' ? '전체 합산 TOP 5' : '카테고리별 TOP 5'}
-        </h2>
+        <div className="flex items-center gap-1.5">
+          <h2 className="text-sm font-medium text-neutral-400">
+            {isContributorsTab ? '문제 기여자 TOP 5' : activeTab === 'overall' ? '전체 합산 TOP 5' : '카테고리별 TOP 5'}
+          </h2>
+          {!isContributorsTab && !isFriendsTab && (
+            <div className="relative">
+              <button
+                onClick={() => setShowRankInfo((v) => !v)}
+                className="text-neutral-600 hover:text-neutral-400 transition-colors"
+                aria-label="랭킹 기준 안내"
+              >
+                <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" />
+                </svg>
+              </button>
+              {showRankInfo && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setShowRankInfo(false)} />
+                  <div className="absolute left-0 top-full mt-1.5 z-20 w-52 bg-neutral-900 border border-neutral-700 rounded-lg px-3 py-2.5 text-[11px] text-neutral-400 leading-relaxed shadow-xl">
+                    <p className="text-neutral-200 font-medium mb-1">랭킹 집계 기준</p>
+                    <p>• 문제 10개 이상 풀어야 집계됩니다</p>
+                    <p>• 오답복습 모드는 제외됩니다</p>
+                    <p>• 정답률 → 풀이 수 순으로 순위 결정</p>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+        </div>
         {isContributorsTab && (
           <Link href="/leaderboard" className="text-xs text-neutral-600 hover:text-white transition-colors">전체 보기 →</Link>
         )}
