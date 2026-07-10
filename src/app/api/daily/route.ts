@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { auth } from '@/lib/auth';
+import { getKSTDateStr } from '@/lib/kst';
 
 function getToday() {
-  return new Date().toISOString().slice(0, 10);
+  return getKSTDateStr();
 }
 
 function dateSeed(dateStr: string): number {
@@ -124,7 +125,7 @@ export async function POST(req: Request) {
     const yesterday = yesterdayDate.toISOString().slice(0, 10);
     let newStreakCount = 1;
     if (dbUser?.lastQuizDate) {
-      const lastDate = dbUser.lastQuizDate.toISOString().slice(0, 10);
+      const lastDate = new Date(dbUser.lastQuizDate.getTime() + 9 * 3600_000).toISOString().slice(0, 10);
       if (lastDate === today) newStreakCount = dbUser.streakCount;
       else if (lastDate === yesterday) newStreakCount = dbUser.streakCount + 1;
     }
