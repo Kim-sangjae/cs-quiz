@@ -59,11 +59,16 @@ export async function PATCH(request: NextRequest) {
       data: { isRead: true },
     });
   } else {
-    // 모두 읽음: 미처리 FRIEND_REQUEST(isRead=false)는 제외하고 삭제
+    // 모두 읽음: 수동으로만 해제 가능한 타입은 제외
     await prisma.notification.deleteMany({
       where: {
         userId: session.user.id,
-        NOT: { type: 'FRIEND_REQUEST', isRead: false },
+        NOT: {
+          OR: [
+            { type: 'FRIEND_REQUEST', isRead: false },
+            { type: 'NICKNAME_CHANGED', isRead: false },
+          ],
+        },
       },
     });
   }

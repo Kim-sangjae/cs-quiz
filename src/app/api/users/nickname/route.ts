@@ -74,5 +74,30 @@ export async function PATCH(req: NextRequest) {
 
   writeLog({ actorId: session.user.id, actorRole: session.user.role ?? 'USER', action: 'NICKNAME_CHANGE', targetType: 'User', targetId: session.user.id, payload: { prev: currentUser?.nickname, next: nickname } });
 
+  // 친구들에게 닉네임 변경 알림 전송 (수동 해제만 가능)
+  const friendships = await prisma.friendship.findMany({
+    where: {
+      OR: [{ requesterId: session.user.id }, { addresseeId: session.user.id }],
+      status: 'ACCEPTED',
+    },
+    select: { requesterId: true, addresseeId: true },
+  });
+  const friendIds = friendships.map((f) =>
+    f.requesterId === session.user.id ? f.addresseeId : f.requesterId
+  );
+  if (friendIds.length > 0) {
+    await prisma.notification.createMany({
+      data: friendIds.map((friendId) => ({
+        userId: friendId,
+        type: 'NICKNAME_CHANGED' as const,
+        payload: {
+          prevNickname: currentUser?.nickname ?? '',
+          newNickname: nickname,
+          actorId: session.user.id,
+        },
+      })),
+    });
+  }
+
   return NextResponse.json({ nickname });
 }
