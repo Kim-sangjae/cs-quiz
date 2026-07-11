@@ -10,8 +10,9 @@ export default function manifest(): MetadataRoute.Manifest {
     background_color: '#0a0a0a',
     theme_color: '#0a0a0a',
     icons: [
-      { src: '/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
-      { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+      // any(PC 창·작업표시줄): 투명 배경 로고 / maskable(Android 런처): 흰 배경
+      { src: '/icon-clear-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+      { src: '/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'maskable' },
       { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
     ],
   };
