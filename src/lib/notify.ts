@@ -15,11 +15,13 @@ function flashTitle(text: string) {
   if (typeof document === 'undefined') return;
   if (!originalTitle) originalTitle = document.title;
   if (flashId) clearInterval(flashId);
-  let on = true;
+  // 즉시 표시 후 깜빡임 시작 (카톡 웹처럼 탭 제목 교차 표시)
+  document.title = text;
+  let on = false;
   flashId = setInterval(() => {
     document.title = on ? text : originalTitle;
     on = !on;
-  }, 700);
+  }, 1000);
 }
 
 function setBadge() {

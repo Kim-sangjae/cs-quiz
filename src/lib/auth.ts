@@ -43,6 +43,28 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       return newUser as unknown as AdapterUser;
     },
   },
+  events: {
+    // 로그인 시 이전 세션의 채팅 기록 숨김 처리
+    // (강제 로그아웃·서버 다운 등으로 클라이언트 DELETE 호출이 누락된 경우 보완)
+    async signIn({ user }) {
+      if (!user?.id) return;
+      try {
+        await prisma.$transaction([
+          prisma.chatMessage.updateMany({
+            where: { senderId: user.id, hiddenBySender: false },
+            data: { hiddenBySender: true },
+          }),
+          prisma.chatMessage.updateMany({
+            where: { receiverId: user.id, hiddenByReceiver: false },
+            data: { hiddenByReceiver: true },
+          }),
+          prisma.chatMessage.deleteMany({
+            where: { hiddenBySender: true, hiddenByReceiver: true },
+          }),
+        ]);
+      } catch { /* 채팅 정리 실패가 로그인을 막지 않도록 무시 */ }
+    },
+  },
   callbacks: {
     async signIn({ user, account }) {
       if (!user?.id) return true;
