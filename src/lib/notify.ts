@@ -1,12 +1,18 @@
+type NavWithBadge = Navigator & {
+  setAppBadge?: (count?: number) => Promise<void>;
+  clearAppBadge?: () => Promise<void>;
+};
+
 let flashId: ReturnType<typeof setInterval> | null = null;
 let originalTitle = '';
+let badgeCount = 0;
 
 function stopFlash() {
   if (flashId) { clearInterval(flashId); flashId = null; }
   if (originalTitle) { document.title = originalTitle; originalTitle = ''; }
 }
 
-export function flashTitle(text: string) {
+function flashTitle(text: string) {
   if (typeof document === 'undefined') return;
   if (!originalTitle) originalTitle = document.title;
   if (flashId) clearInterval(flashId);
@@ -15,19 +21,36 @@ export function flashTitle(text: string) {
     document.title = on ? text : originalTitle;
     on = !on;
   }, 700);
-  window.addEventListener('focus', stopFlash, { once: true });
+}
+
+function setBadge() {
+  badgeCount++;
+  const nav = navigator as NavWithBadge;
+  if (nav.setAppBadge) void nav.setAppBadge(badgeCount);
+}
+
+function clearBadge() {
+  badgeCount = 0;
+  const nav = navigator as NavWithBadge;
+  if (nav.clearAppBadge) void nav.clearAppBadge();
+}
+
+// 앱 포커스 시 뱃지·타이틀 초기화
+if (typeof window !== 'undefined') {
+  window.addEventListener('focus', () => { stopFlash(); clearBadge(); });
 }
 
 export function sendNotification(title: string, body: string) {
   if (typeof document === 'undefined') return;
-  // 타이틀 플래시는 항상 실행 (탭 포커스 여부 무관)
   flashTitle(`🔔 ${title}`);
-  // OS 알림: 브라우저가 포커스 억제 여부 자체 판단
+  // PWA 설치 시 작업표시줄 아이콘 뱃지 (setAppBadge API)
+  setBadge();
+  // OS 토스트 알림 (브라우저/PWA 아이콘 깜빡임 포함)
   if ('Notification' in window && Notification.permission === 'granted') {
     try {
       new Notification(title, { body, icon: '/icon-192.png', tag: 'csora', silent: false });
     } catch {
-      // 일부 환경(SW 필요)에서 실패 시 무시
+      // SW 환경 등에서 실패 시 무시
     }
   }
 }
