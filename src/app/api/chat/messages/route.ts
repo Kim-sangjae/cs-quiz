@@ -86,8 +86,9 @@ export async function DELETE() {
   if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const myId = session.user.id;
+  // 내가 받은 메시지만 삭제 (내가 보낸 메시지는 상대방이 아직 읽을 수 있도록 보존)
   await prisma.chatMessage.deleteMany({
-    where: { OR: [{ senderId: myId }, { receiverId: myId }] },
+    where: { receiverId: myId },
   });
 
   return NextResponse.json({ ok: true });

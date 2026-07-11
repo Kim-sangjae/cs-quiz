@@ -5,7 +5,6 @@ type NavWithBadge = Navigator & {
 
 let flashId: ReturnType<typeof setInterval> | null = null;
 let originalTitle = '';
-let badgeCount = 0;
 
 function stopFlash() {
   if (flashId) { clearInterval(flashId); flashId = null; }
@@ -24,13 +23,12 @@ function flashTitle(text: string) {
 }
 
 function setBadge() {
-  badgeCount++;
   const nav = navigator as NavWithBadge;
-  if (nav.setAppBadge) void nav.setAppBadge(badgeCount);
+  // 인자 없이 호출 → 숫자 없는 빨간 점만 표시
+  if (nav.setAppBadge) void nav.setAppBadge();
 }
 
 function clearBadge() {
-  badgeCount = 0;
   const nav = navigator as NavWithBadge;
   if (nav.clearAppBadge) void nav.clearAppBadge();
 }
