@@ -14,11 +14,12 @@ export async function GET(req: NextRequest) {
 
   const myId = session.user.id;
 
+  // 내가 숨김 처리(로그아웃)한 메시지는 제외
   const messages = await prisma.chatMessage.findMany({
     where: {
       OR: [
-        { senderId: myId, receiverId: friendId },
-        { senderId: friendId, receiverId: myId },
+        { senderId: myId, receiverId: friendId, hiddenBySender: false },
+        { senderId: friendId, receiverId: myId, hiddenByReceiver: false },
       ],
     },
     include: { sender: { select: { nickname: true } } },
@@ -86,10 +87,20 @@ export async function DELETE() {
   if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const myId = session.user.id;
-  // 내가 받은 메시지만 삭제 (내가 보낸 메시지는 상대방이 아직 읽을 수 있도록 보존)
-  await prisma.chatMessage.deleteMany({
-    where: { receiverId: myId },
-  });
+  // 내 화면에서만 숨김 (상대방은 계속 볼 수 있음) → 양쪽 모두 숨기면 실제 삭제
+  await prisma.$transaction([
+    prisma.chatMessage.updateMany({
+      where: { senderId: myId },
+      data: { hiddenBySender: true },
+    }),
+    prisma.chatMessage.updateMany({
+      where: { receiverId: myId },
+      data: { hiddenByReceiver: true },
+    }),
+    prisma.chatMessage.deleteMany({
+      where: { hiddenBySender: true, hiddenByReceiver: true },
+    }),
+  ]);
 
   return NextResponse.json({ ok: true });
 }

@@ -543,11 +543,14 @@ model PointTransaction {
 }
 
 model ChatMessage {
-  id         String   @id @default(cuid())
-  senderId   String
-  receiverId String
-  content    String
-  createdAt  DateTime @default(now())
+  id               String   @id @default(cuid())
+  senderId         String
+  receiverId       String
+  content          String
+  createdAt        DateTime @default(now())
+  // 로그아웃 시 각자 화면에서만 숨김 (상대방은 계속 볼 수 있음)
+  hiddenBySender   Boolean  @default(false)
+  hiddenByReceiver Boolean  @default(false)
 
   sender   User @relation("ChatSender",   fields: [senderId],   references: [id], onDelete: Cascade)
   receiver User @relation("ChatReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
