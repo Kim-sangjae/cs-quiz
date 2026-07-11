@@ -21,7 +21,7 @@ export const metadata: Metadata = {
   title: { default: 'CSORA', template: '%s | CSORA' },
   description: 'CS 기초 지식을 20문제로 점검하세요. 자료구조·알고리즘·OS·네트워크·DB·컴퓨터 구조 6개 영역에서 랜덤 출제.',
   icons: {
-    icon: [{ url: '/icon-512.png', type: 'image/png' }],
+    // 파비콘: app/icon.tsx (다크 CS 아이콘)가 담당, 여기선 apple touch만 설정
     apple: '/icon-512.png',
   },
   openGraph: {

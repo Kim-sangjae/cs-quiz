@@ -10,8 +10,10 @@ export default function manifest(): MetadataRoute.Manifest {
     background_color: '#0a0a0a',
     theme_color: '#0a0a0a',
     icons: [
-      { src: '/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
-      { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+      // PC/데스크탑: 투명 배경 원본 로고
+      { src: '/csora-logo.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+      // 모바일(Android): 흰 배경 maskable 아이콘
+      { src: '/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'maskable' },
       { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
     ],
   };
