@@ -30,6 +30,12 @@ export function GET(req: NextRequest) {
       theme_color: '#0a0a0a',
       icons,
     },
-    { headers: { 'Content-Type': 'application/manifest+json' } }
+    {
+      headers: {
+        'Content-Type': 'application/manifest+json',
+        // 설치 시 이전 아이콘이 캐시로 재사용되지 않도록
+        'Cache-Control': 'no-store',
+      },
+    }
   );
 }
