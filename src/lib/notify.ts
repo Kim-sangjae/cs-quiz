@@ -3,6 +3,10 @@ type NavWithBadge = Navigator & {
   clearAppBadge?: () => Promise<void>;
 };
 
+// 모바일은 백그라운드 시 오프라인 판정 → 알림 받을 상황이 없어 알림 기능 전체 비활성화
+const isMobile =
+  typeof navigator !== 'undefined' && /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
+
 let flashId: ReturnType<typeof setInterval> | null = null;
 let originalTitle = '';
 
@@ -35,9 +39,8 @@ function clearBadge() {
   if (nav.clearAppBadge) void nav.clearAppBadge();
 }
 
-// 앱 포커스 시 뱃지·타이틀 초기화 + 알림용 서비스워커 등록
-// (Android 크롬은 new Notification()이 동작하지 않아 SW showNotification 필요)
-if (typeof window !== 'undefined') {
+// 앱 포커스 시 뱃지·타이틀 초기화 + 알림용 서비스워커 등록 (PC 전용)
+if (typeof window !== 'undefined' && !isMobile) {
   window.addEventListener('focus', () => { stopFlash(); clearBadge(); });
   if ('serviceWorker' in navigator) {
     void navigator.serviceWorker.register('/sw.js').catch(() => { /* 미지원 환경 무시 */ });
@@ -60,7 +63,7 @@ function showOsNotification(title: string, body: string) {
 }
 
 export function sendNotification(title: string, body: string) {
-  if (typeof document === 'undefined') return;
+  if (typeof document === 'undefined' || isMobile) return;
   flashTitle(`🔔 ${title}`);
   // PWA 설치 시 작업표시줄 아이콘 뱃지 (setAppBadge API)
   setBadge();
@@ -69,7 +72,7 @@ export function sendNotification(title: string, body: string) {
 }
 
 export async function requestNotificationPermission(): Promise<void> {
-  if (typeof window === 'undefined' || !('Notification' in window)) return;
+  if (typeof window === 'undefined' || isMobile || !('Notification' in window)) return;
   if (Notification.permission === 'default') {
     await Notification.requestPermission();
   }
