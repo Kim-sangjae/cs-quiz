@@ -22,7 +22,7 @@
 
 | 모델 | 설명 |
 |------|------|
-| `User` | email, nickname, role(USER/ADMIN), tokenVersion, deletedAt(소프트딜리트), adminLastSeenAt, streakCount, lastQuizDate, points, profileVisibility(PUBLIC/FRIENDS_ONLY/PRIVATE), bio |
+| `User` | email, nickname, role(USER/ADMIN), tokenVersion, deletedAt(소프트딜리트), adminLastSeenAt, streakCount, lastQuizDate, points, xp(유저 레벨 경험치), profileVisibility(PUBLIC/FRIENDS_ONLY/PRIVATE), bio |
 | `Question` | category, options(Json), answer(0-3), status(OFFICIAL/PENDING/APPROVED/REJECTED/BLINDED), rejectionReason, attemptCount/correctCount(역정규화), embedding(vector(1536)) |
 | `QuizSession` | userId, category, questionIds(Json), answers(Json), score, mode(`normal\|review\|timed`, default `normal`) |
 | `QuestionAttempt` | userId, questionId, sessionId, selected, isCorrect |
@@ -40,7 +40,7 @@
 | `GameRoom` | hostId, guestId, status(WAITING/PLAYING/FINISHED), category, questionIds(Json), hostAnswers/guestAnswers(Json), currentQ, hostScore/guestScore, consecutiveAllSkip(연속 쌍방 스킵 카운트), questionStartedAt(문제 시작 시각), quitRequestBy |
 | `Friendship` | requesterId, addresseeId, status(PENDING/ACCEPTED/REJECTED) |
 | `UserPresence` | @@id(userId), lastSeenAt, isPlayingQuiz — 온라인 상태 |
-| `ChatMessage` | senderId, receiverId, content — 1:1 채팅 기록 |
+| `ChatMessage` | senderId, receiverId, content, hiddenBySender/hiddenByReceiver(개인별 숨김, 양쪽 숨김 시 하드삭제) — 1:1 채팅 기록 |
 | `ReviewSchedule` | userId, questionId, step(0~4), nextReviewAt — 오답 복습 스케줄 |
 | `UserBadge` | userId, badge(BadgeType enum), earnedAt |
 | `DailyChallengeCompletion` | @@id([userId, date]) — 오늘의 문제 완료 기록 (출석 달력용) |
@@ -62,6 +62,18 @@
 | `review` | X | X | X |
 
 `isRanked = mode !== 'review'`로 판단. 뱃지 카운트 쿼리도 `mode: { in: ['normal', 'timed'] }` 필터 적용.
+
+**유저 레벨(XP) 시스템** (`src/lib/user-level.ts` 순수 함수 / `src/lib/award-xp.ts` 대전 지급 헬퍼):
+
+| 지급 지점 | 경험치 | 위치 |
+|-----------|--------|------|
+| 퀴즈 완료 (모든 모드, review 포함) | 10 + 정답당 1 | `api/quiz/sessions` POST |
+| 오늘의 문제 완료 (하루 1회) | 20 | `api/daily` POST |
+| 등록 문제 승인 | 50 | `api/admin/questions/[id]` approve 트랜잭션 |
+| 대전 승/무/패 (무효 제외) | 15 / 10 / 5 | battle answer·GET 타임아웃 FINISHED 전환 시 `awardBattleXp` |
+
+- 레벨 곡선: 필요 XP = `150 + (레벨-1)×10`, 최대 Lv.200. 레벨은 `User.xp`에서 `getLevelInfo()`로 파생 (별도 level 컬럼 없음)
+- 소급 백필: `npx tsx scripts/backfill-xp.ts` (멱등 — 전체 기록 기반 재계산 후 SET)
 
 ## JWT / 세션 무효화
 
