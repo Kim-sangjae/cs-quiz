@@ -109,11 +109,11 @@ export async function POST(req: Request) {
     },
     select: { id: true },
   });
-  if (questions.length < 7) {
+  if (questions.length < 10) {
     return NextResponse.json({ error: '해당 카테고리에 문제가 부족합니다' }, { status: 400 });
   }
 
-  const questionIds = shuffle(questions.map((q) => q.id)).slice(0, 7);
+  const questionIds = shuffle(questions.map((q) => q.id)).slice(0, 10);
 
   const [room, me] = await Promise.all([
     prisma.gameRoom.create({
