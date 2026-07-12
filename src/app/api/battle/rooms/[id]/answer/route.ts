@@ -3,6 +3,7 @@ import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { broadcastBattleUpdate, broadcastBattleStatusChange } from '@/lib/battle-broadcast';
 import { checkBattleBadges } from '@/lib/award-badges';
+import { awardBattleXp } from '@/lib/award-xp';
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
@@ -96,7 +97,14 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   await broadcastBattleUpdate(id);
   if (newStatus === 'FINISHED') {
     after(broadcastBattleStatusChange());
-    if (room.guestId && !isVoid) after(checkBattleBadges(room.hostId, room.guestId).catch(() => {}));
+    if (room.guestId && !isVoid) {
+      const guestId = room.guestId;
+      after(checkBattleBadges(room.hostId, guestId).catch(() => {}));
+      // 승/무/패 경험치 (이번 답변으로 오른 점수 반영한 최종 점수 기준)
+      const finalHostScore = room.hostScore + (isHost && isCorrect ? 1 : 0);
+      const finalGuestScore = room.guestScore + (isGuest && isCorrect ? 1 : 0);
+      after(awardBattleXp(room.hostId, guestId, finalHostScore, finalGuestScore).catch(() => {}));
+    }
   }
   return NextResponse.json({ correct: isCorrect });
 }

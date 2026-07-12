@@ -21,6 +21,7 @@ model User {
   streakCount      Int       @default(0)
   lastQuizDate     DateTime?
   points              Int               @default(0)
+  xp                  Int               @default(0)
   profileVisibility   ProfileVisibility @default(PUBLIC)
   createdAt           DateTime          @default(now())
 

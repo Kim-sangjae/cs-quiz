@@ -3,6 +3,7 @@ import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { broadcastBattleUpdate, broadcastBattleStatusChange } from '@/lib/battle-broadcast';
 import { checkBattleBadges } from '@/lib/award-badges';
+import { awardBattleXp } from '@/lib/award-xp';
 
 const QUESTION_TIMEOUT_MS = 20 * 1000;
 const SKIP_TIMEOUT_MS = 5 * 1000; // 연속 쌍방 스킵 시 단축 타이머
@@ -97,7 +98,12 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
             if (updated.status === 'FINISHED') {
               after(broadcastBattleStatusChange());
               const wasVoid = updated.consecutiveAllSkip >= 3;
-              if (updated.guestId && !wasVoid) after(checkBattleBadges(updated.hostId, updated.guestId).catch(() => {}));
+              if (updated.guestId && !wasVoid) {
+                const guestId = updated.guestId;
+                after(checkBattleBadges(updated.hostId, guestId).catch(() => {}));
+                // 승/무/패 경험치 (타임아웃 자동제출은 점수 변동 없음)
+                after(awardBattleXp(updated.hostId, guestId, updated.hostScore, updated.guestScore).catch(() => {}));
+              }
             }
           }
         } catch { /* 동시 업데이트 무시 */ }
