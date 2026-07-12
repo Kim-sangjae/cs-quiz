@@ -1467,6 +1467,7 @@ function UsersTab({ currentUserId, requestConfirm }: { currentUserId: string; re
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState<'all' | 'ADMIN' | 'USER'>('all');
   const [statusFilter, setUserStatusFilter] = useState<'all' | 'active' | 'deactivated'>('all');
+  const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
   const [page, setPage] = useState(1);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkPending, setBulkPending] = useState(false);
@@ -1477,9 +1478,9 @@ function UsersTab({ currentUserId, requestConfirm }: { currentUserId: string; re
   }, [searchInput]);
 
   const { data } = useQuery<UsersResponse>({
-    queryKey: ['admin', 'users', search, roleFilter, statusFilter, page],
+    queryKey: ['admin', 'users', search, roleFilter, statusFilter, sortOrder, page],
     queryFn: async () => {
-      const params = new URLSearchParams({ search, role: roleFilter, status: statusFilter, page: String(page) });
+      const params = new URLSearchParams({ search, role: roleFilter, status: statusFilter, sort: sortOrder, page: String(page) });
       const r = await fetch(`/api/admin/users?${params}`);
       if (!r.ok) return { users: [], total: 0, pageCount: 1 };
       return r.json();
@@ -1566,6 +1567,10 @@ function UsersTab({ currentUserId, requestConfirm }: { currentUserId: string; re
             </button>
           ))}
         </div>
+        <button onClick={() => { setSortOrder((o) => (o === 'desc' ? 'asc' : 'desc')); setPage(1); setSelectedIds(new Set()); }}
+          className="rounded px-3 py-1.5 text-xs border border-neutral-800 text-neutral-500 hover:text-neutral-300 transition-colors">
+          가입일 {sortOrder === 'desc' ? '최신순 ↓' : '오래된순 ↑'}
+        </button>
       </div>
 
       {selectedIds.size > 0 && (
