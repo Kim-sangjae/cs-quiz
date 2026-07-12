@@ -1,11 +1,11 @@
 import { ImageResponse } from 'next/og';
 
 export const runtime = 'edge';
-export const alt = 'CSORA — 6개 영역 CS 기초 지식을 20문제로 점검하세요';
+export const alt = 'CSORA — 7개 영역 CS 기초 지식을 20문제로 점검하세요';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 
-const CATEGORIES = ['자료구조', '알고리즘', '운영체제', '네트워크', 'DB', '컴퓨터 구조'];
+const CATEGORIES = ['자료구조', '알고리즘', '운영체제', '네트워크', 'DB', '컴퓨터 구조', '소프트웨어공학'];
 
 export default function OGImage() {
   return new ImageResponse(
@@ -33,7 +33,7 @@ export default function OGImage() {
           20문제로 점검하세요
         </div>
         <div style={{ color: '#737373', fontSize: 22, marginBottom: 56, textAlign: 'center' }}>
-          6개 영역 · 즉시 해설 · 오답 복습
+          7개 영역 · 즉시 해설 · 오답 복습
         </div>
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', justifyContent: 'center' }}>
           {CATEGORIES.map((cat) => (

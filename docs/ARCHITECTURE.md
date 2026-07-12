@@ -155,7 +155,10 @@ src/
 │   ├── badges.ts                         # BADGE_META — 배지 메타데이터 (아이콘, 설명)
 │   ├── chat-store.ts                     # 채팅 로컬 상태 유틸 (clearAllChats)
 │   ├── korcen-check.ts                  # Tanat05/korcen.ts 이식 — 한국어/영어 욕설 검사
-│   └── nickname-filter.ts               # isNicknameAllowed() — 닉네임 필터링 진입점
+│   ├── nickname-filter.ts               # isNicknameAllowed() — 닉네임 필터링 진입점
+│   ├── user-level.ts                    # 유저 레벨(XP) 순수 함수 — getLevelInfo, XP_REWARDS (클라/서버 공용)
+│   ├── award-xp.ts                      # awardBattleXp() — 대전 종료 시 승/무/패 XP 지급 (서버 전용)
+│   └── notify.ts                        # PC 알림 (탭 제목 깜빡임·OS 알림·앱 뱃지, 모바일 비활성)
 ├── data/
 │   └── questions.ts                     # OFFICIAL 문제 정적 배열 (120개+)
 └── types/

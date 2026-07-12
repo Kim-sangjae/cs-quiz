@@ -988,11 +988,14 @@ export default function MyPage() {
                         HINT: '힌트 사용',
                         QUIZ_COMPLETE_HIGH: '퀴즈 완료 (고득점)',
                         QUIZ_COMPLETE_LOW: '퀴즈 완료',
-                        WEEKLY_GOAL: '주간 목표 달성',
                       };
+                      // WEEKLY_GOAL:{goalKey} 형태로 저장되므로 prefix 매칭
+                      const label = t.reason.startsWith('WEEKLY_GOAL')
+                        ? '주간 목표 달성'
+                        : reasonLabel[t.reason] ?? t.reason;
                       return (
                         <div key={t.id} className="flex items-center justify-between text-xs">
-                          <span className="text-neutral-500">{reasonLabel[t.reason] ?? t.reason}</span>
+                          <span className="text-neutral-500">{label}</span>
                           <span className={t.delta > 0 ? 'text-emerald-400' : 'text-red-400'}>
                             {t.delta > 0 ? '+' : ''}{t.delta}P
                           </span>
