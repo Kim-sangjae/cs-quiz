@@ -129,7 +129,8 @@ function getLevel(total: number): number {
 }
 
 function getBadge(accuracy: number, total: number): BadgeTier | null {
-  if (total === 0 || accuracy < 30) return null;
+  // 등급은 Lv.2(누적 50회)부터 측정
+  if (total < 50 || accuracy < 30) return null;
   if (accuracy >= 90) return "gold";
   if (accuracy >= 60) return "silver";
   return "bronze";
@@ -1180,7 +1181,33 @@ export default function MyPage() {
 
       {/* 카테고리별 프로필 */}
       <div className="mb-6">
-        <p className="text-sm font-semibold text-white mb-3">카테고리별 현황</p>
+        <div className="flex items-center gap-1.5 mb-3">
+          <p className="text-sm font-semibold text-white">카테고리별 현황</p>
+          <div className="relative group">
+            <button
+              type="button"
+              aria-label="등급과 레벨 설명"
+              className="w-4 h-4 rounded-full border border-neutral-700 text-neutral-500 text-[10px] leading-none flex items-center justify-center cursor-help hover:text-neutral-300 hover:border-neutral-500 transition-colors"
+            >
+              ?
+            </button>
+            <div className="absolute left-0 top-5 z-20 hidden group-hover:block group-focus-within:block w-64 bg-[#1a1a1a] border border-neutral-700 rounded-lg p-3 shadow-xl">
+              <p className="text-[11px] font-semibold text-white mb-1.5">레벨 (누적 풀이 횟수)</p>
+              <ul className="text-[11px] text-neutral-400 space-y-0.5 mb-2.5">
+                <li><span className="text-neutral-400 font-medium">Lv.1 입문</span> · 0~49회</li>
+                <li><span className="text-blue-400 font-medium">Lv.2 학습</span> · 50~149회</li>
+                <li><span className="text-emerald-400 font-medium">Lv.3 숙련</span> · 150~299회</li>
+                <li><span className="text-yellow-400 font-medium">Lv.4 마스터</span> · 300회 이상</li>
+              </ul>
+              <p className="text-[11px] font-semibold text-white mb-1.5">등급 (정답률 · Lv.2부터 측정)</p>
+              <ul className="text-[11px] text-neutral-400 space-y-0.5">
+                <li><span className="text-yellow-400 font-medium">GOLD</span> · 90% 이상</li>
+                <li><span className="text-slate-300 font-medium">SILVER</span> · 60% 이상</li>
+                <li><span className="text-amber-600 font-medium">BRONZE</span> · 30% 이상</li>
+              </ul>
+            </div>
+          </div>
+        </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {profileStats.map(({ cat, label, total, accuracy, level, badge }) => {
             const info = LEVEL_INFO[level];

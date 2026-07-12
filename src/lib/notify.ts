@@ -35,9 +35,28 @@ function clearBadge() {
   if (nav.clearAppBadge) void nav.clearAppBadge();
 }
 
-// 앱 포커스 시 뱃지·타이틀 초기화
+// 앱 포커스 시 뱃지·타이틀 초기화 + 알림용 서비스워커 등록
+// (Android 크롬은 new Notification()이 동작하지 않아 SW showNotification 필요)
 if (typeof window !== 'undefined') {
   window.addEventListener('focus', () => { stopFlash(); clearBadge(); });
+  if ('serviceWorker' in navigator) {
+    void navigator.serviceWorker.register('/sw.js').catch(() => { /* 미지원 환경 무시 */ });
+  }
+}
+
+function showOsNotification(title: string, body: string) {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  const opts = { body, icon: '/icon-192.png', tag: 'csora' };
+  const fallback = () => {
+    try { new Notification(title, opts); } catch { /* Android 등 미지원 시 무시 */ }
+  };
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistration()
+      .then((reg) => { if (reg) return reg.showNotification(title, opts); fallback(); })
+      .catch(fallback);
+  } else {
+    fallback();
+  }
 }
 
 export function sendNotification(title: string, body: string) {
@@ -45,14 +64,8 @@ export function sendNotification(title: string, body: string) {
   flashTitle(`🔔 ${title}`);
   // PWA 설치 시 작업표시줄 아이콘 뱃지 (setAppBadge API)
   setBadge();
-  // OS 토스트 알림 (브라우저/PWA 아이콘 깜빡임 포함)
-  if ('Notification' in window && Notification.permission === 'granted') {
-    try {
-      new Notification(title, { body, icon: '/icon-192.png', tag: 'csora', silent: false });
-    } catch {
-      // SW 환경 등에서 실패 시 무시
-    }
-  }
+  // OS 토스트 알림 (모바일은 SW showNotification, PC는 Notification 생성자 fallback)
+  showOsNotification(title, body);
 }
 
 export async function requestNotificationPermission(): Promise<void> {
