@@ -46,7 +46,7 @@ function getNotificationMessage(n: Notification): string {
   if (n.type === 'QUESTION_REJECTED') return `'${payload.questionTitle}' 문제가 거절되었습니다. 사유: ${payload.rejectionReason ?? ''}`;
   if (n.type === 'ROLE_CHANGED') return payload.newRole === 'ADMIN' ? '관리자 권한이 부여되었습니다.' : '일반 사용자로 권한이 변경되었습니다.';
   if (n.type === 'INQUIRY_REPLIED') return `'${payload.inquiryTitle}' 문의에 답변이 등록되었습니다.`;
-  if (n.type === 'LEVEL_UP') return `${payload.levelName ?? ''} 달성! Lv.${payload.prevLevel} → Lv.${payload.newLevel}으로 레벨업했습니다.`;
+  if (n.type === 'LEVEL_UP') return `${payload.levelName ?? ''} 단계를 달성했습니다!`;
   if (n.type === 'BADGE_EARNED') return `🏅 "${BADGE_META[payload.badge as keyof typeof BADGE_META]?.label ?? '새 업적'}" 업적을 달성했습니다!`;
   if (n.type === 'FRIEND_REQUEST') return `${payload.fromNickname ?? '누군가'}님이 친구 요청을 보냈습니다.`;
   if (n.type === 'FRIEND_ACCEPTED') return `${payload.fromNickname ?? '누군가'}님이 친구 요청을 수락했습니다.`;

@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import QuestionDrawer from "@/components/QuestionDrawer";
 import type { Category } from "@/types";
 import { BADGE_META, ALL_BADGES } from "@/lib/badges";
+import { getLevelInfo, MAX_LEVEL, XP_REWARDS } from "@/lib/user-level";
 
 const CATEGORY_LABELS: Record<Category, string> = {
   ds: "자료구조",
@@ -23,11 +24,11 @@ const CATEGORY_ORDER: Category[] = ["ds", "algo", "os", "network", "db", "arch",
 
 type BadgeTier = "bronze" | "silver" | "gold";
 
-const LEVEL_INFO: Record<number, { name: string; badge: string; text: string; bar: string }> = {
-  1: { name: '입문', badge: 'text-neutral-400 border-neutral-700', text: 'text-neutral-400', bar: 'bg-neutral-500' },
-  2: { name: '학습', badge: 'text-blue-400 border-blue-900/60', text: 'text-blue-400', bar: 'bg-blue-500' },
-  3: { name: '숙련', badge: 'text-emerald-400 border-emerald-900/60', text: 'text-emerald-400', bar: 'bg-emerald-500' },
-  4: { name: '마스터', badge: 'text-yellow-400 border-yellow-700/60', text: 'text-yellow-400', bar: 'bg-yellow-500' },
+const LEVEL_INFO: Record<number, { name: string; text: string; bar: string }> = {
+  1: { name: '입문', text: 'text-neutral-400', bar: 'bg-neutral-500' },
+  2: { name: '학습', text: 'text-blue-400', bar: 'bg-blue-500' },
+  3: { name: '숙련', text: 'text-emerald-400', bar: 'bg-emerald-500' },
+  4: { name: '마스터', text: 'text-yellow-400', bar: 'bg-yellow-500' },
 };
 
 const LEVEL_MIN = [0, 0, 50, 150, 300] as const;
@@ -68,6 +69,7 @@ type StatsData = {
   overallAccuracy: number;
   weakestCategory: string | null;
   streakCount: number;
+  xp: number;
   dailyCompletions: DailyCompletion[];
   categoryProgress: Record<string, CategoryProgress>;
 };
@@ -760,6 +762,45 @@ export default function MyPage() {
                 </button>
               </div>
             )}
+            {stats && (() => {
+              const li = getLevelInfo(stats.xp);
+              const pct = li.requiredXp > 0 ? Math.min(100, Math.round((li.currentXp / li.requiredXp) * 100)) : 100;
+              return (
+                <div className="mt-2.5">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <span className="text-xs font-bold text-blue-400">Lv.{li.level}</span>
+                    <div className="relative group">
+                      <button
+                        type="button"
+                        aria-label="레벨과 경험치 설명"
+                        className="w-4 h-4 rounded-full border border-neutral-700 text-neutral-500 text-[10px] leading-none flex items-center justify-center cursor-help hover:text-neutral-300 hover:border-neutral-500 transition-colors"
+                      >
+                        ?
+                      </button>
+                      <div className="absolute left-0 top-5 z-20 hidden group-hover:block group-focus-within:block w-64 bg-[#1a1a1a] border border-neutral-700 rounded-lg p-3 shadow-xl">
+                        <p className="text-[11px] font-semibold text-white mb-1.5">유저 레벨 (최대 Lv.{MAX_LEVEL})</p>
+                        <p className="text-[11px] text-neutral-400 mb-2.5 leading-snug">
+                          활동으로 경험치를 모아 레벨을 올려요. 레벨이 오를수록 필요 경험치가 조금씩 늘어납니다.
+                        </p>
+                        <p className="text-[11px] font-semibold text-white mb-1.5">경험치 획득 기준</p>
+                        <ul className="text-[11px] text-neutral-400 space-y-0.5">
+                          <li>퀴즈 완료(오답복습 포함) · +{XP_REWARDS.QUIZ_BASE} +정답당 {XP_REWARDS.QUIZ_PER_CORRECT}</li>
+                          <li>오늘의 문제 풀이(출석) · +{XP_REWARDS.DAILY}</li>
+                          <li>등록한 문제 승인 · +{XP_REWARDS.QUESTION_APPROVED}</li>
+                          <li>대전 승리 +{XP_REWARDS.BATTLE_WIN} / 무승부 +{XP_REWARDS.BATTLE_TIE} / 패배 +{XP_REWARDS.BATTLE_LOSS}</li>
+                        </ul>
+                      </div>
+                    </div>
+                    <span className="ml-auto text-[10px] text-neutral-500">
+                      {li.requiredXp > 0 ? `${li.currentXp}/${li.requiredXp}` : 'MAX'}
+                    </span>
+                  </div>
+                  <div className="h-1.5 bg-neutral-800 rounded-full overflow-hidden">
+                    <div className="h-full bg-blue-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
+                  </div>
+                </div>
+              );
+            })()}
           </div>
           <button
             onClick={() => { setShowNicknameForm((v) => !v); setNicknameInput(''); setNicknameError(''); }}
@@ -1192,14 +1233,14 @@ export default function MyPage() {
               ?
             </button>
             <div className="absolute left-0 top-5 z-20 hidden group-hover:block group-focus-within:block w-64 bg-[#1a1a1a] border border-neutral-700 rounded-lg p-3 shadow-xl">
-              <p className="text-[11px] font-semibold text-white mb-1.5">레벨 (누적 풀이 횟수)</p>
+              <p className="text-[11px] font-semibold text-white mb-1.5">단계 (누적 풀이 횟수)</p>
               <ul className="text-[11px] text-neutral-400 space-y-0.5 mb-2.5">
-                <li><span className="text-neutral-400 font-medium">Lv.1 입문</span> · 0~49회</li>
-                <li><span className="text-blue-400 font-medium">Lv.2 학습</span> · 50~149회</li>
-                <li><span className="text-emerald-400 font-medium">Lv.3 숙련</span> · 150~299회</li>
-                <li><span className="text-yellow-400 font-medium">Lv.4 마스터</span> · 300회 이상</li>
+                <li><span className="text-neutral-400 font-medium">입문</span> · 0~49회</li>
+                <li><span className="text-blue-400 font-medium">학습</span> · 50~149회</li>
+                <li><span className="text-emerald-400 font-medium">숙련</span> · 150~299회</li>
+                <li><span className="text-yellow-400 font-medium">마스터</span> · 300회 이상</li>
               </ul>
-              <p className="text-[11px] font-semibold text-white mb-1.5">등급 (정답률 · Lv.2부터 측정)</p>
+              <p className="text-[11px] font-semibold text-white mb-1.5">등급 (정답률 · 학습 단계부터 측정)</p>
               <ul className="text-[11px] text-neutral-400 space-y-0.5">
                 <li><span className="text-yellow-400 font-medium">GOLD</span> · 90% 이상</li>
                 <li><span className="text-slate-300 font-medium">SILVER</span> · 60% 이상</li>
@@ -1225,9 +1266,6 @@ export default function MyPage() {
                     {total > 0 && (
                       <span className={`text-sm font-bold ${accColor}`}>{accuracy}%</span>
                     )}
-                    <span className={`text-[10px] font-bold border rounded px-1.5 py-0.5 ${info.badge}`}>
-                      Lv.{level}
-                    </span>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 mb-3">

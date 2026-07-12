@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { generateEmbedding, toVectorString } from '@/lib/embedding';
 import { writeLog } from '@/lib/audit';
 import { checkQuestionBadges } from '@/lib/award-badges';
+import { XP_REWARDS } from '@/lib/user-level';
 
 const VALID_CATEGORIES = ['ds', 'algo', 'os', 'network', 'db', 'arch', 'se'];
 
@@ -54,6 +55,11 @@ export async function PATCH(
               payload: { questionId: id, questionTitle },
               actionUrl: `/board/${id}`,
             },
+          });
+          // 문제 등록 승인 경험치
+          await tx.user.update({
+            where: { id: question.authorId },
+            data: { xp: { increment: XP_REWARDS.QUESTION_APPROVED } },
           });
         }
       });

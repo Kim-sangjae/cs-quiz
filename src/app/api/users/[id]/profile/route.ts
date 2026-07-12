@@ -1,14 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-
-function computeLevel(correctCount: number): number {
-  if (correctCount >= 1000) return 5;
-  if (correctCount >= 400) return 4;
-  if (correctCount >= 150) return 3;
-  if (correctCount >= 50) return 2;
-  return 1;
-}
+import { getLevelInfo } from '@/lib/user-level';
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
@@ -20,7 +13,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const [user, attempts, rooms, presence, userBadges, approvedCount] = await Promise.all([
     prisma.user.findUnique({
       where: { id: targetId },
-      select: { nickname: true, profileVisibility: true, email: true, bio: true },
+      select: { nickname: true, profileVisibility: true, email: true, bio: true, xp: true },
     }),
     prisma.$queryRaw<[{ total: number; correct: number }]>`
       SELECT COUNT(*)::int AS total,
@@ -60,7 +53,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const total = Number(attempts[0]?.total ?? 0);
   const correct = Number(attempts[0]?.correct ?? 0);
   const accuracy = total > 0 ? correct / total : 0;
-  const level = computeLevel(correct);
+  const level = getLevelInfo(user.xp).level;
 
   const battleTotal = rooms.length;
   const battleWins = rooms.filter((r) => {

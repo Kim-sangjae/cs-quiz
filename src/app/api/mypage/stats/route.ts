@@ -12,7 +12,7 @@ export async function GET() {
     prisma.quizSession.count({ where: { userId: user.id } }),
     prisma.user.findUnique({
       where: { id: user.id },
-      select: { streakCount: true },
+      select: { streakCount: true, xp: true },
     }),
     prisma.$queryRaw<{ isCorrect: boolean; category: string }[]>`
       SELECT qa."isCorrect", q.category
@@ -87,6 +87,7 @@ export async function GET() {
     overallAccuracy,
     weakestCategory,
     streakCount: dbUser?.streakCount ?? 0,
+    xp: dbUser?.xp ?? 0,
     categoryAttemptCounts,
     categoryAccuracy,
     dailyCompletions: completions.map((c) => ({ date: c.date, correct: c.correct })),

@@ -7,6 +7,7 @@ import type { BadgeType } from '@/lib/badges';
 import { awardBadges } from '@/lib/award-badges';
 import { updateReviewSchedules } from '@/lib/review-schedule';
 import { getKSTDateStr } from '@/lib/kst';
+import { quizXp } from '@/lib/user-level';
 
 export async function POST(req: NextRequest) {
   const user = await getServerUser();
@@ -197,6 +198,16 @@ export async function POST(req: NextRequest) {
     user.id,
     answersWithCorrectness.map((a) => ({ questionId: a.questionId, isCorrect: a.isCorrect }))
   ).catch(() => {});
+
+  // 유저 레벨 경험치: 모든 모드 지급 (기본 10 + 정답당 1)
+  try {
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { xp: { increment: quizXp(score) } },
+    });
+  } catch (e) {
+    console.error('[sessions/POST] xp award failed:', e);
+  }
 
   // 일반/시간제한 모드: 정답률에 따라 포인트 지급
   let pointsEarned = 0;

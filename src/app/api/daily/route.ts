@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { auth } from '@/lib/auth';
 import { getKSTDateStr } from '@/lib/kst';
+import { XP_REWARDS } from '@/lib/user-level';
 
 function getToday() {
   return getKSTDateStr();
@@ -114,6 +115,16 @@ export async function POST(req: Request) {
   await prisma.dailyChallengeCompletion.create({
     data: { userId, date: today, correct, selectedAnswer: selected },
   });
+
+  // 오늘의 문제 풀이(출석) 경험치 — 하루 1회 (existing 체크 통과 후에만 도달)
+  try {
+    await prisma.user.update({
+      where: { id: userId },
+      data: { xp: { increment: XP_REWARDS.DAILY } },
+    });
+  } catch (e) {
+    console.error('[daily/POST] xp award failed:', e);
+  }
 
   try {
     const dbUser = await prisma.user.findUnique({
