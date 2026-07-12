@@ -736,130 +736,89 @@ export default function MyPage() {
         <p className="text-sm text-neutral-500">내 학습 기록과 통계를 확인하세요</p>
       </div>
 
-      {/* 닉네임 + 포인트 + 프로필 공개설정 */}
+      {/* 프로필 카드: 닉네임 · 레벨 · 경험치 · 소개글 · 공개설정 */}
       <div className="bg-[#111111] border border-neutral-800 rounded-lg p-4 mb-4">
-        <div className="flex items-center justify-between">
-          <div className="flex-1 min-w-0">
-            <p className="text-xs text-neutral-500 mb-0.5">닉네임</p>
-            <p className="text-sm text-white font-medium">{session?.user?.nickname ?? '–'}</p>
-            {stats && (
-              <p className="text-xs text-neutral-600 mt-0.5">
-                총 {stats.totalSessions}회 완료 · 정답률 {stats.overallAccuracy}%
-              </p>
-            )}
-            {userPoints !== null && (
-              <div className="flex items-center gap-1.5 mt-1">
-                <button
-                  onClick={() => setShowPointsModal(true)}
-                  className="flex items-center gap-1.5 text-xs text-amber-400 hover:text-amber-300 transition-colors group"
-                  title="포인트 획득/사용 방법 및 내역 보기"
-                >
-                  <span className="font-semibold">{userPoints}P</span>
-                  <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}
-                    className="text-amber-500/60 group-hover:text-amber-400 transition-colors">
-                    <circle cx={12} cy={12} r={10}/><path strokeLinecap="round" d="M12 16v-4m0-4h.01"/>
-                  </svg>
-                </button>
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-11 h-11 rounded-full bg-neutral-800 border border-neutral-700 flex items-center justify-center flex-shrink-0">
+              <span className="text-base font-semibold text-neutral-300">
+                {(session?.user?.nickname?.[0] ?? '?').toUpperCase()}
+              </span>
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <p className="text-base font-semibold text-white truncate">{session?.user?.nickname ?? '–'}</p>
+                {stats && (
+                  <span className="text-[10px] font-bold text-blue-400 border border-blue-900/60 rounded px-1.5 py-0.5 flex-shrink-0">
+                    Lv.{getLevelInfo(stats.xp).level}
+                  </span>
+                )}
               </div>
-            )}
-            {stats && (() => {
-              const li = getLevelInfo(stats.xp);
-              const pct = li.requiredXp > 0 ? Math.min(100, Math.round((li.currentXp / li.requiredXp) * 100)) : 100;
-              return (
-                <div className="mt-2.5">
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <span className="text-xs font-bold text-blue-400">Lv.{li.level}</span>
-                    <div className="relative group">
-                      <button
-                        type="button"
-                        aria-label="레벨과 경험치 설명"
-                        className="w-4 h-4 rounded-full border border-neutral-700 text-neutral-500 text-[10px] leading-none flex items-center justify-center cursor-help hover:text-neutral-300 hover:border-neutral-500 transition-colors"
-                      >
-                        ?
-                      </button>
-                      <div className="absolute left-0 top-5 z-20 hidden group-hover:block group-focus-within:block w-64 bg-[#1a1a1a] border border-neutral-700 rounded-lg p-3 shadow-xl">
-                        <p className="text-[11px] font-semibold text-white mb-1.5">유저 레벨 (최대 Lv.{MAX_LEVEL})</p>
-                        <p className="text-[11px] text-neutral-400 mb-2.5 leading-snug">
-                          활동으로 경험치를 모아 레벨을 올려요. 레벨이 오를수록 필요 경험치가 조금씩 늘어납니다.
-                        </p>
-                        <p className="text-[11px] font-semibold text-white mb-1.5">경험치 획득 기준</p>
-                        <ul className="text-[11px] text-neutral-400 space-y-0.5">
-                          <li>퀴즈 완료(오답복습 포함) · +{XP_REWARDS.QUIZ_BASE} +정답당 {XP_REWARDS.QUIZ_PER_CORRECT}</li>
-                          <li>오늘의 문제 풀이(출석) · +{XP_REWARDS.DAILY}</li>
-                          <li>등록한 문제 승인 · +{XP_REWARDS.QUESTION_APPROVED}</li>
-                          <li>대전 승리 +{XP_REWARDS.BATTLE_WIN} / 무승부 +{XP_REWARDS.BATTLE_TIE} / 패배 +{XP_REWARDS.BATTLE_LOSS}</li>
-                        </ul>
-                      </div>
-                    </div>
-                    <span className="ml-auto text-[10px] text-neutral-500">
-                      {li.requiredXp > 0 ? `${li.currentXp}/${li.requiredXp}` : 'MAX'}
-                    </span>
-                  </div>
-                  <div className="h-1.5 bg-neutral-800 rounded-full overflow-hidden">
-                    <div className="h-full bg-blue-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
-                  </div>
-                </div>
-              );
-            })()}
+              <div className="flex items-center gap-1.5 mt-0.5 text-xs text-neutral-500 flex-wrap">
+                {stats && <span>퀴즈 {stats.totalSessions}회 · 정답률 {stats.overallAccuracy}%</span>}
+                {userPoints !== null && (
+                  <>
+                    <span className="text-neutral-700">·</span>
+                    <button
+                      onClick={() => setShowPointsModal(true)}
+                      className="text-amber-400 font-semibold hover:text-amber-300 underline-offset-2 hover:underline transition-colors"
+                      title="포인트 안내 및 내역 보기"
+                    >
+                      {userPoints}P
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
           </div>
           <button
             onClick={() => { setShowNicknameForm((v) => !v); setNicknameInput(''); setNicknameError(''); }}
-            className="text-xs text-neutral-400 border border-neutral-700 rounded px-3 py-1.5 hover:border-neutral-500 hover:text-white transition-colors flex-shrink-0 ml-3"
+            className="text-xs text-neutral-400 border border-neutral-700 rounded px-3 py-1.5 hover:border-neutral-500 hover:text-white transition-colors flex-shrink-0"
           >
             {showNicknameForm ? '취소' : '닉네임 변경'}
           </button>
         </div>
 
-        {/* 공개 프로필 설정 */}
-        <div className="mt-3 pt-3 border-t border-neutral-800/60">
-          <div className="flex items-center justify-between flex-wrap gap-2">
-            <div className="flex items-center gap-2">
-              {session?.user?.nickname && profileVisibility !== 'PRIVATE' && (
-                <a
-                  href={`/u/${encodeURIComponent(session.user.nickname)}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-xs font-medium text-white/80 hover:text-white border border-neutral-700 hover:border-neutral-500 rounded px-2.5 py-1 transition-colors"
-                >
-                  공개 프로필 보기 →
-                </a>
-              )}
-              <span className="text-xs text-neutral-600">공개 설정</span>
-            </div>
-            <div className="flex items-center gap-1">
-              {(['PUBLIC', 'FRIENDS_ONLY', 'PRIVATE'] as const).map((v) => {
-                const labels = { PUBLIC: '공개', FRIENDS_ONLY: '친구만', PRIVATE: '비공개' };
-                return (
+        {/* 경험치 바 */}
+        {stats && (() => {
+          const li = getLevelInfo(stats.xp);
+          const pct = li.requiredXp > 0 ? Math.min(100, Math.round((li.currentXp / li.requiredXp) * 100)) : 100;
+          return (
+            <div className="mt-3.5">
+              <div className="flex items-center gap-1.5 mb-1">
+                <span className="text-[10px] font-medium text-neutral-500">경험치</span>
+                <div className="relative group">
                   <button
-                    key={v}
-                    disabled={visibilityLoading}
-                    onClick={async () => {
-                      if (profileVisibility === v || visibilityLoading) return;
-                      setVisibilityLoading(true);
-                      try {
-                        const res = await fetch('/api/mypage/profile-visibility', {
-                          method: 'PATCH',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ visibility: v }),
-                        });
-                        if (res.ok) setProfileVisibility(v);
-                      } finally {
-                        setVisibilityLoading(false);
-                      }
-                    }}
-                    className={`text-[11px] px-2.5 py-1 rounded border transition-colors ${
-                      profileVisibility === v
-                        ? 'border-white/30 bg-white/10 text-white font-medium'
-                        : 'border-neutral-800 text-neutral-500 hover:border-neutral-600 hover:text-neutral-300'
-                    }`}
+                    type="button"
+                    aria-label="레벨과 경험치 설명"
+                    className="w-4 h-4 rounded-full border border-neutral-700 text-neutral-500 text-[10px] leading-none flex items-center justify-center cursor-help hover:text-neutral-300 hover:border-neutral-500 transition-colors"
                   >
-                    {labels[v]}
+                    ?
                   </button>
-                );
-              })}
+                  <div className="absolute left-0 top-5 z-20 hidden group-hover:block group-focus-within:block w-64 bg-[#1a1a1a] border border-neutral-700 rounded-lg p-3 shadow-xl">
+                    <p className="text-[11px] font-semibold text-white mb-1.5">유저 레벨 (최대 Lv.{MAX_LEVEL})</p>
+                    <p className="text-[11px] text-neutral-400 mb-2.5 leading-snug">
+                      활동으로 경험치를 모아 레벨을 올려요. 레벨이 오를수록 필요 경험치가 조금씩 늘어납니다.
+                    </p>
+                    <p className="text-[11px] font-semibold text-white mb-1.5">경험치 획득 기준</p>
+                    <ul className="text-[11px] text-neutral-400 space-y-0.5">
+                      <li>퀴즈 완료(오답복습 포함) · +{XP_REWARDS.QUIZ_BASE} +정답당 {XP_REWARDS.QUIZ_PER_CORRECT}</li>
+                      <li>오늘의 문제 풀이(출석) · +{XP_REWARDS.DAILY}</li>
+                      <li>등록한 문제 승인 · +{XP_REWARDS.QUESTION_APPROVED}</li>
+                      <li>대전 승리 +{XP_REWARDS.BATTLE_WIN} / 무승부 +{XP_REWARDS.BATTLE_TIE} / 패배 +{XP_REWARDS.BATTLE_LOSS}</li>
+                    </ul>
+                  </div>
+                </div>
+                <span className="ml-auto text-[10px] text-neutral-500 tabular-nums">
+                  {li.requiredXp > 0 ? `${li.currentXp}/${li.requiredXp}` : 'MAX'}
+                </span>
+              </div>
+              <div className="h-1.5 bg-neutral-800 rounded-full overflow-hidden">
+                <div className="h-full bg-blue-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
+              </div>
             </div>
-          </div>
-        </div>
+          );
+        })()}
 
         {showNicknameForm && (
           <form onSubmit={handleNicknameChange} className="mt-4 flex gap-2">
@@ -928,6 +887,57 @@ export default function MyPage() {
               </button>
             </form>
           )}
+        </div>
+
+        {/* 공개 프로필 설정 */}
+        <div className="mt-3 pt-3 border-t border-neutral-800/60">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2">
+              {session?.user?.nickname && profileVisibility !== 'PRIVATE' && (
+                <a
+                  href={`/u/${encodeURIComponent(session.user.nickname)}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-xs font-medium text-white/80 hover:text-white border border-neutral-700 hover:border-neutral-500 rounded px-2.5 py-1 transition-colors"
+                >
+                  공개 프로필 보기 →
+                </a>
+              )}
+              <span className="text-xs text-neutral-600">공개 설정</span>
+            </div>
+            <div className="flex items-center gap-1">
+              {(['PUBLIC', 'FRIENDS_ONLY', 'PRIVATE'] as const).map((v) => {
+                const labels = { PUBLIC: '공개', FRIENDS_ONLY: '친구만', PRIVATE: '비공개' };
+                return (
+                  <button
+                    key={v}
+                    disabled={visibilityLoading}
+                    onClick={async () => {
+                      if (profileVisibility === v || visibilityLoading) return;
+                      setVisibilityLoading(true);
+                      try {
+                        const res = await fetch('/api/mypage/profile-visibility', {
+                          method: 'PATCH',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ visibility: v }),
+                        });
+                        if (res.ok) setProfileVisibility(v);
+                      } finally {
+                        setVisibilityLoading(false);
+                      }
+                    }}
+                    className={`text-[11px] px-2.5 py-1 rounded border transition-colors ${
+                      profileVisibility === v
+                        ? 'border-white/30 bg-white/10 text-white font-medium'
+                        : 'border-neutral-800 text-neutral-500 hover:border-neutral-600 hover:text-neutral-300'
+                    }`}
+                  >
+                    {labels[v]}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </div>
       </div>
 
