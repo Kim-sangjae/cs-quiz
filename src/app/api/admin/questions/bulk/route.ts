@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { writeLog } from '@/lib/audit';
 import { checkQuestionBadges } from '@/lib/award-badges';
 import { generateEmbedding, toVectorString } from '@/lib/embedding';
+import { XP_REWARDS } from '@/lib/user-level';
 
 export async function POST(req: NextRequest) {
   const user = await getServerUser();
@@ -34,6 +35,14 @@ export async function POST(req: NextRequest) {
         actionUrl: `/board/${q.id}`,
       }));
       if (notifications.length > 0) await tx.notification.createMany({ data: notifications });
+      // 작성자별 문제 승인 경험치 (단건 승인과 동일 정책)
+      const xpByAuthor = new Map<string, number>();
+      for (const q of toApprove) {
+        if (q.authorId) xpByAuthor.set(q.authorId, (xpByAuthor.get(q.authorId) ?? 0) + XP_REWARDS.QUESTION_APPROVED);
+      }
+      for (const [authorId, xp] of xpByAuthor) {
+        await tx.user.update({ where: { id: authorId }, data: { xp: { increment: xp } } });
+      }
     });
     writeLog({ actorId: user.id, actorRole: user.role, action: 'QUESTION_APPROVE', targetType: 'Question', targetId: ids.join(','), payload: { count: toApprove.length } });
     const authorIds = [...new Set(toApprove.map((q) => q.authorId).filter(Boolean))] as string[];

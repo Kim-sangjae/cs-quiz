@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { getLevelInfo, MAX_LEVEL } from '@/lib/user-level';
 
 type Tab = 'questions' | 'board' | 'reports' | 'users' | 'inquiries' | 'logs' | 'analytics' | 'errors' | 'generate' | 'blocked-words' | 'points-log';
 
@@ -57,7 +58,7 @@ interface BoardResponse {
 }
 interface AdminUser {
   id: string; email: string; nickname: string | null;
-  role: string; deletedAt: string | null; createdAt: string;
+  role: string; deletedAt: string | null; createdAt: string; xp: number;
   _count: { quizSessions: number };
 }
 interface EditState {
@@ -1468,9 +1469,12 @@ function UsersTab({ currentUserId, requestConfirm }: { currentUserId: string; re
   const [roleFilter, setRoleFilter] = useState<'all' | 'ADMIN' | 'USER'>('all');
   const [statusFilter, setUserStatusFilter] = useState<'all' | 'active' | 'deactivated'>('all');
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
+  const [sortBy, setSortBy] = useState<'createdAt' | 'xp'>('createdAt');
   const [page, setPage] = useState(1);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkPending, setBulkPending] = useState(false);
+  const [levelEditId, setLevelEditId] = useState<string | null>(null);
+  const [levelInput, setLevelInput] = useState('');
 
   useEffect(() => {
     const t = setTimeout(() => { setSearch(searchInput); setPage(1); setSelectedIds(new Set()); }, 300);
@@ -1478,9 +1482,9 @@ function UsersTab({ currentUserId, requestConfirm }: { currentUserId: string; re
   }, [searchInput]);
 
   const { data } = useQuery<UsersResponse>({
-    queryKey: ['admin', 'users', search, roleFilter, statusFilter, sortOrder, page],
+    queryKey: ['admin', 'users', search, roleFilter, statusFilter, sortOrder, sortBy, page],
     queryFn: async () => {
-      const params = new URLSearchParams({ search, role: roleFilter, status: statusFilter, sort: sortOrder, page: String(page) });
+      const params = new URLSearchParams({ search, role: roleFilter, status: statusFilter, sort: sortOrder, sortBy, page: String(page) });
       const r = await fetch(`/api/admin/users?${params}`);
       if (!r.ok) return { users: [], total: 0, pageCount: 1 };
       return r.json();
@@ -1490,13 +1494,13 @@ function UsersTab({ currentUserId, requestConfirm }: { currentUserId: string; re
   const pagedUsers = data?.users ?? [];
   const pageCount = data?.pageCount ?? 1;
 
-  async function doAction(userId: string, action: 'set-admin' | 'set-user' | 'deactivate' | 'reactivate' | 'reset-stats') {
+  async function doAction(userId: string, action: 'set-admin' | 'set-user' | 'deactivate' | 'reactivate' | 'reset-stats' | 'set-level', level?: number) {
     setActionLoading(userId + ':' + action);
     try {
       const res = await fetch(`/api/admin/users/${userId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action }),
+        body: JSON.stringify({ action, ...(level !== undefined ? { level } : {}) }),
       });
       if (res.ok) {
         if (action === 'set-admin' || action === 'set-user') {
@@ -1505,6 +1509,9 @@ function UsersTab({ currentUserId, requestConfirm }: { currentUserId: string; re
           toast.success('탈퇴 처리되었습니다.');
         } else if (action === 'reset-stats') {
           toast.success('통계가 초기화되었습니다.');
+        } else if (action === 'set-level') {
+          toast.success('레벨이 변경되었습니다.');
+          setLevelEditId(null);
         } else {
           toast.success('계정이 복구되었습니다.');
         }
@@ -1567,10 +1574,19 @@ function UsersTab({ currentUserId, requestConfirm }: { currentUserId: string; re
             </button>
           ))}
         </div>
-        <button onClick={() => { setSortOrder((o) => (o === 'desc' ? 'asc' : 'desc')); setPage(1); setSelectedIds(new Set()); }}
-          className="rounded px-3 py-1.5 text-xs border border-neutral-800 text-neutral-500 hover:text-neutral-300 transition-colors">
-          가입일 {sortOrder === 'desc' ? '최신순 ↓' : '오래된순 ↑'}
-        </button>
+        <div className="flex gap-1.5">
+          {([['createdAt', '가입일'], ['xp', '레벨']] as const).map(([v, l]) => (
+            <button key={v}
+              onClick={() => {
+                if (sortBy === v) { setSortOrder((o) => (o === 'desc' ? 'asc' : 'desc')); }
+                else { setSortBy(v); setSortOrder('desc'); }
+                setPage(1); setSelectedIds(new Set());
+              }}
+              className={`rounded px-3 py-1.5 text-xs transition-colors ${sortBy === v ? 'border border-neutral-500 text-white' : 'border border-neutral-800 text-neutral-500 hover:text-neutral-300'}`}>
+              {l} {sortBy === v ? (sortOrder === 'desc' ? '↓' : '↑') : ''}
+            </button>
+          ))}
+        </div>
       </div>
 
       {selectedIds.size > 0 && (
@@ -1618,6 +1634,33 @@ function UsersTab({ currentUserId, requestConfirm }: { currentUserId: string; re
                           {u.role === 'ADMIN' && <span className="text-xs text-amber-400 border border-amber-400/30 rounded px-1.5 py-0.5">ADMIN</span>}
                           {isDeactivated && <span className="text-xs text-neutral-500 border border-neutral-700 rounded px-1.5 py-0.5">탈퇴</span>}
                           {isSelf && <span className="text-xs text-neutral-600 border border-neutral-800 rounded px-1.5 py-0.5">나</span>}
+                          {levelEditId === u.id ? (
+                            <span className="flex items-center gap-1">
+                              <input type="number" min={1} max={MAX_LEVEL} value={levelInput}
+                                onChange={(e) => setLevelInput(e.target.value)}
+                                className="w-14 bg-[#1a1a1a] border border-neutral-700 rounded px-1.5 py-0.5 text-xs text-white focus:outline-none focus:border-neutral-500"
+                                autoFocus
+                              />
+                              <button
+                                onClick={() => {
+                                  const lv = parseInt(levelInput, 10);
+                                  if (!Number.isFinite(lv) || lv < 1 || lv > MAX_LEVEL) { toast.error(`레벨은 1~${MAX_LEVEL} 사이여야 합니다`); return; }
+                                  doAction(u.id, 'set-level', lv);
+                                }}
+                                disabled={!!actionLoading}
+                                className="text-xs text-emerald-400 hover:text-emerald-300 px-1"
+                              >확인</button>
+                              <button onClick={() => setLevelEditId(null)} className="text-xs text-neutral-500 hover:text-neutral-300 px-1">취소</button>
+                            </span>
+                          ) : (
+                            <button
+                              onClick={() => { setLevelEditId(u.id); setLevelInput(String(getLevelInfo(u.xp).level)); }}
+                              className="text-xs text-blue-400 border border-blue-900/60 rounded px-1.5 py-0.5 hover:bg-blue-500/10 transition-colors"
+                              title="클릭해서 레벨 직접 설정"
+                            >
+                              Lv.{getLevelInfo(u.xp).level}
+                            </button>
+                          )}
                         </div>
                         <p className="text-xs text-neutral-500">
                           {u.email} · 퀴즈 {u._count.quizSessions}회 · 가입{' '}
@@ -1653,7 +1696,7 @@ function UsersTab({ currentUserId, requestConfirm }: { currentUserId: string; re
                           </button>
                         )}
                         {!isSelf && (
-                          <button onClick={() => requestConfirm(`'${u.nickname ?? u.email}'의 퀴즈 데이터(풀이기록·포인트·뱃지·스트릭)를 초기화하시겠습니까?`, () => doAction(u.id, 'reset-stats'))}
+                          <button onClick={() => requestConfirm(`'${u.nickname ?? u.email}'의 퀴즈 데이터(풀이기록·포인트·경험치·뱃지·스트릭)를 초기화하시겠습니까?`, () => doAction(u.id, 'reset-stats'))}
                             disabled={!!actionLoading || isSelf}
                             className="rounded-md bg-orange-500/10 border border-orange-500/30 text-orange-400 text-xs px-3 py-1.5 hover:bg-orange-500/20 transition-colors disabled:opacity-40">
                             통계초기화
@@ -3468,15 +3511,23 @@ function GenerateQuestionsTab() {
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs text-neutral-400">생성 개수 (최대 50)</label>
-            <input
-              type="number"
-              min={1}
-              max={50}
-              value={count}
-              onChange={(e) => setCount(Math.min(50, Math.max(1, parseInt(e.target.value) || 1)))}
-              className="w-24 bg-[#1a1a1a] border border-neutral-700 rounded-md px-3 py-1.5 text-sm text-white focus:outline-none focus:border-neutral-500"
-            />
+            <label className="text-xs text-neutral-400">생성 개수</label>
+            <div className="flex gap-1">
+              {[10, 20, 30, 40, 50].map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => setCount(n)}
+                  className={`px-3 py-1.5 rounded-md text-sm transition-colors ${
+                    count === n
+                      ? 'bg-white text-black font-medium'
+                      : 'bg-[#1a1a1a] border border-neutral-700 text-neutral-300 hover:border-neutral-500'
+                  }`}
+                >
+                  {n}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -3525,6 +3576,7 @@ const BASE_BLOCKED_WORDS_DISPLAY = [
 function BlockedWordsTab() {
   const queryClient = useQueryClient();
   const [input, setInput] = useState('');
+  const [showListModal, setShowListModal] = useState(false);
 
   const { data: customWords = [], isLoading } = useQuery<{ id: string; word: string; createdAt: string }[]>({
     queryKey: ['admin-blocked-words'],
@@ -3610,40 +3662,68 @@ function BlockedWordsTab() {
       </div>
 
       <div className="bg-[#111111] border border-neutral-800 rounded-lg p-5">
-        <h2 className="text-sm font-medium text-white mb-1">금칙어 목록</h2>
-        <p className="text-xs text-neutral-500 mb-4">
-          관리자 추가 단어는 삭제 가능, 기본 단어(흐리게 표시)는 읽기 전용입니다.
-          기본 단어 수정은{' '}
-          <code className="text-neutral-400 bg-neutral-900 rounded px-1">src/lib/nickname-filter.ts</code>를,
-          korcen 패턴 전체는{' '}
-          <a href="https://github.com/Tanat05/korcen.ts/blob/stable/src/checkBadLang.ts" target="_blank" rel="noreferrer" className="text-blue-400 hover:underline">
-            여기 (checkBadLang.ts)
-          </a>에서 확인하세요.
-        </p>
-        {isLoading ? (
-          <p className="text-xs text-neutral-500">불러오는 중...</p>
-        ) : (
-          <div className="flex flex-wrap gap-2">
-            {customWords.map((w) => (
-              <span key={w.id} className="inline-flex items-center gap-1.5 text-xs bg-neutral-900 border border-neutral-700 rounded px-2.5 py-1 text-neutral-300">
-                {w.word}
-                <button
-                  onClick={() => deleteMutation.mutate(w.id)}
-                  className="text-neutral-600 hover:text-red-400 transition-colors"
-                  title="삭제"
-                >
-                  ✕
-                </button>
-              </span>
-            ))}
-            {BASE_BLOCKED_WORDS_DISPLAY.map((w) => (
-              <span key={w} className="text-xs bg-neutral-900 border border-neutral-700 rounded px-2.5 py-1 text-neutral-300">
-                {w}
-              </span>
-            ))}
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-sm font-medium text-white mb-1">금칙어 목록</h2>
+            <p className="text-xs text-neutral-500">
+              관리자 추가 {isLoading ? '–' : customWords.length}개 + 기본 {BASE_BLOCKED_WORDS_DISPLAY.length}개
+            </p>
           </div>
-        )}
+          <button
+            onClick={() => setShowListModal(true)}
+            className="text-xs text-neutral-300 border border-neutral-700 rounded-md px-3 py-1.5 hover:border-neutral-500 hover:text-white transition-colors flex-shrink-0"
+          >
+            전체 목록 보기 →
+          </button>
+        </div>
       </div>
+
+      {showListModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60" onClick={() => setShowListModal(false)}>
+          <div className="w-full max-w-lg max-h-[80vh] flex flex-col bg-[#111111] border border-neutral-700 rounded-xl shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 py-4 border-b border-neutral-800 flex-shrink-0">
+              <h3 className="text-sm font-semibold text-white">금칙어 전체 목록</h3>
+              <button onClick={() => setShowListModal(false)} className="text-neutral-500 hover:text-white transition-colors p-1">
+                <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+              </button>
+            </div>
+            <div className="px-5 py-4 overflow-y-auto">
+              <p className="text-xs text-neutral-500 mb-4">
+                관리자 추가 단어는 삭제 가능, 기본 단어(흐리게 표시)는 읽기 전용입니다.
+                기본 단어 수정은{' '}
+                <code className="text-neutral-400 bg-neutral-900 rounded px-1">src/lib/nickname-filter.ts</code>를,
+                korcen 패턴 전체는{' '}
+                <a href="https://github.com/Tanat05/korcen.ts/blob/stable/src/checkBadLang.ts" target="_blank" rel="noreferrer" className="text-blue-400 hover:underline">
+                  여기 (checkBadLang.ts)
+                </a>에서 확인하세요.
+              </p>
+              {isLoading ? (
+                <p className="text-xs text-neutral-500">불러오는 중...</p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {customWords.map((w) => (
+                    <span key={w.id} className="inline-flex items-center gap-1.5 text-xs bg-neutral-900 border border-neutral-700 rounded px-2.5 py-1 text-neutral-300">
+                      {w.word}
+                      <button
+                        onClick={() => deleteMutation.mutate(w.id)}
+                        className="text-neutral-600 hover:text-red-400 transition-colors"
+                        title="삭제"
+                      >
+                        ✕
+                      </button>
+                    </span>
+                  ))}
+                  {BASE_BLOCKED_WORDS_DISPLAY.map((w) => (
+                    <span key={w} className="text-xs bg-neutral-900 border border-neutral-700 rounded px-2.5 py-1 text-neutral-500">
+                      {w}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

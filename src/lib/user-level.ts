@@ -17,6 +17,14 @@ export function xpForLevel(level: number): number {
   return 150 + (level - 1) * 10;
 }
 
+// 해당 레벨 시작점까지의 누적 경험치 (관리자 레벨 설정 등에 사용)
+export function totalXpForLevel(level: number): number {
+  const target = Math.min(MAX_LEVEL, Math.max(1, Math.floor(level)));
+  let total = 0;
+  for (let l = 1; l < target; l++) total += xpForLevel(l);
+  return total;
+}
+
 export interface LevelInfo {
   level: number;
   currentXp: number; // 현재 레벨에서 쌓은 경험치

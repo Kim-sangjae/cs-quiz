@@ -15,6 +15,7 @@ export async function GET(req: NextRequest) {
   const role = searchParams.get('role') ?? 'all';
   const status = searchParams.get('status') ?? 'all';
   const sort = searchParams.get('sort') === 'asc' ? 'asc' : 'desc';
+  const sortBy = searchParams.get('sortBy') === 'xp' ? 'xp' : 'createdAt';
   const page = Math.max(1, parseInt(searchParams.get('page') ?? '1'));
 
   const where = {
@@ -40,9 +41,10 @@ export async function GET(req: NextRequest) {
         role: true,
         deletedAt: true,
         createdAt: true,
+        xp: true,
         _count: { select: { quizSessions: true } },
       },
-      orderBy: { createdAt: sort },
+      orderBy: { [sortBy]: sort },
       take: PAGE_SIZE,
       skip: (page - 1) * PAGE_SIZE,
     }),

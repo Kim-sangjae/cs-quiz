@@ -23,7 +23,8 @@ export type AuditAction =
   | 'COMMENT_DELETE'
   | 'AI_QUESTION_GENERATE'
   | 'AI_OPTION_GENERATE'
-  | 'USER_RESET_STATS';
+  | 'USER_RESET_STATS'
+  | 'USER_SET_LEVEL';
 
 interface WriteLogParams {
   actorId?: string;

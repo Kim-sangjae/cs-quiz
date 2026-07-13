@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerUser } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { writeLog } from '@/lib/audit';
+import { totalXpForLevel, MAX_LEVEL } from '@/lib/user-level';
 
 export async function PATCH(
   req: NextRequest,
@@ -13,10 +14,10 @@ export async function PATCH(
   }
 
   const { id } = await params;
-  const body = await req.json() as { action: unknown };
-  const { action } = body;
+  const body = await req.json() as { action: unknown; level?: unknown };
+  const { action, level } = body;
 
-  const VALID_ACTIONS = ['set-admin', 'set-user', 'deactivate', 'reactivate', 'reset-stats'];
+  const VALID_ACTIONS = ['set-admin', 'set-user', 'deactivate', 'reactivate', 'reset-stats', 'set-level'];
   if (!VALID_ACTIONS.includes(action as string)) {
     return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
   }
@@ -81,10 +82,18 @@ export async function PATCH(
       prisma.reviewSchedule.deleteMany({ where: { userId: id } }),
       prisma.user.update({
         where: { id },
-        data: { points: 0, streakCount: 0, lastQuizDate: null },
+        data: { points: 0, xp: 0, streakCount: 0, lastQuizDate: null },
       }),
     ]);
     writeLog({ actorId: user.id, actorRole: user.role, action: 'USER_RESET_STATS', targetType: 'User', targetId: id, payload: { targetEmail: target.email, targetNickname: target.nickname } });
+  } else if (action === 'set-level') {
+    const targetLevel = typeof level === 'number' ? Math.floor(level) : NaN;
+    if (!Number.isFinite(targetLevel) || targetLevel < 1 || targetLevel > MAX_LEVEL) {
+      return NextResponse.json({ error: `레벨은 1~${MAX_LEVEL} 사이여야 합니다` }, { status: 400 });
+    }
+    const xp = totalXpForLevel(targetLevel);
+    await prisma.user.update({ where: { id }, data: { xp } });
+    writeLog({ actorId: user.id, actorRole: user.role, action: 'USER_SET_LEVEL', targetType: 'User', targetId: id, payload: { targetEmail: target.email, targetNickname: target.nickname, level: targetLevel, xp } });
   }
 
   return NextResponse.json({ ok: true });
