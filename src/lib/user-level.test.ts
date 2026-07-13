@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getLevelInfo, xpForLevel, quizXp, MAX_LEVEL, XP_REWARDS } from './user-level';
+import { getLevelInfo, xpForLevel, totalXpForLevel, quizXp, MAX_LEVEL, XP_REWARDS } from './user-level';
 
 describe('xpForLevel', () => {
   it('레벨 1→2 필요 경험치는 150', () => {
@@ -47,6 +47,27 @@ describe('XP_REWARDS', () => {
     expect(XP_REWARDS.BATTLE_WIN).toBe(15);
     expect(XP_REWARDS.BATTLE_TIE).toBe(10);
     expect(XP_REWARDS.BATTLE_LOSS).toBe(5);
+  });
+});
+
+describe('totalXpForLevel', () => {
+  it('레벨 1 시작점은 0 XP', () => {
+    expect(totalXpForLevel(1)).toBe(0);
+  });
+
+  it('레벨 2 시작점은 150, 레벨 3은 310', () => {
+    expect(totalXpForLevel(2)).toBe(150);
+    expect(totalXpForLevel(3)).toBe(310);
+  });
+
+  it('getLevelInfo와 왕복 일치 (레벨 시작점 XP → 해당 레벨)', () => {
+    for (const lv of [1, 2, 50, 199, 200]) {
+      expect(getLevelInfo(totalXpForLevel(lv)).level).toBe(lv);
+    }
+  });
+
+  it('MAX_LEVEL 초과 입력은 MAX_LEVEL 시작점으로 클램프', () => {
+    expect(totalXpForLevel(999)).toBe(totalXpForLevel(MAX_LEVEL));
   });
 });
 

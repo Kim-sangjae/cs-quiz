@@ -28,6 +28,63 @@ function getLevel(total: number) {
   return 1;
 }
 
+const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
+
+function PublicAttendanceCalendar({ dates }: { dates: string[] }) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const activeDays = new Set(dates);
+
+  const year = today.getFullYear();
+  const month = today.getMonth();
+  const firstDay = new Date(year, month, 1);
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const startOffset = firstDay.getDay();
+
+  const activeCount = Array.from({ length: daysInMonth }, (_, i) =>
+    activeDays.has(new Date(year, month, i + 1).toLocaleDateString('en-CA'))
+  ).filter(Boolean).length;
+
+  return (
+    <section className="mb-8">
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-sm font-semibold text-white">{year}년 {month + 1}월 출석</h2>
+        <span className="text-xs font-medium text-emerald-400">{activeCount}일 출석</span>
+      </div>
+      <div className="bg-[#111111] border border-neutral-800 rounded-lg px-4 py-3">
+        <div className="grid grid-cols-7 gap-px">
+          {WEEKDAYS.map((d) => (
+            <div key={d} className="text-center text-[10px] text-neutral-600 py-1">{d}</div>
+          ))}
+          {Array.from({ length: startOffset }, (_, i) => <div key={`empty-${i}`} />)}
+          {Array.from({ length: daysInMonth }, (_, i) => {
+            const dayNum = i + 1;
+            const d = new Date(year, month, dayNum);
+            const key = d.toLocaleDateString('en-CA');
+            const active = activeDays.has(key);
+            const isToday = d.getTime() === today.getTime();
+            return (
+              <div key={key} className="flex items-center justify-center py-0.5">
+                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-medium ${
+                  active && isToday
+                    ? 'bg-emerald-400 text-black shadow-[0_0_6px_rgba(52,211,153,0.4)]'
+                    : active
+                    ? 'bg-emerald-500/20 border border-emerald-500/40 text-emerald-400'
+                    : isToday
+                    ? 'ring-1 ring-amber-500/60 text-amber-400'
+                    : 'text-neutral-600'
+                }`}>
+                  {dayNum}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 interface PageProps {
   params: Promise<{ nickname: string }>;
 }
@@ -86,7 +143,7 @@ export default async function PublicProfilePage({ params }: PageProps) {
     }
   }
 
-  const [attempts, totalSessions, approvedCount, recentSessions] = await Promise.all([
+  const [attempts, totalSessions, approvedCount, recentSessions, dailyCompletions] = await Promise.all([
     prisma.questionAttempt.findMany({
       where: { userId: user.id },
       select: { isCorrect: true, question: { select: { category: true } } },
@@ -98,6 +155,10 @@ export default async function PublicProfilePage({ params }: PageProps) {
       select: { category: true, score: true, mode: true, submittedAt: true },
       orderBy: { submittedAt: 'desc' },
       take: 10,
+    }),
+    prisma.dailyChallengeCompletion.findMany({
+      where: { userId: user.id },
+      select: { date: true },
     }),
   ]);
 
@@ -152,6 +213,9 @@ export default async function PublicProfilePage({ params }: PageProps) {
           </div>
         </div>
       </div>
+
+      {/* 출석 달력 */}
+      <PublicAttendanceCalendar dates={dailyCompletions.map((c) => c.date)} />
 
       {/* 카테고리별 현황 */}
       <section className="mb-8">
