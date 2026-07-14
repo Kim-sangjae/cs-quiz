@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getServerUser } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { getKSTMidnight } from '@/lib/kst';
 
 export async function GET() {
   const user = await getServerUser();
@@ -8,8 +9,7 @@ export async function GET() {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const today = getKSTMidnight();
 
   const [dbSizeResult, aiQGenToday, aiQGenTotal, aiOptGenToday, aiOptGenTotal] = await Promise.all([
     prisma.$queryRaw<[{ size: string }]>`SELECT pg_size_pretty(pg_database_size(current_database())) AS size`,

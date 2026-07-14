@@ -1,12 +1,10 @@
 import { prisma } from './prisma';
+import { getKSTMidnight } from './kst';
 
 const INTERVALS = [1, 3, 7, 30]; // days per step
 
 function daysFromNow(n: number): Date {
-  const d = new Date();
-  d.setDate(d.getDate() + n);
-  d.setHours(0, 0, 0, 0);
-  return d;
+  return getKSTMidnight(n);
 }
 
 export async function updateReviewSchedules(
