@@ -128,9 +128,13 @@ function SubmitContent() {
       });
       const data = await r.json() as {
         distractors?: string[]; explanation?: string;
-        used: number; limit: number; remaining: number; error?: string;
+        used?: number; limit?: number; remaining?: number; error?: string;
       };
-      setUsage({ used: data.used, limit: data.limit, remaining: data.remaining });
+      // 429(일일 제한 초과)는 사용량을 포함하지만, 입력 검증 실패(400) 등은
+      // 사용량 필드가 없으므로 그 경우엔 기존 표시값을 건드리지 않음
+      if (typeof data.used === 'number' && typeof data.limit === 'number' && typeof data.remaining === 'number') {
+        setUsage({ used: data.used, limit: data.limit, remaining: data.remaining });
+      }
       if (!r.ok || !data.distractors) return;
       const { distractors, explanation: generatedExplanation } = data;
       const next = ['', '', '', ''];
