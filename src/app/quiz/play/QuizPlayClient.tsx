@@ -334,10 +334,13 @@ export default function QuizPlayClient({ questions, category, mode = 'normal', i
         router.replace("/");
         return;
       }
-      const { sessionId, pointsEarned } = await res.json() as { sessionId: string; pointsEarned?: number };
+      const { sessionId, pointsEarned, xpEarned } = await res.json() as { sessionId: string; pointsEarned?: number; xpEarned?: number };
       localStorage.removeItem(progressKey);
       if (pointsEarned) {
         sessionStorage.setItem(`points-earned-${sessionId}`, String(pointsEarned));
+      }
+      if (xpEarned) {
+        sessionStorage.setItem(`xp-earned-${sessionId}`, String(xpEarned));
       }
       router.push(`/result/${sessionId}`);
     } catch (e) {

@@ -19,6 +19,8 @@ const EMPTY_RANKINGS: CategoryRankings = {
 
 const getCachedRankings = unstable_cache(buildRankings, ['rankings'], { revalidate: 60 });
 const getCachedContributors = unstable_cache(getTopContributors, ['contributors'], { revalidate: 60 });
+// getMyRanks는 userId 인자별로 별도 캐시 엔트리가 생성됨 (unstable_cache가 인자를 캐시 키에 포함)
+const getCachedMyRanks = unstable_cache(getMyRanks, ['my-ranks'], { revalidate: 60 });
 
 const CATEGORIES = [
   { key: 'ds',      label: '자료구조',    sub: '스택·큐·트리·그래프' },
@@ -39,7 +41,7 @@ export default async function Home() {
   ]);
   const [myRanks, personalization] = user
     ? await Promise.all([
-        getMyRanks(user.id).catch(() => ({})),
+        getCachedMyRanks(user.id).catch(() => ({})),
         getHomepagePersonalization(user.id).catch(() => null),
       ])
     : [{} as Record<string, MyRankEntry>, null as HomepagePersonalization | null];

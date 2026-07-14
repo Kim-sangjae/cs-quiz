@@ -200,13 +200,15 @@ export async function POST(req: NextRequest) {
   ).catch(() => {});
 
   // 유저 레벨 경험치: 모든 모드 지급 (기본 10 + 정답당 1)
+  let xpEarned = quizXp(score);
   try {
     await prisma.user.update({
       where: { id: user.id },
-      data: { xp: { increment: quizXp(score) } },
+      data: { xp: { increment: xpEarned } },
     });
   } catch (e) {
     console.error('[sessions/POST] xp award failed:', e);
+    xpEarned = 0;
   }
 
   // 일반/시간제한 모드: 정답률에 따라 포인트 지급
@@ -234,7 +236,7 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({ sessionId: session.id, pointsEarned });
+  return NextResponse.json({ sessionId: session.id, pointsEarned, xpEarned });
 }
 
 export async function GET() {
