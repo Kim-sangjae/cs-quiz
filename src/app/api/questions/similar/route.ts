@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getServerUser } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { generateEmbedding, toVectorString } from '@/lib/embedding';
 
@@ -10,6 +11,9 @@ interface SimilarRow {
 }
 
 export async function GET(req: NextRequest) {
+  const user = await getServerUser();
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
   const q = req.nextUrl.searchParams.get('q')?.trim() ?? '';
   if (q.length < 5) return NextResponse.json([]);
 

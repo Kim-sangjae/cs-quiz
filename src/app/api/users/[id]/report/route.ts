@@ -24,6 +24,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const reported = await prisma.user.findUnique({ where: { id: reportedId }, select: { id: true } });
   if (!reported) return NextResponse.json({ error: 'User not found' }, { status: 404 });
 
+  const existing = await prisma.userReport.findUnique({
+    where: { reporterId_reportedId: { reporterId: session.user.id, reportedId } },
+  });
+  if (existing) {
+    return NextResponse.json({ error: '이미 신고한 사용자입니다' }, { status: 409 });
+  }
+
   await prisma.userReport.create({
     data: { reporterId: session.user.id, reportedId, reason, description },
   });

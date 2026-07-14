@@ -1,5 +1,8 @@
 import { supabaseServer } from './supabase-server';
 
+// PLAYING 상태에서 이 시간 이상 문제가 안 바뀌면(양쪽 이탈 등) 무효 종료 처리
+export const STALE_QUESTION_MS = 5 * 60 * 1000;
+
 export async function broadcastBattleUpdate(roomId: string): Promise<void> {
   try {
     const channel = supabaseServer.channel(`battle-room-${roomId}`);
