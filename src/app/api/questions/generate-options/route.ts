@@ -3,8 +3,27 @@ import OpenAI from 'openai';
 import { getServerUser } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { writeLog } from '@/lib/audit';
+import { getKSTMidnight } from '@/lib/kst';
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+// 하루 최대 사용 횟수 (KST 자정 기준 초기화)
+const DAILY_LIMIT = 20;
+
+async function getUsageStatus(userId: string) {
+  const used = await prisma.auditLog.count({
+    where: { actorId: userId, action: 'AI_OPTION_GENERATE', createdAt: { gte: getKSTMidnight() } },
+  });
+  return { used, limit: DAILY_LIMIT, remaining: Math.max(0, DAILY_LIMIT - used), resetAt: getKSTMidnight(1).toISOString() };
+}
+
+// 현재 사용량 조회 (버튼에 남은 횟수 표시용)
+export async function GET() {
+  const user = await getServerUser();
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  return NextResponse.json(await getUsageStatus(user.id));
+}
 
 export async function POST(req: NextRequest) {
   const user = await getServerUser();
@@ -23,14 +42,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: '입력이 너무 깁니다.' }, { status: 400 });
   }
 
-  // 하루 20회 제한
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const todayCount = await prisma.auditLog.count({
-    where: { actorId: user.id, action: 'AI_OPTION_GENERATE', createdAt: { gte: today } },
-  });
-  if (todayCount >= 20) {
-    return NextResponse.json({ error: '하루 최대 20회까지 사용할 수 있습니다.' }, { status: 429 });
+  const { used: todayCount, resetAt } = await getUsageStatus(user.id);
+  if (todayCount >= DAILY_LIMIT) {
+    return NextResponse.json({ error: `하루 최대 ${DAILY_LIMIT}회까지 사용할 수 있습니다.`, used: todayCount, limit: DAILY_LIMIT, remaining: 0, resetAt }, { status: 429 });
   }
 
   const completion = await openai.chat.completions.create({
@@ -76,5 +90,7 @@ export async function POST(req: NextRequest) {
 
   writeLog({ actorId: user.id, actorRole: user.role, action: 'AI_OPTION_GENERATE', targetType: 'Question', payload: { questionPreview: (question as string).slice(0, 60) } });
 
-  return NextResponse.json({ distractors, explanation });
+  // writeLog는 fire-and-forget이라 재조회 대신 +1로 계산 (여기 도달 = 이번 호출 확정 성공)
+  const used = todayCount + 1;
+  return NextResponse.json({ distractors, explanation, used, limit: DAILY_LIMIT, remaining: Math.max(0, DAILY_LIMIT - used), resetAt });
 }

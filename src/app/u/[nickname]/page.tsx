@@ -4,6 +4,7 @@ import type { Metadata } from 'next';
 import { prisma } from '@/lib/prisma';
 import { getServerUser } from '@/lib/auth';
 import { BADGE_META } from '@/lib/badges';
+import { getKSTNow } from '@/lib/kst';
 import ProfileVisibilityListener from '@/components/ProfileVisibilityListener';
 
 const CATEGORIES = ['ds', 'algo', 'os', 'network', 'db', 'arch', 'se'] as const;
@@ -31,12 +32,13 @@ function getLevel(total: number) {
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
 
 function PublicAttendanceCalendar({ dates }: { dates: string[] }) {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  // 서버(UTC)에서 도는 컴포넌트라 로컬 게터 대신 KST 벽시계 기준으로 연/월/일을 구함
+  const nowKST = getKSTNow();
+  const year = nowKST.getUTCFullYear();
+  const month = nowKST.getUTCMonth();
+  const today = new Date(year, month, nowKST.getUTCDate());
   const activeDays = new Set(dates);
 
-  const year = today.getFullYear();
-  const month = today.getMonth();
   const firstDay = new Date(year, month, 1);
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const startOffset = firstDay.getDay();

@@ -66,8 +66,14 @@ function SubmitContent() {
   }, [panelId]);
 
   const [generating, setGenerating] = useState(false);
-  const [generateCount, setGenerateCount] = useState(0);
-  const MAX_GENERATE = 3;
+  const [usage, setUsage] = useState<{ used: number; limit: number; remaining: number } | null>(null);
+
+  useEffect(() => {
+    fetch('/api/questions/generate-options')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { used: number; limit: number; remaining: number } | null) => { if (d) setUsage(d); })
+      .catch(() => {});
+  }, []);
 
   // 재요청 모드: 기존 문제 데이터 프리필
   useEffect(() => {
@@ -111,7 +117,7 @@ function SubmitContent() {
   }
 
   async function handleGenerateOptions() {
-    if (!question.trim() || !options[answer ?? -1]?.trim() || generateCount >= MAX_GENERATE) return;
+    if (!question.trim() || !options[answer ?? -1]?.trim() || (usage && usage.remaining <= 0)) return;
     setGenerating(true);
     try {
       const correctAnswer = options[answer!];
@@ -120,8 +126,12 @@ function SubmitContent() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ question, answer: correctAnswer }),
       });
-      if (!r.ok) return;
-      const data = await r.json() as { distractors: string[]; explanation: string };
+      const data = await r.json() as {
+        distractors?: string[]; explanation?: string;
+        used: number; limit: number; remaining: number; error?: string;
+      };
+      setUsage({ used: data.used, limit: data.limit, remaining: data.remaining });
+      if (!r.ok || !data.distractors) return;
       const { distractors, explanation: generatedExplanation } = data;
       const next = ['', '', '', ''];
       next[answer!] = correctAnswer;
@@ -131,7 +141,6 @@ function SubmitContent() {
       }
       setOptions(next);
       if (generatedExplanation) setExplanation(generatedExplanation);
-      setGenerateCount((c) => c + 1);
     } finally {
       setGenerating(false);
     }
@@ -325,11 +334,15 @@ function SubmitContent() {
               <button
                 type="button"
                 onClick={handleGenerateOptions}
-                disabled={generating || generateCount >= MAX_GENERATE || !question.trim() || answer === null || !options[answer]?.trim()}
+                disabled={generating || (usage !== null && usage.remaining <= 0) || !question.trim() || answer === null || !options[answer]?.trim()}
                 className="text-xs text-neutral-400 border border-neutral-700 rounded-md px-3 py-1.5 hover:text-white hover:border-neutral-500 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                title={generateCount >= MAX_GENERATE ? 'AI 생성 횟수를 초과했습니다. 직접 작성해주세요.' : undefined}
+                title={usage && usage.remaining <= 0 ? '오늘의 AI 생성 횟수를 모두 사용했습니다. 매일 자정(한국시간)에 초기화됩니다.' : undefined}
               >
-                {generating ? '생성 중...' : generateCount >= MAX_GENERATE ? `AI 생성 불가 (${MAX_GENERATE}회 초과)` : `✦ 보기 + 해설 자동 생성 (${MAX_GENERATE - generateCount}회 남음)`}
+                {generating
+                  ? '생성 중...'
+                  : usage && usage.remaining <= 0
+                    ? `AI 생성 불가 (오늘 ${usage.limit}회 모두 사용)`
+                    : `✦ 보기 + 해설 자동 생성${usage ? ` (오늘 ${usage.remaining}/${usage.limit}회 남음)` : ''}`}
               </button>
               <div className="relative group">
                 <span className="flex items-center justify-center w-4 h-4 rounded-full border border-neutral-700 text-neutral-500 text-[10px] cursor-help hover:border-neutral-500 hover:text-neutral-300 transition-colors select-none">
@@ -343,6 +356,11 @@ function SubmitContent() {
                     <p>2. 정답 라디오 선택</p>
                     <p>3. 정답 보기 텍스트 입력</p>
                     <p>→ 버튼 활성화</p>
+                  </div>
+                  <div className="mt-2 pt-2 border-t border-neutral-800">
+                    <p className="text-[11px] text-neutral-500">
+                      일일 제한 {usage ? usage.limit : 20}회 · 매일 자정(한국시간)에 초기화
+                    </p>
                   </div>
                 </div>
               </div>
