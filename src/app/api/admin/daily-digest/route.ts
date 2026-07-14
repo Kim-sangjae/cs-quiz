@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { sendMail, ADMIN_EMAIL } from '@/lib/mailer';
+import { sendMail, ADMIN_EMAIL, escapeHtml } from '@/lib/mailer';
 
 export async function POST(req: NextRequest) {
   const auth = req.headers.get('authorization');
@@ -59,8 +59,8 @@ export async function POST(req: NextRequest) {
       <td style="padding:4px 10px;color:#aaa">${e.createdAt.toISOString().slice(11, 19)}</td>
       <td style="padding:4px 10px">${e.statusCode ?? '-'}</td>
       <td style="padding:4px 10px;color:#f87171">${e.errorCode ?? '-'}</td>
-      <td style="padding:4px 10px;font-size:12px;max-width:300px;overflow:hidden">${e.path ?? ''}</td>
-      <td style="padding:4px 10px;font-size:12px;max-width:280px;overflow:hidden">${(e.message ?? '').slice(0, 80)}</td>
+      <td style="padding:4px 10px;font-size:12px;max-width:300px;overflow:hidden">${escapeHtml(e.path ?? '')}</td>
+      <td style="padding:4px 10px;font-size:12px;max-width:280px;overflow:hidden">${escapeHtml((e.message ?? '').slice(0, 80))}</td>
     </tr>`).join('');
 
   const pendingBadge = (n: number, warn = 5) =>

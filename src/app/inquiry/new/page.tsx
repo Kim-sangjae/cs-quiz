@@ -88,6 +88,7 @@ export default function NewInquiryPage() {
             value={content}
             onChange={(e) => setContent(e.target.value)}
             rows={8}
+            maxLength={2000}
             placeholder="문의 내용을 자세히 작성해주세요"
             className="w-full bg-[#111111] border border-neutral-700 rounded-lg px-3 py-2.5 text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-neutral-500 resize-none"
           />

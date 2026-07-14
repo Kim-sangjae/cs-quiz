@@ -40,6 +40,7 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
   const [shareModal, setShareModal] = useState<string | null>(null);
   const [bookmarkedIds, setBookmarkedIds] = useState<Set<string>>(new Set());
   const [pointsEarned, setPointsEarned] = useState<number | null>(null);
+  const [xpEarned, setXpEarned] = useState<number | null>(null);
 
   useEffect(() => {
     fetch(`/api/quiz/sessions/${sessionId}`)
@@ -56,6 +57,11 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
     if (earned) {
       setPointsEarned(Number(earned));
       sessionStorage.removeItem(`points-earned-${sessionId}`);
+    }
+    const xp = sessionStorage.getItem(`xp-earned-${sessionId}`);
+    if (xp) {
+      setXpEarned(Number(xp));
+      sessionStorage.removeItem(`xp-earned-${sessionId}`);
     }
   }, [sessionId, router]);
 
@@ -222,9 +228,14 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
       {ShareModal}
-      {pointsEarned !== null && (
+      {(pointsEarned !== null || xpEarned !== null) && (
         <div className="flex items-center gap-2 bg-amber-950/30 border border-amber-800/40 rounded-lg px-4 py-2.5 mb-4">
-          <span className="text-amber-400 text-sm font-semibold">+{pointsEarned}P</span>
+          {pointsEarned !== null && (
+            <span className="text-amber-400 text-sm font-semibold">+{pointsEarned}P</span>
+          )}
+          {xpEarned !== null && (
+            <span className="text-blue-400 text-sm font-semibold">+{xpEarned} XP</span>
+          )}
           <span className="text-amber-500/80 text-xs">퀴즈 완료 보상이 지급되었습니다</span>
         </div>
       )}
