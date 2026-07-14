@@ -1,10 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getServerUser } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-
-function getToday() {
-  return new Date().toISOString().slice(0, 10);
-}
+import { getKSTDateStr } from '@/lib/kst';
 
 export async function DELETE() {
   const user = await getServerUser();
@@ -12,7 +9,7 @@ export async function DELETE() {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  const today = getToday();
+  const today = getKSTDateStr();
   const [completions, stat] = await Promise.all([
     prisma.dailyChallengeCompletion.deleteMany({ where: { date: today } }),
     prisma.dailyChallengeStat.deleteMany({ where: { date: today } }),
