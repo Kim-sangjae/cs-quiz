@@ -1,7 +1,7 @@
 import { NextResponse, after } from 'next/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-import { broadcastBattleStatusChange } from '@/lib/battle-broadcast';
+import { broadcastBattleStatusChange, STALE_QUESTION_MS } from '@/lib/battle-broadcast';
 
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];
@@ -55,8 +55,32 @@ export async function GET() {
     );
   }
 
+  // PLAYING 룸 중 5분 이상 문제가 안 바뀐 것 정리 (양쪽 다 이탈해서
+  // 아무도 그 대결방 페이지를 다시 열지 않으면 [id]/route.ts의 stale 체크가
+  // 영영 안 돌기 때문에, 여기 폴링에서도 같은 기준으로 정리)
+  const stalePlaying = rooms.filter(
+    (r) => r.status === 'PLAYING' && r.questionStartedAt &&
+      Date.now() - r.questionStartedAt.getTime() > STALE_QUESTION_MS
+  );
+  if (stalePlaying.length > 0) {
+    const results = await Promise.allSettled(
+      stalePlaying.map((r) =>
+        prisma.gameRoom.updateMany({
+          where: { id: r.id, status: 'PLAYING' },
+          data: { status: 'FINISHED', consecutiveAllSkip: 999 },
+        })
+      )
+    );
+    if (results.some((r) => r.status === 'fulfilled' && r.value.count > 0)) {
+      after(broadcastBattleStatusChange());
+    }
+  }
+
+  const staleIds = new Set(stalePlaying.map((r) => r.id));
   const activeRooms = rooms.filter(
-    (r) => !(r.status === 'WAITING' && Date.now() - r.createdAt.getTime() >= 20_000)
+    (r) =>
+      !(r.status === 'WAITING' && Date.now() - r.createdAt.getTime() >= 20_000) &&
+      !staleIds.has(r.id)
   );
 
   return NextResponse.json({ rooms: activeRooms });

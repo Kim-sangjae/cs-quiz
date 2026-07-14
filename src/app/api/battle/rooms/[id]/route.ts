@@ -1,7 +1,7 @@
 import { NextResponse, after } from 'next/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-import { broadcastBattleUpdate, broadcastBattleStatusChange } from '@/lib/battle-broadcast';
+import { broadcastBattleUpdate, broadcastBattleStatusChange, STALE_QUESTION_MS } from '@/lib/battle-broadcast';
 import { checkBattleBadges } from '@/lib/award-badges';
 import { awardBattleXp } from '@/lib/award-xp';
 
@@ -32,7 +32,6 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   if (room.status === 'PLAYING' && room.questionStartedAt) {
     // 장기 미응답 감지: 5분 이상 questionStartedAt이 변하지 않으면 즉시 무효화
     // (서버 재시작 후 잔여 세션, 양쪽 동시 연결 끊김 등)
-    const STALE_QUESTION_MS = 5 * 60 * 1000;
     if (Date.now() - room.questionStartedAt.getTime() > STALE_QUESTION_MS) {
       room = await prisma.gameRoom.update({
         where: { id },
