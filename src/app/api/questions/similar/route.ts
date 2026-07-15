@@ -2,12 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerUser } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { generateEmbedding, toVectorString } from '@/lib/embedding';
+import { extractSearchTokens, rareTokenBoost } from '@/lib/similar-search';
 
-interface SimilarRow {
+interface CandidateRow {
   id: string;
   question: string;
   category: string;
   sim: number;
+  trgm: number;
 }
 
 export async function GET(req: NextRequest) {
@@ -20,20 +22,45 @@ export async function GET(req: NextRequest) {
   try {
     const embedding = await generateEmbedding(q);
     const vectorStr = toVectorString(embedding);
+    const tokens = extractSearchTokens(q);
 
-    // 순수 벡터 유사도만 쓰면 "~의 목적은 무엇인가?" 같은 흔한 질문 형식이
-    // 실제 주제(트리거 등)보다 더 큰 영향을 줘서 진짜 관련 문제가 밀려나는
-    // 경우가 있어, pg_trgm 문자열 유사도(similarity)를 보조 지표로 섞어 재정렬
-    const results = await prisma.$queryRaw<SimilarRow[]>`
+    // 코퍼스 내 각 토큰의 등장 빈도 (드문 토큰일수록 재정렬 시 더 큰 가중치)
+    const corpusCounts: Record<string, number> = {};
+    await Promise.all(
+      tokens.map(async (t) => {
+        corpusCounts[t] = await prisma.question.count({
+          where: { question: { contains: t, mode: 'insensitive' }, status: { in: ['OFFICIAL', 'APPROVED'] } },
+        });
+      })
+    );
+
+    // 후보군은 넉넉히 확보(임계값 낮춤) - 순수 벡터 유사도만으로는 "~의
+    // 목적은 무엇인가?" 같은 흔한 질문 형식이 실제 주제보다 점수에 더 큰
+    // 영향을 줘서, "트리거"처럼 드문 핵심 단어가 있는 진짜 관련 문제가
+    // 벡터 임계값 밖으로 밀려나는 경우가 있음
+    const candidates = await prisma.$queryRaw<CandidateRow[]>`
       SELECT id, question, category,
-        CAST(1 - (embedding <=> ${vectorStr}::vector) AS FLOAT) AS sim
+        CAST(1 - (embedding <=> ${vectorStr}::vector) AS FLOAT) AS sim,
+        CAST(similarity(question, ${q}) AS FLOAT) AS trgm
       FROM "Question"
       WHERE status IN ('OFFICIAL', 'APPROVED')
         AND embedding IS NOT NULL
-        AND 1 - (embedding <=> ${vectorStr}::vector) > 0.5
-      ORDER BY (1 - (embedding <=> ${vectorStr}::vector)) * 0.7 + similarity(question, ${q}) * 0.3 DESC
-      LIMIT 10
+        AND 1 - (embedding <=> ${vectorStr}::vector) > 0.35
+      LIMIT 100
     `;
+
+    // 벡터 유사도 + 문자열 유사도 + 희귀 토큰 매칭 가중치를 합산해 재정렬
+    const results = candidates
+      .map((c) => ({
+        id: c.id,
+        question: c.question,
+        category: c.category,
+        sim: c.sim,
+        score: c.sim * 0.5 + c.trgm * 0.2 + rareTokenBoost(c.question, tokens, corpusCounts) * 0.3,
+      }))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 10)
+      .map(({ id, question, category, sim }) => ({ id, question, category, sim }));
 
     return NextResponse.json(results);
   } catch {
