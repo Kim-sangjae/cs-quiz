@@ -21,15 +21,18 @@ export async function GET(req: NextRequest) {
     const embedding = await generateEmbedding(q);
     const vectorStr = toVectorString(embedding);
 
+    // 순수 벡터 유사도만 쓰면 "~의 목적은 무엇인가?" 같은 흔한 질문 형식이
+    // 실제 주제(트리거 등)보다 더 큰 영향을 줘서 진짜 관련 문제가 밀려나는
+    // 경우가 있어, pg_trgm 문자열 유사도(similarity)를 보조 지표로 섞어 재정렬
     const results = await prisma.$queryRaw<SimilarRow[]>`
       SELECT id, question, category,
         CAST(1 - (embedding <=> ${vectorStr}::vector) AS FLOAT) AS sim
       FROM "Question"
       WHERE status IN ('OFFICIAL', 'APPROVED')
         AND embedding IS NOT NULL
-        AND 1 - (embedding <=> ${vectorStr}::vector) > 0.52
-      ORDER BY embedding <=> ${vectorStr}::vector
-      LIMIT 8
+        AND 1 - (embedding <=> ${vectorStr}::vector) > 0.5
+      ORDER BY (1 - (embedding <=> ${vectorStr}::vector)) * 0.7 + similarity(question, ${q}) * 0.3 DESC
+      LIMIT 10
     `;
 
     return NextResponse.json(results);
