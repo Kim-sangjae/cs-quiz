@@ -27,9 +27,9 @@ export async function GET(req: NextRequest) {
       FROM "Question"
       WHERE status IN ('OFFICIAL', 'APPROVED')
         AND embedding IS NOT NULL
-        AND 1 - (embedding <=> ${vectorStr}::vector) > 0.5
+        AND 1 - (embedding <=> ${vectorStr}::vector) > 0.52
       ORDER BY embedding <=> ${vectorStr}::vector
-      LIMIT 3
+      LIMIT 8
     `;
 
     return NextResponse.json(results);
