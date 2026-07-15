@@ -3425,6 +3425,17 @@ function GenerateQuestionsTab() {
   const totalQuestions = catStats?.reduce((a, b) => a + b.count, 0) ?? 0;
   const catStatsMap = Object.fromEntries((catStats ?? []).map((c) => [c.category, c.count]));
 
+  // 생성 중(최대 50개, 배치당 여러 번 GPT 호출) 탭을 닫으면 서버 요청은 끝까지 진행돼
+  // 토큰만 소모되고 결과를 못 받으므로 경고
+  useEffect(() => {
+    if (!loading) return;
+    function handleBeforeUnload(e: BeforeUnloadEvent) {
+      e.preventDefault();
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [loading]);
+
   async function handleGenerate() {
     setLoading(true);
     setResult(null);
@@ -3545,6 +3556,12 @@ function GenerateQuestionsTab() {
             </>
           ) : '생성 시작'}
         </button>
+
+        {loading && (
+          <p className="text-xs text-amber-500/80">
+            생성 중에는 탭을 닫거나 새로고침하지 마세요 — 벗어나도 서버 요청은 계속 진행돼 토큰만 소모되고 결과를 받지 못합니다.
+          </p>
+        )}
 
         {error && (
           <p className="text-sm text-red-400">{error}</p>
