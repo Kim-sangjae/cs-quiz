@@ -311,7 +311,7 @@ function SimilarQuestionsPanel({ questionText }: { questionText: string }) {
     <>
       <div className="mt-3 rounded-lg border border-amber-500/20 bg-amber-500/5 p-3">
         <p className="text-xs text-amber-400 mb-2 font-medium">유사 문제 {similar.length}건</p>
-        <ul className="space-y-1.5">
+        <ul className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
           {similar.map((sq) => (
             <li key={sq.id} className="flex items-start gap-2">
               <span className="text-xs text-neutral-600 border border-neutral-800 rounded px-1.5 py-0.5 flex-shrink-0">

@@ -75,6 +75,17 @@ function SubmitContent() {
       .catch(() => {});
   }, []);
 
+  // AI 생성 중 탭을 닫거나 새로고침하면 서버 요청은 계속 진행돼 오늘 횟수만 소모되고
+  // 결과를 못 받으므로 경고
+  useEffect(() => {
+    if (!generating) return;
+    function handleBeforeUnload(e: BeforeUnloadEvent) {
+      e.preventDefault();
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [generating]);
+
   // 재요청 모드: 기존 문제 데이터 프리필
   useEffect(() => {
     if (!resubmitId) return;
@@ -309,8 +320,10 @@ function SubmitContent() {
           />
           {similarQuestions.length > 0 && (
             <div className="mt-2 rounded-lg border border-amber-500/20 bg-amber-500/5 p-3">
-              <p className="text-xs text-amber-400 mb-2 font-medium">비슷한 문제가 이미 있습니다 — 클릭하면 내용 확인</p>
-              <ul className="space-y-1.5">
+              <p className="text-xs text-amber-400 mb-2 font-medium">
+                비슷한 문제가 {similarQuestions.length}개 있습니다 — 클릭하면 내용 확인
+              </p>
+              <ul className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
                 {similarQuestions.map((sq) => (
                   <li key={sq.id} className="flex items-start gap-2">
                     <span className="text-xs text-neutral-600 border border-neutral-800 rounded px-1.5 py-0.5 flex-shrink-0">
@@ -372,6 +385,11 @@ function SubmitContent() {
           </div>
           {answer !== null && !options[answer]?.trim() && question.trim() && (
             <p className="text-xs text-neutral-600 mb-2">정답 보기를 먼저 입력하면 나머지 오답을 자동으로 생성합니다.</p>
+          )}
+          {generating && (
+            <p className="text-xs text-amber-500/80 mb-2">
+              생성 중에는 탭을 닫거나 새로고침하지 마세요 — 벗어나도 오늘 사용 횟수는 그대로 차감됩니다.
+            </p>
           )}
           <div className="space-y-2">
             {OPTION_LABELS.map((label, i) => (

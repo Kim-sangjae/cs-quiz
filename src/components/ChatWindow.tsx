@@ -64,6 +64,25 @@ export default function ChatWindow({ myId, friend, isOnline, onClose }: Props) {
     setFriendOffline(!isOnline);
   }, [isOnline]);
 
+  // Realtime 연결이 끊기거나 불안정해도 메시지가 계속 도착하도록 하는 폴링 폴백
+  // (Broadcast로 이미 반영된 메시지는 id 기준으로 자연스럽게 중복 제거됨)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetch(`/api/chat/messages?friendId=${friend.userId}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((data: { messages: ChatMessage[] } | null) => {
+          if (!data) return;
+          setMessages((prev) => {
+            const existingIds = new Set(prev.map((m) => m.id));
+            const fresh = data.messages.filter((m) => !existingIds.has(m.id));
+            return fresh.length > 0 ? [...prev, ...fresh] : prev;
+          });
+        })
+        .catch(() => {});
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [friend.userId]);
+
   // Supabase Broadcast 구독 (실시간 수신 + 상대방 오프라인 감지)
   useEffect(() => {
     const ch = supabaseBrowser
@@ -110,7 +129,7 @@ export default function ChatWindow({ myId, friend, isOnline, onClose }: Props) {
 
   async function send() {
     const raw = input.trim();
-    if (!raw || !channelReady) return;
+    if (!raw) return;
     setInput('');
 
     // DB 저장 (비속어 마스킹은 서버에서 처리)
@@ -127,8 +146,10 @@ export default function ChatWindow({ myId, friend, isOnline, onClose }: Props) {
     // 키보드 유지 (키패드 보내기 후 닫힘 방지)
     inputRef.current?.focus();
 
-    // 상대방 채팅 채널에 실시간 전송
-    await channelRef.current?.send({ type: 'broadcast', event: 'message', payload: message });
+    // 상대방 채팅 채널에 실시간 전송 (실패해도 이미 DB엔 저장됐고, 상대방 쪽 폴링으로 결국 도착함)
+    try {
+      await channelRef.current?.send({ type: 'broadcast', event: 'message', payload: message });
+    } catch { /* Realtime 연결 불안정 시 무시 - DB 저장은 이미 완료됨 */ }
 
     // 상대방 알림 채널에 전송 (채팅창 미열림 시 뱃지용)
     const notifCh = supabaseBrowser.channel(`csora-chat-notif-${friend.userId}`);
@@ -236,7 +257,7 @@ export default function ChatWindow({ myId, friend, isOnline, onClose }: Props) {
           />
           <button
             onClick={() => void send()}
-            disabled={!input.trim() || !channelReady}
+            disabled={!input.trim()}
             className="flex-shrink-0 text-xs bg-white text-black font-medium rounded-md px-2.5 py-1.5 hover:bg-neutral-200 disabled:opacity-40 transition-colors"
           >
             전송
