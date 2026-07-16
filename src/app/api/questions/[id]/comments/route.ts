@@ -44,7 +44,7 @@ export async function POST(
 
   const question = await prisma.question.findUnique({
     where: { id: questionId },
-    select: { id: true, status: true },
+    select: { id: true, status: true, question: true, authorId: true },
   });
   if (!question || !['OFFICIAL', 'APPROVED'].includes(question.status)) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 });
@@ -66,6 +66,23 @@ export async function POST(
       user: { select: { nickname: true } },
     },
   });
+
+  // 내가 등록한 문제에 (내가 아닌 다른 사람이) 댓글을 달면 알림
+  if (question.authorId && question.authorId !== session.user.id) {
+    await prisma.notification.create({
+      data: {
+        userId: question.authorId,
+        type: 'QUESTION_COMMENTED',
+        payload: {
+          questionId,
+          questionTitle: question.question.slice(0, 50),
+          fromNickname: session.user.nickname,
+          commentPreview: content.slice(0, 50),
+        },
+        actionUrl: `/board/${questionId}`,
+      },
+    }).catch(() => { /* 알림 생성 실패가 댓글 등록을 막지 않도록 무시 */ });
+  }
 
   return NextResponse.json({ comment });
 }

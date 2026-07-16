@@ -234,6 +234,7 @@ enum NotificationType {
   NICKNAME_CHANGED
   ACCOUNT_BLINDED
   COMMENT_DELETED
+  QUESTION_COMMENTED
 }
 
 enum BadgeType {
