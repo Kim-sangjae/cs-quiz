@@ -306,7 +306,7 @@ export default function FriendPanel() {
         />
       )}
 
-      <div ref={panelRef} className="fixed right-4 z-50 flex flex-col items-end" style={{ bottom: 'max(7rem, calc(env(safe-area-inset-bottom, 0px) + 7rem))', transform: `translateY(${-deltaY}px)` }}>
+      <div ref={panelRef} className="fixed right-4 z-40 flex flex-col items-end" style={{ bottom: 'max(7rem, calc(env(safe-area-inset-bottom, 0px) + 7rem))', transform: `translateY(${-deltaY}px)` }}>
         {open && (
           <div className="mb-2 w-64 bg-[#0f0f0f] border border-neutral-800 rounded-xl shadow-2xl overflow-hidden">
             <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-neutral-800">

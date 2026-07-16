@@ -119,7 +119,7 @@ export async function POST(req: NextRequest) {
     !Array.isArray(options) ||
     options.length !== 4 ||
     !options.every(
-      (o): o is string => typeof o === 'string' && o.length > 0 && o.length <= 150
+      (o): o is string => typeof o === 'string' && o.length > 0 && o.length <= 100
     )
   ) {
     return NextResponse.json({ error: 'Invalid options' }, { status: 400 });
