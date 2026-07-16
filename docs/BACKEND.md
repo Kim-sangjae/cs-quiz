@@ -137,6 +137,16 @@ return () => { void supabaseBrowser.removeChannel(ch); };
 | `csora-notifications-{userId}` | `notifications/route.ts` | `NotificationBell.tsx` | 알림 실시간 수신 |
 | `csora-profile-{userId}` | `profile-visibility/route.ts` | `ProfileVisibilityListener.tsx`, `UserProfileModal.tsx` | 공개 설정 변경 |
 
+**Realtime 연결 불가/불안정 시 폴백**: Supabase Realtime 무료 티어는 동시 연결 200개 제한. 초과·장애 시에도 기능이 완전히 멈추지 않도록 기능별 폴백 적용.
+
+| 기능 | 폴백 방식 |
+|------|-----------|
+| 알림(NotificationBell) | 30초 폴링 |
+| 대결 초대(BattleInviteAlert) | 5초 폴링 |
+| 대결 진행(battle/[id]) | 1초 폴링(일반) / 500ms(5초 단축 모드) |
+| 채팅(ChatWindow) | 5초 폴링 — Broadcast 발신 자체가 실패해도 DB 저장은 이미 완료된 상태라 무시(try/catch), 전송 버튼도 Realtime 연결 상태와 무관하게 항상 활성화 |
+| 접속자 목록(Presence) | DB heartbeat(`presence/heartbeat`, 15초 간격) 기반이라 Realtime 없이도 동작 |
+
 ## 닉네임 필터링
 
 ### 파일 구조
@@ -163,6 +173,41 @@ return () => { void supabaseBrowser.removeChannel(ch); };
 ```
 
 관리자(`isAdmin=true`)는 RESERVED_WORDS만 우회, 욕설 차단은 동일 적용.
+
+## 유사 문제 검색 (임베딩 + 하이브리드 재정렬)
+
+`GET /api/questions/similar?q=` (`src/app/api/questions/similar/route.ts`), 게시판 문제 등록 폼(`board/submit`)에서 실시간 힌트로 사용.
+
+**사용 기술**:
+
+| 기술 | 역할 |
+|------|------|
+| OpenAI `text-embedding-3-small` (`src/lib/embedding.ts`) | 문장 의미 기반 벡터 임베딩. 표현이 달라도 개념이 같으면 높은 코사인 유사도 반환 |
+| pgvector (`Question.embedding vector(1536)`) | 임베딩 저장 + `<=>` 코사인 거리 연산자로 벡터 유사도 검색. HNSW 인덱스로 대량 데이터에서도 고속 |
+| pg_trgm (`similarity()` 함수, `idx_question_trgm` GIN 인덱스) | 문자열 트라이그램 유사도. 임베딩이 놓치는 표면적 문자 일치를 보완 |
+| 희귀 토큰(TF-IDF 방식) 가중치 (`src/lib/similar-search.ts`) | 코퍼스 내 등장 빈도가 낮은 토큰(`1/√빈도`)일수록 매칭 시 더 큰 가중치 부여 — "데이터베이스"처럼 흔한 단어에 "트리거"처럼 드문 핵심어가 묻히는 문제 해결 |
+| 한/영 동의어 사전 (`SYNONYM_GROUPS`, `src/lib/similar-search.ts`) | "트리거"↔"trigger" 등 문자 집합이 달라 벡터·트라이그램으로도 못 잡는 동의어를 정규화해 매칭 |
+
+**동작 흐름**:
+1. `extractSearchTokens(q)` — 구두점 제거 + 조사(에서/으로/이란 등) 후행 스트립 + 2글자 미만 제외 + 중복 제거
+2. 각 토큰의 코퍼스 등장 빈도(`corpusCounts`) 조회 — 토큰 원형 OR 동의어(`getSynonyms`) 어느 쪽이든 포함하면 카운트
+3. 벡터 유사도 0.35 이상인 후보를 넉넉히(LIMIT 100) 확보 — 임계값을 낮게 잡아 순수 벡터 유사도로는 걸러질 뻔한 진짜 관련 문제도 후보군에 포함
+4. 최종 점수 = `벡터유사도×0.5 + pg_trgm유사도×0.2 + 희귀토큰가중치×0.3` 로 재정렬 후 상위 10개 반환
+
+**임계값·가중치 변경 이력**: 0.5 단일 임계값 → 0.52 → 0.55 → pg_trgm 블렌드(0.5) → 현재(0.35 + 희귀토큰 가중치). 재현 사례와 함께 [TROUBLESHOOTING.md#TS-004](./TROUBLESHOOTING.md#ts-004-유사-문제-검색--흔한-단어에-드문-핵심어가-묻히는-문제) 참조.
+
+## 문제 등록 유효성 검사
+
+| 필드 | 제한 | 위치 |
+|------|------|------|
+| 문제 텍스트 | 500자 | `api/questions` POST, `board/submit` |
+| 보기(A~D) 각각 | 100자 | `api/questions` POST (서버), `board/submit` (클라이언트 maxLength) |
+| 해설 | 500자 | `api/questions` POST, `board/submit` |
+| AI 오답 생성 — 정답 입력 | 100자 | `api/questions/generate-options` POST |
+| 문의 제목 | 100자 | `api/inquiries` POST |
+| 문의 내용 | 1000자 | `api/inquiries` POST, `inquiry/new` |
+
+**AI 오답 생성 글자수 유사화**: `api/questions/generate-options`는 GPT 프롬프트에 정답 글자수(`"정답: OO (37자)"`)를 명시하고 "오답 3개는 정답과 비슷한 글자 수(±10자 이내)로 작성"을 지시 — 특정 보기만 유독 짧거나 길어 글자수만으로 정답이 드러나는 것을 방지.
 
 ## 주요 API 이력
 
@@ -205,3 +250,5 @@ return () => { void supabaseBrowser.removeChannel(ch); };
 | `GET /api/inquiries/public` | 공개 문의 목록 |
 | `GET /api/users/[id]/profile` | 공개 프로필 데이터 (visibility 포함) |
 | `POST /api/users/[id]/report` | 유저 신고 |
+| `GET /api/questions/similar` | pgvector+pg_trgm+희귀토큰 가중치 하이브리드 재정렬, 한/영 동의어 정규화 |
+| `POST /api/questions/generate-options` | GPT 프롬프트에 정답 글자수 명시 + 오답 글자수 유사화(±10자) 지시 |

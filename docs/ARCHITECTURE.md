@@ -42,7 +42,7 @@ src/
 │       │       └── report/route.ts       # POST — 유저 신고
 │       ├── questions/
 │       │   ├── route.ts                  # GET(목록+검색), POST(등록)
-│       │   ├── similar/route.ts          # GET?q= — pgvector 코사인 유사도 검색
+│       │   ├── similar/route.ts          # GET?q= — pgvector+pg_trgm+희귀토큰 가중치 하이브리드 재정렬 (상세: BACKEND.md)
 │       │   ├── generate-options/route.ts # POST — GPT-4o-mini 오답 보기 + 해설 자동 생성
 │       │   └── [id]/
 │       │       ├── route.ts
@@ -125,13 +125,14 @@ src/
 │   ├── QuestionDrawer.tsx                # 문제 상세 슬라이드 패널 (북마크 포함)
 │   ├── Navigator.tsx                     # 문제 번호 점프 네비게이터 (lockedBefore 지원)
 │   ├── ProgressBar.tsx                   # 진행률 바
+│   ├── PaginationNav.tsx                 # 공용 페이지네이션(원형 화살표+숫자목록, onChange 콜백형)
 │   └── board/
 │       ├── SearchBar.tsx
 │       ├── AuthorSearchBar.tsx
 │       ├── FilterBar.tsx
 │       ├── BoardListClient.tsx
 │       ├── QuestionCard.tsx
-│       ├── Pagination.tsx
+│       ├── Pagination.tsx                # PaginationNav를 감싸는 URL(router.push) 래퍼
 │       ├── LikeButton.tsx
 │       └── ReportModal.tsx
 ├── contexts/
@@ -147,6 +148,8 @@ src/
 │   ├── battle-broadcast.ts              # broadcastBattleUpdate() — 대결방 변경 시 Broadcast 발화
 │   ├── audit.ts                          # writeLog() — fire-and-forget 활동 로그 기록
 │   ├── embedding.ts                      # OpenAI text-embedding-3-small 호출 유틸
+│   ├── similar-search.ts                # 유사문제 검색 순수 함수 (토큰 추출, 희귀토큰 가중치, 한/영 동의어 사전)
+│   ├── pagination.ts                     # buildPageList() — 페이지 번호+말줄임표(…) 목록 계산 순수 함수
 │   ├── review-schedule.ts               # 오답 복습 스케줄링 (1/3/7/30일 간격)
 │   ├── rankings.ts                       # 랭킹 집계 SQL (review 모드 세션 제외)
 │   ├── sample.ts                         # Fisher-Yates 랜덤 샘플링

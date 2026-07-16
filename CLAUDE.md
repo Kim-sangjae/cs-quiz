@@ -71,6 +71,7 @@ phases 0~6 + UX 개선 전부 완료. 아래 기능이 모두 구현된 상태�
 | 12-modes | 퀴즈 모드 구분(normal/review/timed), QuizSession.mode DB 필드, 오답복습·북마크 퀴즈는 랭킹/뱃지/레벨업/스트릭 제외(review 모드), 시간제한 모드(15초/문제, 타이머 단일 effect로 race condition 수정, 이전 문제 잠금), Navigator lockedBefore prop, ResultCard null 선택 처리(미답변 시간 초과), 마이페이지 모드 배지(오답복습/시간제한), AI 문제생성 배치 방식(GPT json_object 10개 제한 우회, BATCH_SIZE=10), se(소프트웨어공학) 카테고리 추가 |
 | 13-moderation | 닉네임 욕설·예약어 필터링(`src/lib/nickname-filter.ts`), Tanat05/korcen.ts 소스 직접 이식(`src/lib/korcen-check.ts`, 한국어 8카테고리+영어 600+), DB 기반 커스텀 금칙어(`BlockedWord` 모델, 관리자 bulk 등록/삭제), 관리자 패널 금칙어 관리 탭(통합 목록), 관리자 계정 예약어 우회(`isAdmin` 파라미터), 전역 마우스 드래그 스크롤(`DragScroll` 컴포넌트) |
 | 14-level | 유저 레벨(XP) 시스템(`User.xp`, `src/lib/user-level.ts`, 최대 200Lv, 곡선 150+(n-1)×10, 백필 `scripts/backfill-xp.ts`), XP 지급(퀴즈 10+정답1·데일리 20·문제승인 50·대전 15/10/5), 대전 10문제, 카테고리 현황은 단계명만 표시+등급 Lv2부터, 마이페이지 프로필 카드 개편(경험치바+툴팁), PC 알림(`src/lib/notify.ts` 탭깜빡임·OS알림·앱뱃지·`public/sw.js`, 모바일 비활성), 채팅 개인별 숨김(hiddenBySender/Receiver, 로그아웃·재로그인 시 정리), UA 분기 manifest(PC 투명 아이콘), 친구패널 드래그 이동, 관리자 가입일 정렬 |
+| 15-polish | 유사문제 검색 하이브리드 재정렬(벡터+pg_trgm+희귀토큰 가중치, 한/영 CS 용어 동의어 사전 `src/lib/similar-search.ts`), AI 오답생성 이탈경고(board/submit·admin 양쪽), 채팅 Realtime 폴링 폴백(5s), 문제 보기 글자수 200→100자·문의 내용 2000→1000자 축소, AI 오답생성 시 정답과 글자수 유사화(±10자) 프롬프트, 공용 페이지네이션 컴포넌트(`PaginationNav`+`buildPageList`, 원형 화살표+숫자목록+말줄임표, 13곳 통합) |
 
 ---
 
