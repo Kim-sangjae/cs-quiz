@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import Spinner from '@/components/Spinner';
+import PaginationNav from '@/components/PaginationNav';
 
 const TYPE_LABEL: Record<string, string> = {
   BUG_REPORT: '버그 신고',
@@ -213,18 +214,12 @@ export default function InquiryPage() {
               </div>
 
               {pageCount > 1 && (
-                <div className="flex items-center justify-center gap-3 mt-4">
-                  <button
-                    onClick={() => { setPage((p) => Math.max(0, p - 1)); setExpandedId(null); }}
-                    disabled={page === 0}
-                    className="text-xs text-neutral-400 border border-neutral-800 rounded px-2.5 py-1 hover:border-neutral-600 hover:text-white disabled:opacity-30 transition-colors"
-                  >←</button>
-                  <span className="text-xs text-neutral-500">{page + 1} / {pageCount}</span>
-                  <button
-                    onClick={() => { setPage((p) => Math.min(pageCount - 1, p + 1)); setExpandedId(null); }}
-                    disabled={page >= pageCount - 1}
-                    className="text-xs text-neutral-400 border border-neutral-800 rounded px-2.5 py-1 hover:border-neutral-600 hover:text-white disabled:opacity-30 transition-colors"
-                  >→</button>
+                <div className="mt-4">
+                  <PaginationNav
+                    page={page + 1}
+                    pageCount={pageCount}
+                    onChange={(p) => { setPage(p - 1); setExpandedId(null); }}
+                  />
                 </div>
               )}
             </>

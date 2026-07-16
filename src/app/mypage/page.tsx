@@ -9,6 +9,7 @@ import QuestionDrawer from "@/components/QuestionDrawer";
 import type { Category } from "@/types";
 import { BADGE_META, ALL_BADGES } from "@/lib/badges";
 import { getLevelInfo, MAX_LEVEL, XP_REWARDS } from "@/lib/user-level";
+import PaginationNav from "@/components/PaginationNav";
 
 const CATEGORY_LABELS: Record<Category, string> = {
   ds: "자료구조",
@@ -1632,18 +1633,8 @@ export default function MyPage() {
                   })}
                 </div>
                 {pageCount > 1 && (
-                  <div className="flex items-center justify-center gap-3 mt-4">
-                    <button
-                      onClick={() => setMyQPage((p) => Math.max(0, p - 1))}
-                      disabled={myQPage === 0}
-                      className="text-xs text-neutral-400 border border-neutral-800 rounded px-2.5 py-1 hover:border-neutral-600 hover:text-white disabled:opacity-30 transition-colors"
-                    >←</button>
-                    <span className="text-xs text-neutral-500">{myQPage + 1} / {pageCount}</span>
-                    <button
-                      onClick={() => setMyQPage((p) => Math.min(pageCount - 1, p + 1))}
-                      disabled={myQPage >= pageCount - 1}
-                      className="text-xs text-neutral-400 border border-neutral-800 rounded px-2.5 py-1 hover:border-neutral-600 hover:text-white disabled:opacity-30 transition-colors"
-                    >→</button>
+                  <div className="mt-4">
+                    <PaginationNav page={myQPage + 1} pageCount={pageCount} onChange={(p) => setMyQPage(p - 1)} />
                   </div>
                 )}
               </>
@@ -1815,18 +1806,8 @@ export default function MyPage() {
                     </div>
 
                     {pageCount > 1 && (
-                      <div className="flex items-center justify-center gap-3 mt-4">
-                        <button
-                          onClick={() => setBattlePage((p) => Math.max(0, p - 1))}
-                          disabled={battlePage === 0}
-                          className="text-xs text-neutral-400 border border-neutral-800 rounded px-2.5 py-1 hover:border-neutral-600 hover:text-white disabled:opacity-30 transition-colors"
-                        >←</button>
-                        <span className="text-xs text-neutral-500">{battlePage + 1} / {pageCount}</span>
-                        <button
-                          onClick={() => setBattlePage((p) => Math.min(pageCount - 1, p + 1))}
-                          disabled={battlePage >= pageCount - 1}
-                          className="text-xs text-neutral-400 border border-neutral-800 rounded px-2.5 py-1 hover:border-neutral-600 hover:text-white disabled:opacity-30 transition-colors"
-                        >→</button>
+                      <div className="mt-4">
+                        <PaginationNav page={battlePage + 1} pageCount={pageCount} onChange={(p) => setBattlePage(p - 1)} />
                       </div>
                     )}
                   </>
@@ -2056,18 +2037,8 @@ export default function MyPage() {
                   ))}
                 </div>
                 {pageCount > 1 && (
-                  <div className="flex items-center justify-center gap-3 mt-4">
-                    <button
-                      onClick={() => setLikedPage((p) => Math.max(0, p - 1))}
-                      disabled={likedPage === 0}
-                      className="text-xs text-neutral-400 border border-neutral-800 rounded px-2.5 py-1 hover:border-neutral-600 hover:text-white disabled:opacity-30 transition-colors"
-                    >←</button>
-                    <span className="text-xs text-neutral-500">{likedPage + 1} / {pageCount}</span>
-                    <button
-                      onClick={() => setLikedPage((p) => Math.min(pageCount - 1, p + 1))}
-                      disabled={likedPage >= pageCount - 1}
-                      className="text-xs text-neutral-400 border border-neutral-800 rounded px-2.5 py-1 hover:border-neutral-600 hover:text-white disabled:opacity-30 transition-colors"
-                    >→</button>
+                  <div className="mt-4">
+                    <PaginationNav page={likedPage + 1} pageCount={pageCount} onChange={(p) => setLikedPage(p - 1)} />
                   </div>
                 )}
               </>
@@ -2131,17 +2102,7 @@ export default function MyPage() {
 
               {commentPageCount > 1 && (
                 <div className="flex items-center justify-center gap-3">
-                  <button
-                    disabled={commentPage === 0}
-                    onClick={() => setCommentPage((p) => p - 1)}
-                    className="text-xs text-neutral-400 border border-neutral-800 rounded px-2.5 py-1 hover:border-neutral-600 hover:text-white disabled:opacity-30 transition-colors"
-                  >←</button>
-                  <span className="text-xs text-neutral-500">{commentPage + 1} / {commentPageCount}</span>
-                  <button
-                    disabled={commentPage >= commentPageCount - 1}
-                    onClick={() => setCommentPage((p) => p + 1)}
-                    className="text-xs text-neutral-400 border border-neutral-800 rounded px-2.5 py-1 hover:border-neutral-600 hover:text-white disabled:opacity-30 transition-colors"
-                  >→</button>
+                  <PaginationNav page={commentPage + 1} pageCount={commentPageCount} onChange={(p) => setCommentPage(p - 1)} />
                   <span className="text-xs text-neutral-600 ml-2">총 {commentTotal}개</span>
                 </div>
               )}
