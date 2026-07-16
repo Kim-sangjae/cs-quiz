@@ -166,6 +166,22 @@ inline-block text-[10px] text-red-400 border border-red-900/50 rounded px-1.5 py
 채움: bg-white rounded-full h-1 transition-all duration-200
 ```
 
+### 페이지네이션 (`PaginationNav`, 관리자/마이페이지/게시판 공용)
+```
+전체 컨테이너: flex items-center justify-center gap-4 (block, 폭 채움 → 항상 가운데 정렬)
+
+이전/다음 버튼(원형 아웃라인):
+  w-8 h-8 rounded-full border border-neutral-700 text-neutral-400
+  hover:border-neutral-500 hover:text-white
+  disabled:opacity-25
+
+페이지 번호(테두리/배경 없이 텍스트만):
+  비활성: text-sm text-neutral-500 hover:text-white
+  현재:   text-sm font-semibold text-emerald-400
+말줄임표(…): text-sm text-neutral-600, 클릭 불가
+```
+박스/테두리 컨테이너로 감싸지 않는다 — 화살표와 숫자만 떠 있는 형태. 페이지 수가 많을 때(예: 78페이지)는 처음(1)·끝(마지막) 번호 + 현재 페이지 좌우 2개씩(총 5개) + 그 사이 말줄임표를 `buildPageList()`(`src/lib/pagination.ts`)로 계산해 표시. 320px 모바일 너비까지 오버플로우 없음 확인됨.
+
 ---
 
 ## 상태별 UI 정의
