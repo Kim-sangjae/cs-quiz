@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerUser } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { generateEmbedding, toVectorString } from '@/lib/embedding';
-import { extractSearchTokens, rareTokenBoost } from '@/lib/similar-search';
+import { extractSearchTokens, rareTokenBoost, getSynonyms } from '@/lib/similar-search';
 
 interface CandidateRow {
   id: string;
@@ -25,11 +25,15 @@ export async function GET(req: NextRequest) {
     const tokens = extractSearchTokens(q);
 
     // 코퍼스 내 각 토큰의 등장 빈도 (드문 토큰일수록 재정렬 시 더 큰 가중치)
+    // 한/영 동의어(예: 트리거/trigger)로 등록된 표기는 모두 합쳐서 센다
     const corpusCounts: Record<string, number> = {};
     await Promise.all(
       tokens.map(async (t) => {
         corpusCounts[t] = await prisma.question.count({
-          where: { question: { contains: t, mode: 'insensitive' }, status: { in: ['OFFICIAL', 'APPROVED'] } },
+          where: {
+            OR: getSynonyms(t).map((s) => ({ question: { contains: s, mode: 'insensitive' as const } })),
+            status: { in: ['OFFICIAL', 'APPROVED'] },
+          },
         });
       })
     );
