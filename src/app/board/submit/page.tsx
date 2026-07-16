@@ -105,7 +105,7 @@ function SubmitContent() {
     category !== '' &&
     question.length > 0 &&
     question.length <= 500 &&
-    options.every((o) => o.length > 0 && o.length <= 200) &&
+    options.every((o) => o.length > 0 && o.length <= 150) &&
     answer !== null &&
     explanation.length > 0 &&
     explanation.length <= 500;
@@ -405,11 +405,11 @@ function SubmitContent() {
                       setOptions(next);
                     }}
                     placeholder={`보기 ${label}`}
-                    maxLength={200}
+                    maxLength={150}
                     className="w-full rounded-md border border-neutral-800 bg-[#1a1a1a] px-3 py-2.5 text-sm text-neutral-200 placeholder-neutral-600 focus:outline-none focus:border-neutral-600"
                   />
                   <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-neutral-600 pointer-events-none">
-                    {options[i].length}/200
+                    {options[i].length}/150
                   </span>
                 </div>
               </div>

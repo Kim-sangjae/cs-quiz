@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import { toast } from 'sonner';
 import UserProfileModal from '@/components/UserProfileModal';
+import PaginationNav from '@/components/PaginationNav';
 
 interface Comment {
   id: string;
@@ -262,21 +263,7 @@ export default function CommentSection({ questionId }: { questionId: string }) {
 
       {pageCount > 1 && (
         <div className="flex items-center gap-2 mb-4">
-          <button
-            disabled={page === 0}
-            onClick={() => setPage((p) => p - 1)}
-            className="text-xs px-2.5 py-1 rounded border border-neutral-800 text-neutral-500 hover:border-neutral-600 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-          >
-            이전
-          </button>
-          <span className="text-xs text-neutral-600">{page + 1} / {pageCount}</span>
-          <button
-            disabled={page >= pageCount - 1}
-            onClick={() => setPage((p) => p + 1)}
-            className="text-xs px-2.5 py-1 rounded border border-neutral-800 text-neutral-500 hover:border-neutral-600 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-          >
-            다음
-          </button>
+          <PaginationNav page={page + 1} pageCount={pageCount} onChange={(p) => setPage(p - 1)} />
           <span className="ml-auto text-[11px] text-neutral-600">총 {total}개</span>
         </div>
       )}

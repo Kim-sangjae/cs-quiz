@@ -7,6 +7,7 @@ import { useSession } from 'next-auth/react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { getLevelInfo, MAX_LEVEL } from '@/lib/user-level';
+import PaginationNav from '@/components/PaginationNav';
 
 type Tab = 'questions' | 'board' | 'reports' | 'users' | 'inquiries' | 'logs' | 'analytics' | 'errors' | 'generate' | 'blocked-words' | 'points-log';
 
@@ -605,22 +606,13 @@ function QuestionsTab({ prevSeenAt }: { prevSeenAt: string | null }) {
 
       {/* 페이징 */}
       {pageCount > 1 && (
-        <div className="flex items-center justify-center gap-2 pt-2">
-          <button
-            onClick={() => { setPage((p) => Math.max(1, p - 1)); setSelectedIds(new Set()); }}
-            disabled={page === 1}
-            className="text-xs px-3 py-1.5 rounded-md border border-neutral-700 text-neutral-400 hover:text-white disabled:opacity-30 transition-colors"
-          >
-            이전
-          </button>
-          <span className="text-xs text-neutral-500">{page} / {pageCount} ({total}건)</span>
-          <button
-            onClick={() => { setPage((p) => Math.min(pageCount, p + 1)); setSelectedIds(new Set()); }}
-            disabled={page === pageCount}
-            className="text-xs px-3 py-1.5 rounded-md border border-neutral-700 text-neutral-400 hover:text-white disabled:opacity-30 transition-colors"
-          >
-            다음
-          </button>
+        <div className="flex flex-col items-center gap-1 pt-2">
+          <span className="text-xs text-neutral-500">{total}건</span>
+          <PaginationNav
+            page={page}
+            pageCount={pageCount}
+            onChange={(p) => { setPage(p); setSelectedIds(new Set()); }}
+          />
         </div>
       )}
       </>)}
@@ -905,16 +897,12 @@ function BoardTab({ requestConfirm }: { requestConfirm: (msg: string, fn: () => 
               ))}
             </div>
             {pageCount > 1 && (
-              <div className="flex gap-2 mt-4 justify-center items-center">
-                <button onClick={() => { setPage((p) => Math.max(1, p - 1)); setSelectedIds(new Set()); }} disabled={page === 1}
-                  className="rounded-md border border-neutral-800 text-neutral-400 text-xs px-3 py-1.5 hover:text-white disabled:opacity-30 transition-colors">
-                  이전
-                </button>
-                <span className="text-xs text-neutral-500">{page} / {pageCount}</span>
-                <button onClick={() => { setPage((p) => Math.min(pageCount, p + 1)); setSelectedIds(new Set()); }} disabled={page >= pageCount}
-                  className="rounded-md border border-neutral-800 text-neutral-400 text-xs px-3 py-1.5 hover:text-white disabled:opacity-30 transition-colors">
-                  다음
-                </button>
+              <div className="mt-4">
+                <PaginationNav
+                  page={page}
+                  pageCount={pageCount}
+                  onChange={(p) => { setPage(p); setSelectedIds(new Set()); }}
+                />
               </div>
             )}
           </>
@@ -1439,16 +1427,12 @@ function ReportsTab({ prevSeenAt }: { prevSeenAt: string | null }) {
             </div>
           ))}
           {pageCount > 1 && (
-            <div className="flex gap-2 mt-4 justify-center items-center">
-              <button onClick={() => { setPage((p) => Math.max(1, p - 1)); setSelectedIds(new Set()); }} disabled={page === 1}
-                className="rounded-md border border-neutral-800 text-neutral-400 text-xs px-3 py-1.5 hover:text-white disabled:opacity-30 transition-colors">
-                이전
-              </button>
-              <span className="text-xs text-neutral-500">{page} / {pageCount}</span>
-              <button onClick={() => { setPage((p) => Math.min(pageCount, p + 1)); setSelectedIds(new Set()); }} disabled={page >= pageCount}
-                className="rounded-md border border-neutral-800 text-neutral-400 text-xs px-3 py-1.5 hover:text-white disabled:opacity-30 transition-colors">
-                다음
-              </button>
+            <div className="mt-4">
+              <PaginationNav
+                page={page}
+                pageCount={pageCount}
+                onChange={(p) => { setPage(p); setSelectedIds(new Set()); }}
+              />
             </div>
           )}
         </>
@@ -1710,16 +1694,12 @@ function UsersTab({ currentUserId, requestConfirm }: { currentUserId: string; re
             })}
           </div>
           {pageCount > 1 && (
-            <div className="flex gap-2 mt-4 justify-center items-center">
-              <button onClick={() => { setPage((p) => Math.max(1, p - 1)); setSelectedIds(new Set()); }} disabled={page === 1}
-                className="rounded-md border border-neutral-800 text-neutral-400 text-xs px-3 py-1.5 hover:text-white disabled:opacity-30 transition-colors">
-                이전
-              </button>
-              <span className="text-xs text-neutral-500">{page} / {pageCount}</span>
-              <button onClick={() => { setPage((p) => Math.min(pageCount, p + 1)); setSelectedIds(new Set()); }} disabled={page >= pageCount}
-                className="rounded-md border border-neutral-800 text-neutral-400 text-xs px-3 py-1.5 hover:text-white disabled:opacity-30 transition-colors">
-                다음
-              </button>
+            <div className="mt-4">
+              <PaginationNav
+                page={page}
+                pageCount={pageCount}
+                onChange={(p) => { setPage(p); setSelectedIds(new Set()); }}
+              />
             </div>
           )}
         </>
@@ -1951,16 +1931,12 @@ function InquiriesTab({ prevSeenAt }: { prevSeenAt: string | null }) {
             );
           })}
           {pageCount > 1 && (
-            <div className="flex gap-2 mt-4 justify-center items-center">
-              <button onClick={() => { setPage((p) => Math.max(1, p - 1)); setExpandedId(null); setSelectedIds(new Set()); }} disabled={page === 1}
-                className="rounded-md border border-neutral-800 text-neutral-400 text-xs px-3 py-1.5 hover:text-white disabled:opacity-30 transition-colors">
-                이전
-              </button>
-              <span className="text-xs text-neutral-500">{page} / {pageCount}</span>
-              <button onClick={() => { setPage((p) => Math.min(pageCount, p + 1)); setExpandedId(null); setSelectedIds(new Set()); }} disabled={page >= pageCount}
-                className="rounded-md border border-neutral-800 text-neutral-400 text-xs px-3 py-1.5 hover:text-white disabled:opacity-30 transition-colors">
-                다음
-              </button>
+            <div className="mt-4">
+              <PaginationNav
+                page={page}
+                pageCount={pageCount}
+                onChange={(p) => { setPage(p); setExpandedId(null); setSelectedIds(new Set()); }}
+              />
             </div>
           )}
         </>
@@ -2394,22 +2370,8 @@ function LogsTab() {
         )}
 
         {pageCount > 1 && (
-          <div className="flex items-center gap-2 pt-2">
-            <button
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={page === 1}
-              className="rounded border border-neutral-700 text-neutral-400 text-xs px-3 py-1.5 hover:text-white disabled:opacity-30 transition-colors"
-            >
-              이전
-            </button>
-            <span className="text-xs text-neutral-500">{page} / {pageCount}</span>
-            <button
-              onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
-              disabled={page === pageCount}
-              className="rounded border border-neutral-700 text-neutral-400 text-xs px-3 py-1.5 hover:text-white disabled:opacity-30 transition-colors"
-            >
-              다음
-            </button>
+          <div className="pt-2">
+            <PaginationNav page={page} pageCount={pageCount} onChange={setPage} />
           </div>
         )}
       </div>
@@ -2648,10 +2610,8 @@ function PointsLogTab() {
             </table>
           </div>
           {(data?.pageCount ?? 0) > 1 && (
-            <div className="flex gap-2 justify-center pt-2">
-              <button disabled={page <= 1} onClick={() => setPage((p) => p - 1)} className="px-3 py-1 text-xs rounded border border-neutral-700 text-neutral-400 disabled:opacity-40 hover:border-neutral-500">이전</button>
-              <span className="px-3 py-1 text-xs text-neutral-500">{page} / {data?.pageCount}</span>
-              <button disabled={page >= (data?.pageCount ?? 1)} onClick={() => setPage((p) => p + 1)} className="px-3 py-1 text-xs rounded border border-neutral-700 text-neutral-400 disabled:opacity-40 hover:border-neutral-500">다음</button>
+            <div className="pt-2">
+              <PaginationNav page={page} pageCount={data?.pageCount ?? 1} onChange={setPage} />
             </div>
           )}
         </>
@@ -3316,36 +3276,8 @@ function ErrorLogsTab() {
       </div>
 
       {totalPages > 1 && (
-        <div className="flex items-center justify-center gap-2 pt-2">
-          <button
-            onClick={() => setPage(1)}
-            disabled={page === 1}
-            className="px-2.5 py-1.5 text-xs rounded border border-neutral-800 text-neutral-400 hover:text-white disabled:opacity-30 transition-colors"
-          >
-            처음
-          </button>
-          <button
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-            disabled={page === 1}
-            className="px-3 py-1.5 text-xs rounded border border-neutral-800 text-neutral-400 hover:text-white disabled:opacity-30 transition-colors"
-          >
-            이전
-          </button>
-          <span className="text-xs text-neutral-500 px-1">{page} / {totalPages}</span>
-          <button
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-            disabled={page === totalPages}
-            className="px-3 py-1.5 text-xs rounded border border-neutral-800 text-neutral-400 hover:text-white disabled:opacity-30 transition-colors"
-          >
-            다음
-          </button>
-          <button
-            onClick={() => setPage(totalPages)}
-            disabled={page === totalPages}
-            className="px-2.5 py-1.5 text-xs rounded border border-neutral-800 text-neutral-400 hover:text-white disabled:opacity-30 transition-colors"
-          >
-            마지막
-          </button>
+        <div className="pt-2">
+          <PaginationNav page={page} pageCount={totalPages} onChange={setPage} />
         </div>
       )}
     </div>

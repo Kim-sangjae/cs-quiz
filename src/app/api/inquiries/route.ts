@@ -5,7 +5,7 @@ import type { InquiryType } from '@prisma/client';
 import { sendMail, ADMIN_EMAIL, escapeHtml } from '@/lib/mailer';
 
 const TITLE_MAX = 100;
-const CONTENT_MAX = 2000;
+const CONTENT_MAX = 1000;
 
 const TYPE_LABELS: Record<InquiryType, string> = {
   BUG_REPORT: '버그 신고',
