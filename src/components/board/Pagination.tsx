@@ -8,6 +8,22 @@ interface PaginationProps {
   pageCount: number;
 }
 
+function Chevron({ direction, double }: { direction: 'left' | 'right'; double?: boolean }) {
+  const d = direction === 'left' ? 'M8 2.5L3.5 7L8 11.5' : 'M6 2.5l4.5 4.5-4.5 4.5';
+  const icon = (
+    <svg width={14} height={14} viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
+      <path d={d} />
+    </svg>
+  );
+  if (!double) return icon;
+  return (
+    <span className="flex -space-x-2">
+      {icon}
+      {icon}
+    </span>
+  );
+}
+
 export default function Pagination({ currentPage, pageCount }: PaginationProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -32,67 +48,35 @@ export default function Pagination({ currentPage, pageCount }: PaginationProps) 
   const pages = [];
   for (let i = start; i <= end; i++) pages.push(i);
 
-  const btnBase =
-    'w-10 h-10 rounded text-xs font-medium transition-colors flex items-center justify-center';
-  const btnDefault = 'bg-neutral-900 text-neutral-400 hover:bg-neutral-800 hover:text-white border border-neutral-800';
-  const btnActive = 'bg-white text-black';
-  const btnNav =
-    'rounded-md border border-neutral-800 text-sm text-neutral-400 px-3 py-1.5 hover:border-neutral-600 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors';
-
-  const jump = 5;
+  const btn =
+    'flex items-center justify-center w-8 h-8 rounded-md text-neutral-500 hover:text-white hover:bg-neutral-800 disabled:opacity-25 disabled:hover:bg-transparent disabled:hover:text-neutral-500 transition-colors';
+  const pageBtnDefault = 'w-8 h-8 rounded-md text-xs font-medium text-neutral-400 hover:text-white hover:bg-neutral-800 transition-colors flex items-center justify-center';
+  const pageBtnActive = 'w-8 h-8 rounded-md text-xs font-semibold bg-white text-black flex items-center justify-center';
 
   return (
-    <div className="flex items-center justify-center gap-1.5">
-      <button className={btnNav} onClick={() => goTo(1)} disabled={currentPage <= 1} aria-label="맨 앞으로">
-        «
+    <div className="inline-flex items-center gap-0.5 rounded-lg border border-neutral-800 bg-neutral-900/50 p-1">
+      <button className={btn} onClick={() => goTo(1)} disabled={currentPage <= 1} aria-label="맨 앞으로">
+        <Chevron direction="left" double />
       </button>
-      <button
-        className={btnNav}
-        onClick={() => goTo(Math.max(1, currentPage - jump))}
-        disabled={currentPage <= 1}
-        aria-label={`${jump}페이지 이전`}
-      >
-        ‹{jump}
-      </button>
-      <button
-        className={btnNav}
-        onClick={() => goTo(currentPage - 1)}
-        disabled={currentPage <= 1}
-      >
-        <svg width={14} height={14} viewBox="0 0 14 14" fill="none" strokeWidth={1.5} stroke="currentColor">
-          <path d="M9 1L3 7l6 6" />
-        </svg>
+      <button className={btn} onClick={() => goTo(currentPage - 1)} disabled={currentPage <= 1} aria-label="이전 페이지">
+        <Chevron direction="left" />
       </button>
 
       {pages.map((p) => (
         <button
           key={p}
           onClick={() => goTo(p)}
-          className={`${btnBase} ${p === currentPage ? btnActive : btnDefault}`}
+          className={p === currentPage ? pageBtnActive : pageBtnDefault}
         >
           {p}
         </button>
       ))}
 
-      <button
-        className={btnNav}
-        onClick={() => goTo(currentPage + 1)}
-        disabled={currentPage >= pageCount}
-      >
-        <svg width={14} height={14} viewBox="0 0 14 14" fill="none" strokeWidth={1.5} stroke="currentColor">
-          <path d="M5 1l6 6-6 6" />
-        </svg>
+      <button className={btn} onClick={() => goTo(currentPage + 1)} disabled={currentPage >= pageCount} aria-label="다음 페이지">
+        <Chevron direction="right" />
       </button>
-      <button
-        className={btnNav}
-        onClick={() => goTo(Math.min(pageCount, currentPage + jump))}
-        disabled={currentPage >= pageCount}
-        aria-label={`${jump}페이지 다음`}
-      >
-        {jump}›
-      </button>
-      <button className={btnNav} onClick={() => goTo(pageCount)} disabled={currentPage >= pageCount} aria-label="맨 뒤로">
-        »
+      <button className={btn} onClick={() => goTo(pageCount)} disabled={currentPage >= pageCount} aria-label="맨 뒤로">
+        <Chevron direction="right" double />
       </button>
     </div>
   );
