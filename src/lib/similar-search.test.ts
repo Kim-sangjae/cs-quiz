@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { extractSearchTokens, rareTokenBoost } from './similar-search';
+import { extractSearchTokens, rareTokenBoost, getSynonyms } from './similar-search';
 
 describe('extractSearchTokens', () => {
   it('조사를 제거해 어근만 남긴다', () => {
@@ -38,5 +38,26 @@ describe('rareTokenBoost', () => {
 
   it('코퍼스 빈도가 0이면(정보 없음) 가중치를 주지 않는다', () => {
     expect(rareTokenBoost('트리거 문제', ['트리거'], {})).toBe(0);
+  });
+
+  it('한글 토큰이 영어로만 쓰인 후보와도 동의어로 매칭돼 가중치를 받는다', () => {
+    const boost = rareTokenBoost('A trigger is a stored procedure that runs automatically', ['트리거'], {
+      트리거: 2,
+    });
+    expect(boost).toBeGreaterThan(0);
+  });
+});
+
+describe('getSynonyms', () => {
+  it('한글 CS 용어에 대응하는 영어 동의어를 함께 반환한다', () => {
+    expect(getSynonyms('트리거')).toEqual(expect.arrayContaining(['트리거', 'trigger']));
+  });
+
+  it('영어 입력도 대소문자 구분 없이 같은 그룹을 반환한다', () => {
+    expect(getSynonyms('Trigger')).toEqual(expect.arrayContaining(['트리거', 'trigger']));
+  });
+
+  it('사전에 없는 토큰은 자기 자신만 담긴 배열을 반환한다', () => {
+    expect(getSynonyms('데이터베이스')).toEqual(['데이터베이스']);
   });
 });
