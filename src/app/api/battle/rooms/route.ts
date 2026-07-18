@@ -92,14 +92,15 @@ export async function POST(req: Request) {
   if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const userId = session.user.id;
-
-  // XP는 표시용이라 파밍 자체보다, 스크립트가 대결방을 무한 생성해 DB에
-  // 부하를 주는 것만 막을 목적 — 정상적인 친구 간 다회 대결은 걸리지 않는 수준으로 여유있게 설정
-  if (await isRateLimited(`battle-create:${userId}`, 50, 86400)) {
-    return NextResponse.json({ error: '오늘 대결 생성 횟수를 초과했습니다. 내일 다시 시도하세요.' }, { status: 429 });
-  }
-
   const { friendId, category } = await req.json() as { friendId: string; category: string };
+
+  // XP는 표시용이라 파밍 자체보다, 같은 상대와 대결방을 무한 생성해 DB에
+  // 부하를 주는 것만 막을 목적 — 친구쌍 기준이라 친구가 많은 유저의 정상적인
+  // 다회 대결은 걸리지 않음
+  const pairKey = [userId, friendId].sort().join('-');
+  if (await isRateLimited(`battle-create:${pairKey}`, 50, 86400)) {
+    return NextResponse.json({ error: '오늘 이 상대와의 대결 생성 횟수를 초과했습니다. 내일 다시 시도하세요.' }, { status: 429 });
+  }
 
   const friendship = await prisma.friendship.findFirst({
     where: {
