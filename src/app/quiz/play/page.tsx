@@ -6,6 +6,10 @@ import type { Question, Category } from "@/types";
 import type { Metadata } from "next";
 import QuizPlayClient from "./QuizPlayClient";
 
+// 정답 prop 전달 금지(CLAUDE.md) — 채점은 서버(api/quiz/sessions)에서만 하므로
+// 플레이 화면에는 answer/explanation을 절대 내려주지 않는다
+type PlayQuestion = Omit<Question, "answer" | "explanation">;
+
 export async function generateMetadata({
   searchParams,
 }: {
@@ -55,7 +59,7 @@ export default async function QuizPlayPage({
   const { category, reviewIds, timed, sharedFrom } = await searchParams;
 
   const user = await getServerUser();
-  let questions: Question[];
+  let questions: PlayQuestion[];
   let sharedCategory: string | undefined;
 
   if (sharedFrom) {
@@ -81,8 +85,6 @@ export default async function QuizPlayPage({
           category: q.category as Category,
           question: q.question,
           options: q.options as [string, string, string, string],
-          answer: q.answer as 0 | 1 | 2 | 3,
-          explanation: q.explanation,
           authorNickname: q.author?.nickname ?? null,
         }));
     }
@@ -101,8 +103,6 @@ export default async function QuizPlayPage({
         category: q.category as Category,
         question: q.question,
         options: q.options as [string, string, string, string],
-        answer: q.answer as 0 | 1 | 2 | 3,
-        explanation: q.explanation,
         authorNickname: q.author?.nickname ?? null,
       }));
   } else {
@@ -116,13 +116,11 @@ export default async function QuizPlayPage({
       include: { author: { select: { nickname: true } } },
     });
 
-    const allQuestions: Question[] = dbQuestions.map((q) => ({
+    const allQuestions: PlayQuestion[] = dbQuestions.map((q) => ({
       id: q.id,
       category: q.category as Category,
       question: q.question,
       options: q.options as [string, string, string, string],
-      answer: q.answer as 0 | 1 | 2 | 3,
-      explanation: q.explanation,
       authorNickname: q.author?.nickname ?? null,
     }));
 

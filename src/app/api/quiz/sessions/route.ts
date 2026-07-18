@@ -8,10 +8,16 @@ import { awardBadges } from '@/lib/award-badges';
 import { updateReviewSchedules } from '@/lib/review-schedule';
 import { getKSTDateStr } from '@/lib/kst';
 import { quizXp } from '@/lib/user-level';
+import { isRateLimited } from '@/lib/rate-limit';
 
 export async function POST(req: NextRequest) {
   const user = await getServerUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  // 동일 세션 스크립트 반복 제출로 XP/포인트/뱃지를 무제한 파밍하는 것 방지
+  if (await isRateLimited(`quiz-submit:${user.id}`, 10, 60)) {
+    return NextResponse.json({ error: '퀴즈 제출이 너무 잦습니다. 잠시 후 다시 시도하세요.' }, { status: 429 });
+  }
 
   const body = await req.json() as {
     category: string;

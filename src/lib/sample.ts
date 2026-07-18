@@ -1,6 +1,4 @@
-import type { Question } from '@/types';
-
-export function sample(pool: Question[], n: number): Question[] {
+export function sample<T>(pool: T[], n: number): T[] {
   if (pool.length === 0) return [];
 
   const arr = [...pool];
