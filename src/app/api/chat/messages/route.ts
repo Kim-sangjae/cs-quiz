@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { maskProfanity } from '@/lib/content-filter';
+import { isRateLimited } from '@/lib/rate-limit';
 
 const LIMIT = 100;
 
@@ -50,9 +51,33 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid' }, { status: 400 });
   }
 
+  const myId = session.user.id;
+
+  if (receiverId === myId) {
+    return NextResponse.json({ error: 'Invalid' }, { status: 400 });
+  }
+
+  // 친구 관계(수락됨)가 아니면 메시지를 보낼 수 없음
+  const friendship = await prisma.friendship.findFirst({
+    where: {
+      status: 'ACCEPTED',
+      OR: [
+        { requesterId: myId, addresseeId: receiverId },
+        { requesterId: receiverId, addresseeId: myId },
+      ],
+    },
+    select: { id: true },
+  });
+  if (!friendship) {
+    return NextResponse.json({ error: '친구 관계가 아닙니다.' }, { status: 403 });
+  }
+
+  if (await isRateLimited(`chat:${myId}`, 20, 10)) {
+    return NextResponse.json({ error: '메시지를 너무 빠르게 보내고 있습니다. 잠시 후 다시 시도하세요.' }, { status: 429 });
+  }
+
   const dbWords = await prisma.blockedWord.findMany({ select: { word: true } });
   const content = maskProfanity(raw, dbWords.map((w) => w.word));
-  const myId = session.user.id;
 
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
   const [message] = await Promise.all([

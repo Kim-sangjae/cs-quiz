@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { maskProfanity } from '@/lib/content-filter';
+import { isRateLimited } from '@/lib/rate-limit';
 
 const PAGE_SIZE = 10;
 
@@ -39,6 +40,10 @@ export async function POST(
 ) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  if (await isRateLimited(`comment:${session.user.id}`, 5, 10)) {
+    return NextResponse.json({ error: '댓글을 너무 빠르게 작성하고 있습니다. 잠시 후 다시 시도하세요.' }, { status: 429 });
+  }
 
   const { id: questionId } = await params;
 

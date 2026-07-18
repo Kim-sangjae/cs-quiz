@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { isRateLimited } from '@/lib/rate-limit';
 
 export async function POST(
   req: NextRequest,
@@ -8,6 +9,10 @@ export async function POST(
 ) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  if (await isRateLimited(`report:${session.user.id}`, 10, 60)) {
+    return NextResponse.json({ error: '신고를 너무 빠르게 접수하고 있습니다. 잠시 후 다시 시도하세요.' }, { status: 429 });
+  }
 
   const { commentId } = await params;
   const body = await req.json() as { reason?: string; description?: string };
