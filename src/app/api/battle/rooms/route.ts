@@ -2,6 +2,7 @@ import { NextResponse, after } from 'next/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { broadcastBattleStatusChange, STALE_QUESTION_MS } from '@/lib/battle-broadcast';
+import { isRateLimited } from '@/lib/rate-limit';
 
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];
@@ -91,6 +92,12 @@ export async function POST(req: Request) {
   if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const userId = session.user.id;
+
+  // 알트 계정 자작극으로 대결 XP를 무한 파밍하는 것 방지 (하루 생성 횟수 상한)
+  if (await isRateLimited(`battle-create:${userId}`, 15, 86400)) {
+    return NextResponse.json({ error: '오늘 대결 생성 횟수를 초과했습니다. 내일 다시 시도하세요.' }, { status: 429 });
+  }
+
   const { friendId, category } = await req.json() as { friendId: string; category: string };
 
   const friendship = await prisma.friendship.findFirst({
