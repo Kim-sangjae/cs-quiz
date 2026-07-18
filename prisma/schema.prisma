@@ -574,3 +574,12 @@ model WeeklyGoalClaim {
   @@unique([userId, goalKey])
   @@index([userId])
 }
+
+// 스팸/스크래핑 방지용 레이트리밋 카운터. key: "{action}:{userId 또는 ip}"
+model RateLimit {
+  key         String   @id
+  count       Int      @default(1)
+  windowStart DateTime @default(now())
+
+  @@index([windowStart])
+}

@@ -1,14 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerUser } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { isRateLimited, getClientIp } from '@/lib/rate-limit';
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
   const user = await getServerUser();
   const isAdmin = user?.role === 'ADMIN';
+
+  const rateLimitKey = user ? `questions-detail:user:${user.id}` : `questions-detail:ip:${getClientIp(req)}`;
+  if (await isRateLimited(rateLimitKey, 60, 60)) {
+    return NextResponse.json({ error: '요청이 너무 많습니다. 잠시 후 다시 시도하세요.' }, { status: 429 });
+  }
 
   const question = await prisma.question.findUnique({
     where: { id },

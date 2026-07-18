@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma';
 import { awardBadges } from '@/lib/award-badges';
 import { writeLog } from '@/lib/audit';
 import { sendMail, ADMIN_EMAIL, escapeHtml } from '@/lib/mailer';
+import { isRateLimited, getClientIp } from '@/lib/rate-limit';
 
 const CATEGORY_LABELS: Record<string, string> = {
   ds: '자료구조', algo: '알고리즘', os: '운영체제',
@@ -31,6 +32,12 @@ const questionListSelect = {
 export async function GET(req: NextRequest) {
   const user = await getServerUser();
   const isAdmin = user?.role === 'ADMIN';
+
+  // 대량 스크래핑 방지 (로그인 유저는 개별 예산, 비로그인은 IP 기준)
+  const rateLimitKey = user ? `questions-list:user:${user.id}` : `questions-list:ip:${getClientIp(req)}`;
+  if (await isRateLimited(rateLimitKey, 60, 60)) {
+    return NextResponse.json({ error: '요청이 너무 많습니다. 잠시 후 다시 시도하세요.' }, { status: 429 });
+  }
 
   const { searchParams } = req.nextUrl;
   const q = searchParams.get('q')?.trim() ?? '';

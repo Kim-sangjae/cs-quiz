@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerUser } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { isRateLimited } from '@/lib/rate-limit';
 
 const VALID_REASONS = ['INAPPROPRIATE', 'ERROR', 'DUPLICATE', 'OTHER'] as const;
 type ReportReason = (typeof VALID_REASONS)[number];
@@ -11,6 +12,10 @@ export async function POST(
 ) {
   const user = await getServerUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  if (await isRateLimited(`report:${user.id}`, 10, 60)) {
+    return NextResponse.json({ error: '신고를 너무 빠르게 접수하고 있습니다. 잠시 후 다시 시도하세요.' }, { status: 429 });
+  }
 
   const { id } = await params;
 

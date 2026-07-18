@@ -3,6 +3,7 @@ import { getServerUser } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import type { InquiryType } from '@prisma/client';
 import { sendMail, ADMIN_EMAIL, escapeHtml } from '@/lib/mailer';
+import { isRateLimited } from '@/lib/rate-limit';
 
 const TITLE_MAX = 100;
 const CONTENT_MAX = 1000;
@@ -36,6 +37,10 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const user = await getServerUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  if (await isRateLimited(`inquiry:${user.id}`, 5, 60)) {
+    return NextResponse.json({ error: '문의를 너무 빠르게 등록하고 있습니다. 잠시 후 다시 시도하세요.' }, { status: 429 });
+  }
 
   const { type, title, content } = await req.json() as { type: string; title: string; content: string };
 
