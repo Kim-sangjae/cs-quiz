@@ -93,8 +93,9 @@ export async function POST(req: Request) {
 
   const userId = session.user.id;
 
-  // 알트 계정 자작극으로 대결 XP를 무한 파밍하는 것 방지 (하루 생성 횟수 상한)
-  if (await isRateLimited(`battle-create:${userId}`, 15, 86400)) {
+  // XP는 표시용이라 파밍 자체보다, 스크립트가 대결방을 무한 생성해 DB에
+  // 부하를 주는 것만 막을 목적 — 정상적인 친구 간 다회 대결은 걸리지 않는 수준으로 여유있게 설정
+  if (await isRateLimited(`battle-create:${userId}`, 50, 86400)) {
     return NextResponse.json({ error: '오늘 대결 생성 횟수를 초과했습니다. 내일 다시 시도하세요.' }, { status: 429 });
   }
 
