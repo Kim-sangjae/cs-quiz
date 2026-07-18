@@ -3,13 +3,15 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { toast } from "sonner";
 import type { Question, UserAnswer } from "@/types";
 import QuizCard from "@/components/QuizCard";
 import Navigator from "@/components/Navigator";
 import ProgressBar from "@/components/ProgressBar";
 
 interface Props {
-  questions: Question[];
+  // 정답 prop 전달 금지(CLAUDE.md) — 채점은 서버(api/quiz/sessions)에서만 함
+  questions: Omit<Question, "answer" | "explanation">[];
   category: string;
   mode?: 'normal' | 'review' | 'timed';
   isReview?: boolean;
@@ -327,6 +329,11 @@ export default function QuizPlayClient({ questions, category, mode = 'normal', i
       });
       if (res.status === 401) {
         setShowLoginPrompt(true);
+        setIsSubmitting(false);
+        return;
+      }
+      if (res.status === 429) {
+        toast.error("퀴즈 제출이 너무 잦습니다. 잠시 후 다시 시도하세요.");
         setIsSubmitting(false);
         return;
       }
