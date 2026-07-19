@@ -72,6 +72,7 @@ phases 0~6 + UX 개선 전부 완료. 아래 기능이 모두 구현된 상태�
 | 13-moderation | 닉네임 욕설·예약어 필터링(`src/lib/nickname-filter.ts`), Tanat05/korcen.ts 소스 직접 이식(`src/lib/korcen-check.ts`, 한국어 8카테고리+영어 600+), DB 기반 커스텀 금칙어(`BlockedWord` 모델, 관리자 bulk 등록/삭제), 관리자 패널 금칙어 관리 탭(통합 목록), 관리자 계정 예약어 우회(`isAdmin` 파라미터), 전역 마우스 드래그 스크롤(`DragScroll` 컴포넌트) |
 | 14-level | 유저 레벨(XP) 시스템(`User.xp`, `src/lib/user-level.ts`, 최대 200Lv, 곡선 150+(n-1)×10, 백필 `scripts/backfill-xp.ts`), XP 지급(퀴즈 10+정답1·데일리 20·문제승인 50·대전 15/10/5), 대전 10문제, 카테고리 현황은 단계명만 표시+등급 Lv2부터, 마이페이지 프로필 카드 개편(경험치바+툴팁), PC 알림(`src/lib/notify.ts` 탭깜빡임·OS알림·앱뱃지·`public/sw.js`, 모바일 비활성), 채팅 개인별 숨김(hiddenBySender/Receiver, 로그아웃·재로그인 시 정리), UA 분기 manifest(PC 투명 아이콘), 친구패널 드래그 이동, 관리자 가입일 정렬 |
 | 15-polish | 유사문제 검색 하이브리드 재정렬(벡터+pg_trgm+희귀토큰 가중치, 한/영 CS 용어 동의어 사전 `src/lib/similar-search.ts`), AI 오답생성 이탈경고(board/submit·admin 양쪽), 채팅 Realtime 폴링 폴백(5s), 문제 보기 글자수 200→100자·문의 내용 2000→1000자 축소, AI 오답생성 시 정답과 글자수 유사화(±10자) 프롬프트, 공용 페이지네이션 컴포넌트(`PaginationNav`+`buildPageList`, 원형 화살표+숫자목록+말줄임표, 13곳 통합) |
+| 16-security | 내 게시글 댓글 알림(`QUESTION_COMMENTED`), 알림 개별 확인 시 즉시 삭제, 보안 점검 후 발견된 취약점 수정 5건(채팅 친구관계 서버 미검증, 일반 API 레이트리밋 부재, 퀴즈 플레이 화면 정답 노출, 퀴즈 세션 무한 재제출, 대결 생성 무제한으로 인한 XP 파밍) — DB 기반 레이트리밋 인프라(`RateLimit` 모델 + `src/lib/rate-limit.ts`) 신규 도입, 커스텀 도메인(csora.co.kr) 이전(DNS·HTTPS·OAuth 리디렉션·카카오 공유 도메인·GitHub Actions APP_URL, 구도메인 308 리다이렉트) |
 
 ---
 

@@ -114,8 +114,9 @@ export default function QuizPlayClient({ questions, category, mode = 'normal', i
     quizUrlRef.current = window.location.href;
   }, []);
 
-  // 퀴즈 풀이 중 상태 (친구 패널용)
+  // 퀴즈 풀이 중 상태 (친구 패널용) — 비로그인(initialPoints === null)이면 401만 나므로 건너뜀
   useEffect(() => {
+    if (initialPoints === null) return;
     void fetch('/api/me/quiz-status', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -128,6 +129,7 @@ export default function QuizPlayClient({ questions, category, mode = 'normal', i
         body: JSON.stringify({ isPlayingQuiz: false }),
       }).catch(() => {});
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const progressKey = `quiz-progress-${category}-${questions[0]?.id ?? ''}`;

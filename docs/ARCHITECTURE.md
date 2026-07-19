@@ -150,6 +150,7 @@ src/
 │   ├── embedding.ts                      # OpenAI text-embedding-3-small 호출 유틸
 │   ├── similar-search.ts                # 유사문제 검색 순수 함수 (토큰 추출, 희귀토큰 가중치, 한/영 동의어 사전)
 │   ├── pagination.ts                     # buildPageList() — 페이지 번호+말줄임표(…) 목록 계산 순수 함수
+│   ├── rate-limit.ts                     # isRateLimited(), getClientIp() — DB 기반 레이트리밋 (상세: BACKEND.md)
 │   ├── review-schedule.ts               # 오답 복습 스케줄링 (1/3/7/30일 간격)
 │   ├── rankings.ts                       # 랭킹 집계 SQL (review 모드 세션 제외)
 │   ├── sample.ts                         # Fisher-Yates 랜덤 샘플링
