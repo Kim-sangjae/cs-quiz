@@ -125,7 +125,7 @@ function SubmitContent() {
   function handleQuestionChange(value: string) {
     setQuestion(value);
     if (similarTimer.current) clearTimeout(similarTimer.current);
-    if (value.trim().length < 5) {
+    if (value.trim().length < 2) {
       setSimilarQuestions([]);
       return;
     }
