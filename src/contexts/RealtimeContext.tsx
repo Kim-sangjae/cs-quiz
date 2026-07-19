@@ -29,6 +29,17 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
   const [realtimeActive, setRealtimeActive] = useState(false);
   const presenceRef = useRef<RealtimeChannel | null>(null);
   const broadcastRef = useRef<RealtimeChannel | null>(null);
+  const [reconnectTick, setReconnectTick] = useState(0);
+
+  // 모바일에서 탭이 백그라운드로 갔다 돌아오면 Supabase 채널이 CLOSED된 채로
+  // 방치될 수 있어, 다시 보이면 채널을 재생성해 재구독 시도
+  useEffect(() => {
+    function onVisible() {
+      if (document.visibilityState === 'visible') setReconnectTick((t) => t + 1);
+    }
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, []);
 
   useEffect(() => {
     if (status !== 'authenticated' || !session?.user?.id) return;
@@ -54,7 +65,7 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
         if (s === 'SUBSCRIBED') {
           await presenceChannel.track({ nickname });
           setRealtimeActive(true);
-        } else if (s === 'CHANNEL_ERROR' || s === 'TIMED_OUT') {
+        } else if (s === 'CHANNEL_ERROR' || s === 'TIMED_OUT' || s === 'CLOSED') {
           setRealtimeActive(false);
         }
       });
@@ -85,7 +96,7 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
       supabaseBrowser.removeChannel(broadcastChannel);
       setRealtimeActive(false);
     };
-  }, [status, session?.user?.id, session?.user?.nickname, session?.user?.name, queryClient]);
+  }, [status, session?.user?.id, session?.user?.nickname, session?.user?.name, queryClient, reconnectTick]);
 
   return (
     <RealtimeContext.Provider value={{ onlineUsers, realtimeActive }}>
