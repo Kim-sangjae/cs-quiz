@@ -67,6 +67,8 @@ function SubmitContent() {
 
   const [generating, setGenerating] = useState(false);
   const [usage, setUsage] = useState<{ used: number; limit: number; remaining: number } | null>(null);
+  // AI가 마지막으로 생성한 해설 — 유저가 이를 그대로 두고 있다면(수정 안 함) 다음 생성 시 갱신 대상으로 취급
+  const [lastGeneratedExplanation, setLastGeneratedExplanation] = useState('');
 
   useEffect(() => {
     fetch('/api/questions/generate-options')
@@ -110,6 +112,11 @@ function SubmitContent() {
     explanation.length > 0 &&
     explanation.length <= 500;
 
+  // 채울 오답 빈칸도 없고, 해설도 유저가 직접 썼거나 이미 수정해서 더 생성할 게 없으면 버튼 비활성화
+  const hasBlankDistractor = options.some((o, i) => i !== answer && !o.trim());
+  const explanationRegenerable = explanation.trim().length === 0 || explanation === lastGeneratedExplanation;
+  const canGenerateOptions = hasBlankDistractor || explanationRegenerable;
+
   function handleQuestionChange(value: string) {
     setQuestion(value);
     if (similarTimer.current) clearTimeout(similarTimer.current);
@@ -129,9 +136,10 @@ function SubmitContent() {
 
   async function handleGenerateOptions() {
     if (!question.trim() || !options[answer ?? -1]?.trim() || (usage && usage.remaining <= 0)) return;
-    // 유저가 이미 작성한 오답 보기/해설은 보존하고 빈 부분만 AI로 채운다
+    // 유저가 이미 작성한 오답 보기는 보존하고 빈 부분만 AI로 채운다.
+    // 해설은 유저가 직접 쓰거나 고친 경우에만 보존하고, AI가 만든 그대로면 최신 오답에 맞게 다시 생성한다.
     const existingDistractors = options.filter((opt, i) => i !== answer && opt.trim().length > 0);
-    const skipExplanation = explanation.trim().length > 0;
+    const skipExplanation = explanation.trim().length > 0 && explanation !== lastGeneratedExplanation;
     if (existingDistractors.length >= 3 && skipExplanation) return;
     setGenerating(true);
     try {
@@ -159,7 +167,10 @@ function SubmitContent() {
         if (i !== answer! && !next[i].trim()) next[i] = distractors[di++] ?? next[i];
       }
       setOptions(next);
-      if (!skipExplanation && generatedExplanation) setExplanation(generatedExplanation);
+      if (!skipExplanation && generatedExplanation) {
+        setExplanation(generatedExplanation);
+        setLastGeneratedExplanation(generatedExplanation);
+      }
     } finally {
       setGenerating(false);
     }
@@ -355,9 +366,15 @@ function SubmitContent() {
               <button
                 type="button"
                 onClick={handleGenerateOptions}
-                disabled={generating || (usage !== null && usage.remaining <= 0) || !question.trim() || answer === null || !options[answer]?.trim()}
+                disabled={generating || (usage !== null && usage.remaining <= 0) || !question.trim() || answer === null || !options[answer]?.trim() || !canGenerateOptions}
                 className="text-xs text-neutral-400 border border-neutral-700 rounded-md px-3 py-1.5 hover:text-white hover:border-neutral-500 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                title={usage && usage.remaining <= 0 ? '오늘의 AI 생성 횟수를 모두 사용했습니다. 매일 자정(한국시간)에 초기화됩니다.' : undefined}
+                title={
+                  usage && usage.remaining <= 0
+                    ? '오늘의 AI 생성 횟수를 모두 사용했습니다. 매일 자정(한국시간)에 초기화됩니다.'
+                    : !canGenerateOptions && answer !== null && options[answer]?.trim()
+                      ? '오답 보기와 해설을 이미 모두 채웠습니다.'
+                      : undefined
+                }
               >
                 {generating
                   ? '생성 중...'
