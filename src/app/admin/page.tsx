@@ -7,6 +7,7 @@ import { useSession } from 'next-auth/react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { getLevelInfo, MAX_LEVEL } from '@/lib/user-level';
+import { SYNONYM_GROUPS as BUILTIN_SYNONYM_GROUPS } from '@/lib/similar-search';
 import PaginationNav from '@/components/PaginationNav';
 
 type Tab = 'questions' | 'board' | 'reports' | 'users' | 'inquiries' | 'logs' | 'analytics' | 'errors' | 'generate' | 'blocked-words' | 'synonyms' | 'points-log';
@@ -3684,8 +3685,9 @@ interface SynonymGroupRow { id: string; createdAt: string; terms: SynonymTermRow
 
 function SynonymsTab() {
   const queryClient = useQueryClient();
-  const [newGroupInput, setNewGroupInput] = useState('');
+  const [newGroupTerms, setNewGroupTerms] = useState<string[]>(['', '']);
   const [addTermInputs, setAddTermInputs] = useState<Record<string, string>>({});
+  const [showBuiltin, setShowBuiltin] = useState(false);
 
   const { data: groups = [], isLoading } = useQuery<SynonymGroupRow[]>({
     queryKey: ['admin-synonyms'],
@@ -3703,7 +3705,7 @@ function SynonymsTab() {
         return r.json() as Promise<{ added: number; skipped: number }>;
       }),
     onSuccess: (data) => {
-      setNewGroupInput('');
+      setNewGroupTerms(['', '']);
       void queryClient.invalidateQueries({ queryKey: ['admin-synonyms'] });
       toast.success(`동의어 그룹이 추가되었습니다 (${data.added}개 용어).`);
     },
@@ -3742,35 +3744,63 @@ function SynonymsTab() {
     },
   });
 
+  function updateNewGroupTerm(i: number, value: string) {
+    setNewGroupTerms((prev) => prev.map((t, idx) => (idx === i ? value : t)));
+  }
+  function removeNewGroupBox(i: number) {
+    setNewGroupTerms((prev) => (prev.length > 2 ? prev.filter((_, idx) => idx !== i) : prev));
+  }
+
   return (
     <div className="space-y-6">
       <div className="bg-[#111111] border border-neutral-800 rounded-lg p-5">
         <h2 className="text-sm font-medium text-white mb-1">새 동의어 그룹 추가</h2>
         <p className="text-xs text-neutral-500 mb-4">
-          쉼표(,) 또는 줄바꿈으로 구분해 같은 개념의 표기를 2개 이상 입력하세요.
+          같은 개념을 가리키는 표기를 칸마다 하나씩 입력하세요 (2개 이상 필요).
           유사문제 검색 시 서로 동의어로 매칭됩니다. 영어는 대소문자 구분 없이 저장·매칭됩니다.
-          (예: 데이터베이스, db, database)
         </p>
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            const terms = newGroupInput.split(/[\n,]/).map((w) => w.trim()).filter((w) => w.length > 0);
+            const terms = newGroupTerms.map((w) => w.trim()).filter((w) => w.length > 0);
             if (terms.length < 2) { toast.error('2개 이상 입력해주세요.'); return; }
             createGroupMutation.mutate(terms);
           }}
           className="space-y-2"
         >
-          <textarea
-            value={newGroupInput}
-            onChange={(e) => setNewGroupInput(e.target.value)}
-            placeholder={'데이터베이스, db, database'}
-            rows={2}
-            className="w-full bg-[#1a1a1a] border border-neutral-800 rounded-md px-3 py-2 text-sm text-white placeholder-neutral-600 focus:outline-none focus:border-neutral-600 resize-none"
-          />
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {newGroupTerms.map((term, i) => (
+              <div key={i} className="flex items-center gap-1">
+                <input
+                  value={term}
+                  onChange={(e) => updateNewGroupTerm(i, e.target.value)}
+                  placeholder={i === 0 ? '데이터베이스' : i === 1 ? 'db' : '동의어'}
+                  className="flex-1 min-w-0 bg-[#1a1a1a] border border-neutral-800 rounded-md px-3 py-2 text-sm text-white placeholder-neutral-600 focus:outline-none focus:border-neutral-600"
+                />
+                {newGroupTerms.length > 2 && (
+                  <button
+                    type="button"
+                    onClick={() => removeNewGroupBox(i)}
+                    className="flex-shrink-0 text-neutral-600 hover:text-red-400 transition-colors p-1"
+                    title="이 칸 삭제"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={() => setNewGroupTerms((prev) => [...prev, ''])}
+              className="text-xs text-neutral-500 border border-dashed border-neutral-700 rounded-md px-3 py-2 hover:text-white hover:border-neutral-500 transition-colors"
+            >
+              + 칸 추가
+            </button>
+          </div>
           <div className="flex justify-end">
             <button
               type="submit"
-              disabled={!newGroupInput.trim() || createGroupMutation.isPending}
+              disabled={newGroupTerms.filter((t) => t.trim()).length < 2 || createGroupMutation.isPending}
               className="rounded-md bg-white text-black text-sm font-medium px-4 py-2 hover:bg-neutral-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               {createGroupMutation.isPending ? '추가 중...' : '그룹 추가'}
@@ -3780,14 +3810,14 @@ function SynonymsTab() {
       </div>
 
       <div className="bg-[#111111] border border-neutral-800 rounded-lg p-5">
-        <h2 className="text-sm font-medium text-white mb-1">동의어 그룹 목록</h2>
+        <h2 className="text-sm font-medium text-white mb-1">관리자 추가 동의어 그룹</h2>
         <p className="text-xs text-neutral-500 mb-4">
           {isLoading ? '불러오는 중...' : `총 ${groups.length}개 그룹`}
         </p>
         {isLoading ? null : groups.length === 0 ? (
-          <p className="text-xs text-neutral-600 py-4 text-center">등록된 동의어 그룹이 없습니다.</p>
+          <p className="text-xs text-neutral-600 py-4 text-center">관리자가 추가한 동의어 그룹이 없습니다. 위에서 추가해보세요.</p>
         ) : (
-          <div className="space-y-3">
+          <div className="grid sm:grid-cols-2 gap-3">
             {groups.map((g) => (
               <div key={g.id} className="border border-neutral-800 rounded-lg p-3">
                 <div className="flex flex-wrap gap-1.5 mb-2">
@@ -3826,6 +3856,36 @@ function SynonymsTab() {
                     추가
                   </button>
                 </form>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="bg-[#111111] border border-neutral-800 rounded-lg p-5">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-sm font-medium text-white mb-1">기본 제공 동의어 그룹</h2>
+            <p className="text-xs text-neutral-500">
+              코드에 내장된 읽기 전용 목록 {BUILTIN_SYNONYM_GROUPS.length}개 (수정은 <code className="text-neutral-400 bg-neutral-900 rounded px-1">src/lib/similar-search.ts</code>)
+            </p>
+          </div>
+          <button
+            onClick={() => setShowBuiltin((v) => !v)}
+            className="text-xs text-neutral-300 border border-neutral-700 rounded-md px-3 py-1.5 hover:border-neutral-500 hover:text-white transition-colors flex-shrink-0"
+          >
+            {showBuiltin ? '접기 ↑' : '펼치기 →'}
+          </button>
+        </div>
+        {showBuiltin && (
+          <div className="grid sm:grid-cols-2 gap-3 mt-4">
+            {BUILTIN_SYNONYM_GROUPS.map((group, i) => (
+              <div key={i} className="flex flex-wrap gap-1.5 border border-neutral-800 rounded-lg p-3">
+                {group.map((term) => (
+                  <span key={term} className="text-xs bg-neutral-900 border border-neutral-800 rounded px-2.5 py-1 text-neutral-500">
+                    {term}
+                  </span>
+                ))}
               </div>
             ))}
           </div>
