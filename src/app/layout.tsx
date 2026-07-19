@@ -50,6 +50,9 @@ export const metadata: Metadata = {
     title: 'CSORA',
     statusBarStyle: 'black-translucent',
   },
+  verification: {
+    google: '6XWNQlKjpCXwXMjZBz1C8_u_ijaoTT_m7owcli9ascQ',
+  },
 };
 
 const JSON_LD = {
