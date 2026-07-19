@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerUser } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { generateEmbedding, toVectorString } from '@/lib/embedding';
-import { extractSearchTokens, rareTokenBoost, getSynonyms } from '@/lib/similar-search';
+import { extractSearchTokens, rareTokenBoost, getSynonyms, buildSynonymLookup } from '@/lib/similar-search';
 
 interface CandidateRow {
   id: string;
@@ -24,6 +24,10 @@ export async function GET(req: NextRequest) {
     const vectorStr = toVectorString(embedding);
     const tokens = extractSearchTokens(q);
 
+    // 관리자가 추가한 동의어 그룹을 기본 사전과 합쳐서 사용
+    const dbGroups = await prisma.synonymGroup.findMany({ include: { terms: true } });
+    const lookup = buildSynonymLookup(dbGroups.map((g) => g.terms.map((t) => t.term)));
+
     // 코퍼스 내 각 토큰의 등장 빈도 (드문 토큰일수록 재정렬 시 더 큰 가중치)
     // 한/영 동의어(예: 트리거/trigger)로 등록된 표기는 모두 합쳐서 센다
     const corpusCounts: Record<string, number> = {};
@@ -31,7 +35,7 @@ export async function GET(req: NextRequest) {
       tokens.map(async (t) => {
         corpusCounts[t] = await prisma.question.count({
           where: {
-            OR: getSynonyms(t).map((s) => ({ question: { contains: s, mode: 'insensitive' as const } })),
+            OR: getSynonyms(t, lookup).map((s) => ({ question: { contains: s, mode: 'insensitive' as const } })),
             status: { in: ['OFFICIAL', 'APPROVED'] },
           },
         });
@@ -60,7 +64,7 @@ export async function GET(req: NextRequest) {
         question: c.question,
         category: c.category,
         sim: c.sim,
-        score: c.sim * 0.5 + c.trgm * 0.2 + rareTokenBoost(c.question, tokens, corpusCounts) * 0.3,
+        score: c.sim * 0.5 + c.trgm * 0.2 + rareTokenBoost(c.question, tokens, corpusCounts, lookup) * 0.3,
       }))
       .sort((a, b) => b.score - a.score)
       .slice(0, 10)

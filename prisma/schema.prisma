@@ -441,6 +441,23 @@ model BlockedWord {
   createdBy String
 }
 
+// 유사문제 검색용 동의어 그룹 (예: 데이터베이스/db/database) — 관리자 패널에서 추가 관리
+model SynonymGroup {
+  id        String        @id @default(cuid())
+  createdAt DateTime      @default(now())
+  createdBy String
+  terms     SynonymTerm[]
+}
+
+model SynonymTerm {
+  id      String       @id @default(cuid())
+  groupId String
+  term    String       @unique
+  group   SynonymGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@index([groupId])
+}
+
 model QuestionComment {
   id         String    @id @default(cuid())
   userId     String

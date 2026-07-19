@@ -9,7 +9,7 @@ import { toast } from 'sonner';
 import { getLevelInfo, MAX_LEVEL } from '@/lib/user-level';
 import PaginationNav from '@/components/PaginationNav';
 
-type Tab = 'questions' | 'board' | 'reports' | 'users' | 'inquiries' | 'logs' | 'analytics' | 'errors' | 'generate' | 'blocked-words' | 'points-log';
+type Tab = 'questions' | 'board' | 'reports' | 'users' | 'inquiries' | 'logs' | 'analytics' | 'errors' | 'generate' | 'blocked-words' | 'synonyms' | 'points-log';
 
 const CATEGORY_LABEL: Record<string, string> = {
   ds: '자료구조', algo: '알고리즘', os: '운영체제',
@@ -128,6 +128,7 @@ export default function AdminPage() {
     { key: 'errors', label: '오류 내역' },
     { key: 'generate', label: 'AI 문제 생성' },
     { key: 'blocked-words', label: '금칙어 관리' },
+    { key: 'synonyms', label: '동의어 관리' },
     { key: 'points-log', label: '포인트 내역' },
   ];
 
@@ -183,6 +184,7 @@ export default function AdminPage() {
       {activeTab === 'errors' && <ErrorLogsTab />}
       {activeTab === 'generate' && <GenerateQuestionsTab />}
       {activeTab === 'blocked-words' && <BlockedWordsTab />}
+      {activeTab === 'synonyms' && <SynonymsTab />}
       {activeTab === 'points-log' && <PointsLogTab />}
       {confirm && (
         <ConfirmDialog
@@ -3673,6 +3675,162 @@ function BlockedWordsTab() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+interface SynonymTermRow { id: string; term: string; }
+interface SynonymGroupRow { id: string; createdAt: string; terms: SynonymTermRow[]; }
+
+function SynonymsTab() {
+  const queryClient = useQueryClient();
+  const [newGroupInput, setNewGroupInput] = useState('');
+  const [addTermInputs, setAddTermInputs] = useState<Record<string, string>>({});
+
+  const { data: groups = [], isLoading } = useQuery<SynonymGroupRow[]>({
+    queryKey: ['admin-synonyms'],
+    queryFn: () => fetch('/api/admin/synonyms').then((r) => r.json()),
+  });
+
+  const createGroupMutation = useMutation({
+    mutationFn: (terms: string[]) =>
+      fetch('/api/admin/synonyms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ terms }),
+      }).then(async (r) => {
+        if (!r.ok) throw new Error((await r.json() as { error?: string }).error ?? '');
+        return r.json() as Promise<{ added: number; skipped: number }>;
+      }),
+    onSuccess: (data) => {
+      setNewGroupInput('');
+      void queryClient.invalidateQueries({ queryKey: ['admin-synonyms'] });
+      toast.success(`동의어 그룹이 추가되었습니다 (${data.added}개 용어).`);
+    },
+    onError: (e: Error) => toast.error(e.message || '추가에 실패했습니다.'),
+  });
+
+  const addTermMutation = useMutation({
+    mutationFn: ({ groupId, term }: { groupId: string; term: string }) =>
+      fetch('/api/admin/synonyms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ groupId, terms: [term] }),
+      }).then(async (r) => {
+        if (!r.ok) throw new Error((await r.json() as { error?: string }).error ?? '');
+        return r.json() as Promise<{ added: number; skipped: number }>;
+      }),
+    onSuccess: (data, variables) => {
+      setAddTermInputs((prev) => ({ ...prev, [variables.groupId]: '' }));
+      void queryClient.invalidateQueries({ queryKey: ['admin-synonyms'] });
+      if (data.added > 0) toast.success('추가되었습니다.');
+      else toast.error('이미 등록된 용어입니다.');
+    },
+    onError: (e: Error) => toast.error(e.message || '추가에 실패했습니다.'),
+  });
+
+  const deleteTermMutation = useMutation({
+    mutationFn: (id: string) =>
+      fetch('/api/admin/synonyms', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['admin-synonyms'] });
+      toast.success('삭제되었습니다.');
+    },
+  });
+
+  return (
+    <div className="space-y-6">
+      <div className="bg-[#111111] border border-neutral-800 rounded-lg p-5">
+        <h2 className="text-sm font-medium text-white mb-1">새 동의어 그룹 추가</h2>
+        <p className="text-xs text-neutral-500 mb-4">
+          쉼표(,) 또는 줄바꿈으로 구분해 같은 개념의 표기를 2개 이상 입력하세요.
+          유사문제 검색 시 서로 동의어로 매칭됩니다. 영어는 대소문자 구분 없이 저장·매칭됩니다.
+          (예: 데이터베이스, db, database)
+        </p>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            const terms = newGroupInput.split(/[\n,]/).map((w) => w.trim()).filter((w) => w.length > 0);
+            if (terms.length < 2) { toast.error('2개 이상 입력해주세요.'); return; }
+            createGroupMutation.mutate(terms);
+          }}
+          className="space-y-2"
+        >
+          <textarea
+            value={newGroupInput}
+            onChange={(e) => setNewGroupInput(e.target.value)}
+            placeholder={'데이터베이스, db, database'}
+            rows={2}
+            className="w-full bg-[#1a1a1a] border border-neutral-800 rounded-md px-3 py-2 text-sm text-white placeholder-neutral-600 focus:outline-none focus:border-neutral-600 resize-none"
+          />
+          <div className="flex justify-end">
+            <button
+              type="submit"
+              disabled={!newGroupInput.trim() || createGroupMutation.isPending}
+              className="rounded-md bg-white text-black text-sm font-medium px-4 py-2 hover:bg-neutral-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              {createGroupMutation.isPending ? '추가 중...' : '그룹 추가'}
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <div className="bg-[#111111] border border-neutral-800 rounded-lg p-5">
+        <h2 className="text-sm font-medium text-white mb-1">동의어 그룹 목록</h2>
+        <p className="text-xs text-neutral-500 mb-4">
+          {isLoading ? '불러오는 중...' : `총 ${groups.length}개 그룹`}
+        </p>
+        {isLoading ? null : groups.length === 0 ? (
+          <p className="text-xs text-neutral-600 py-4 text-center">등록된 동의어 그룹이 없습니다.</p>
+        ) : (
+          <div className="space-y-3">
+            {groups.map((g) => (
+              <div key={g.id} className="border border-neutral-800 rounded-lg p-3">
+                <div className="flex flex-wrap gap-1.5 mb-2">
+                  {g.terms.map((t) => (
+                    <span key={t.id} className="inline-flex items-center gap-1.5 text-xs bg-neutral-900 border border-neutral-700 rounded px-2.5 py-1 text-neutral-300">
+                      {t.term}
+                      <button
+                        onClick={() => deleteTermMutation.mutate(t.id)}
+                        className="text-neutral-600 hover:text-red-400 transition-colors"
+                        title="삭제"
+                      >
+                        ✕
+                      </button>
+                    </span>
+                  ))}
+                </div>
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    const term = (addTermInputs[g.id] ?? '').trim();
+                    if (term) addTermMutation.mutate({ groupId: g.id, term });
+                  }}
+                  className="flex gap-2"
+                >
+                  <input
+                    value={addTermInputs[g.id] ?? ''}
+                    onChange={(e) => setAddTermInputs((prev) => ({ ...prev, [g.id]: e.target.value }))}
+                    placeholder="이 그룹에 용어 추가 (예: database)"
+                    className="flex-1 min-w-0 bg-[#1a1a1a] border border-neutral-800 rounded-md px-2.5 py-1.5 text-xs text-white placeholder-neutral-600 focus:outline-none focus:border-neutral-600"
+                  />
+                  <button
+                    type="submit"
+                    disabled={!(addTermInputs[g.id] ?? '').trim() || addTermMutation.isPending}
+                    className="flex-shrink-0 text-xs text-neutral-300 border border-neutral-700 rounded-md px-3 py-1.5 hover:border-neutral-500 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  >
+                    추가
+                  </button>
+                </form>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

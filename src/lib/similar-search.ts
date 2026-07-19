@@ -82,34 +82,43 @@ const SYNONYM_GROUPS: string[][] = [
   ['동시성', '병행성', 'concurrency'],
 ];
 
-function normalizeKey(token: string): string {
+export function normalizeKey(token: string): string {
   return /^[a-zA-Z0-9 ]+$/.test(token) ? token.toLowerCase() : token;
 }
 
-const SYNONYM_LOOKUP = new Map<string, string[]>();
-for (const group of SYNONYM_GROUPS) {
-  for (const term of group) {
-    SYNONYM_LOOKUP.set(normalizeKey(term), group);
+export type SynonymLookup = Map<string, string[]>;
+
+// 관리자 패널에서 추가한 동의어 그룹(extraGroups)을 기본 사전과 합쳐 조회용 맵을 만든다
+export function buildSynonymLookup(extraGroups: string[][] = []): SynonymLookup {
+  const lookup = new Map<string, string[]>();
+  for (const group of [...SYNONYM_GROUPS, ...extraGroups]) {
+    for (const term of group) {
+      lookup.set(normalizeKey(term), group);
+    }
   }
+  return lookup;
 }
 
+const DEFAULT_LOOKUP = buildSynonymLookup();
+
 // 토큰과 같은 개념으로 등록된 다른 표기(한글↔영어 등)를 함께 반환한다
-export function getSynonyms(token: string): string[] {
-  return SYNONYM_LOOKUP.get(normalizeKey(token)) ?? [token];
+export function getSynonyms(token: string, lookup: SynonymLookup = DEFAULT_LOOKUP): string[] {
+  return lookup.get(normalizeKey(token)) ?? [token];
 }
 
 // 토큰이 코퍼스에서 드물수록(= 변별력이 높을수록) 큰 가중치를 부여
 export function rareTokenBoost(
   candidateText: string,
   tokens: string[],
-  corpusCounts: Record<string, number>
+  corpusCounts: Record<string, number>,
+  lookup: SynonymLookup = DEFAULT_LOOKUP
 ): number {
   let boost = 0;
   const lower = candidateText.toLowerCase();
   for (const t of tokens) {
     const count = corpusCounts[t] ?? 0;
     if (count === 0) continue;
-    const matched = getSynonyms(t).some((s) => lower.includes(s.toLowerCase()));
+    const matched = getSynonyms(t, lookup).some((s) => lower.includes(s.toLowerCase()));
     if (matched) {
       boost += 1 / Math.sqrt(count);
     }
