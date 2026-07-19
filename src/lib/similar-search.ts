@@ -29,7 +29,8 @@ export function extractSearchTokens(query: string): string[] {
 
 // CS 용어 한/영 동의어 사전 - 임베딩·트라이그램만으로는 "트리거"와 "trigger"처럼
 // 문자 집합이 아예 다른 표기를 같은 개념으로 잡아내지 못해서 별도로 정규화한다
-const SYNONYM_GROUPS: string[][] = [
+// 관리자 패널 '동의어 관리' 탭에 기본 제공 목록으로 그대로 표시된다 (읽기 전용)
+export const SYNONYM_GROUPS: string[][] = [
   ['트리거', 'trigger'],
   ['트랜잭션', 'transaction'],
   ['인덱스', 'index'],

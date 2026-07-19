@@ -8,7 +8,7 @@ import { getKSTMidnight } from '@/lib/kst';
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 // 하루 최대 사용 횟수 (KST 자정 기준 초기화)
-const DAILY_LIMIT = 25;
+const DAILY_LIMIT = 20;
 
 async function getUsageStatus(userId: string) {
   const used = await prisma.auditLog.count({
