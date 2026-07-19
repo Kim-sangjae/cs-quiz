@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { extractSearchTokens, rareTokenBoost, getSynonyms } from './similar-search';
+import { extractSearchTokens, rareTokenBoost, getSynonyms, buildSynonymLookup } from './similar-search';
 
 describe('extractSearchTokens', () => {
   it('조사를 제거해 어근만 남긴다', () => {
@@ -59,5 +59,27 @@ describe('getSynonyms', () => {
 
   it('사전에 없는 토큰은 자기 자신만 담긴 배열을 반환한다', () => {
     expect(getSynonyms('데이터베이스')).toEqual(['데이터베이스']);
+  });
+});
+
+describe('buildSynonymLookup', () => {
+  it('추가 그룹을 기본 사전과 합쳐서 조회할 수 있다', () => {
+    const lookup = buildSynonymLookup([['데이터베이스', 'db', 'database']]);
+    expect(getSynonyms('데이터베이스', lookup)).toEqual(
+      expect.arrayContaining(['데이터베이스', 'db', 'database'])
+    );
+    expect(getSynonyms('database', lookup)).toEqual(
+      expect.arrayContaining(['데이터베이스', 'db', 'database'])
+    );
+  });
+
+  it('영어 용어는 대소문자 구분 없이 같은 그룹으로 조회된다', () => {
+    const lookup = buildSynonymLookup([['데이터베이스', 'db']]);
+    expect(getSynonyms('DB', lookup)).toEqual(expect.arrayContaining(['데이터베이스', 'db']));
+  });
+
+  it('추가 그룹 없이 호출하면 기본 사전과 동일하게 동작한다', () => {
+    const lookup = buildSynonymLookup();
+    expect(getSynonyms('트리거', lookup)).toEqual(expect.arrayContaining(['트리거', 'trigger']));
   });
 });
