@@ -23,6 +23,7 @@ export default function OnlineCountBadge() {
   const [selectedUser, setSelectedUser] = useState<OnlineUser | null>(null);
 
   useEffect(() => {
+    if (status === 'loading') return;
     let cancelled = false;
     async function fetchCount() {
       try {
@@ -32,10 +33,18 @@ export default function OnlineCountBadge() {
         if (!cancelled) setCount(data.count);
       } catch {}
     }
-    fetchCount();
+    async function init() {
+      // 최초 진입 시 Header의 heartbeat(15초 간격)가 아직 안 뜬 상태일 수 있어
+      // 카운트 조회 전에 내 접속 기록부터 먼저 남겨서 첫 조회에서도 0명으로 뜨지 않게 함
+      if (status === 'authenticated') {
+        await fetch('/api/presence/heartbeat', { method: 'POST' }).catch(() => {});
+      }
+      await fetchCount();
+    }
+    init();
     const id = setInterval(fetchCount, 30_000);
     return () => { cancelled = true; clearInterval(id); };
-  }, []);
+  }, [status]);
 
   const openPanel = useCallback(async () => {
     if (status !== 'authenticated') { router.push('/auth/login'); return; }
