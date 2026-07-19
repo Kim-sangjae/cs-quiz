@@ -67,8 +67,9 @@ function SubmitContent() {
 
   const [generating, setGenerating] = useState(false);
   const [usage, setUsage] = useState<{ used: number; limit: number; remaining: number } | null>(null);
-  // AI가 마지막으로 생성한 해설 — 유저가 이를 그대로 두고 있다면(수정 안 함) 다음 생성 시 갱신 대상으로 취급
+  // AI가 마지막으로 생성한 해설/오답 스냅샷 — 오답이 그때 이후로 바뀌지 않았다면 재생성할 게 없다고 판단
   const [lastGeneratedExplanation, setLastGeneratedExplanation] = useState('');
+  const [lastGeneratedSignature, setLastGeneratedSignature] = useState<string | null>(null);
 
   useEffect(() => {
     fetch('/api/questions/generate-options')
@@ -112,10 +113,14 @@ function SubmitContent() {
     explanation.length > 0 &&
     explanation.length <= 500;
 
-  // 채울 오답 빈칸도 없고, 해설도 유저가 직접 썼거나 이미 수정해서 더 생성할 게 없으면 버튼 비활성화
+  // 채울 오답 빈칸이 있거나, 해설이 AI가 쓴 그대로인데 그 이후 오답이 바뀌어 해설이 낡았을 때만 버튼 활성화
   const hasBlankDistractor = options.some((o, i) => i !== answer && !o.trim());
-  const explanationRegenerable = explanation.trim().length === 0 || explanation === lastGeneratedExplanation;
-  const canGenerateOptions = hasBlankDistractor || explanationRegenerable;
+  const currentDistractorsSignature = JSON.stringify(options.map((o, i) => (i === answer ? null : o)));
+  const explanationOwnedByAI = explanation.trim().length > 0 && explanation === lastGeneratedExplanation;
+  const distractorsChangedSinceGeneration = lastGeneratedSignature !== null && currentDistractorsSignature !== lastGeneratedSignature;
+  const explanationNeedsRegeneration =
+    explanation.trim().length === 0 || (explanationOwnedByAI && distractorsChangedSinceGeneration);
+  const canGenerateOptions = hasBlankDistractor || explanationNeedsRegeneration;
 
   function handleQuestionChange(value: string) {
     setQuestion(value);
@@ -137,10 +142,10 @@ function SubmitContent() {
   async function handleGenerateOptions() {
     if (!question.trim() || !options[answer ?? -1]?.trim() || (usage && usage.remaining <= 0)) return;
     // 유저가 이미 작성한 오답 보기는 보존하고 빈 부분만 AI로 채운다.
-    // 해설은 유저가 직접 쓰거나 고친 경우에만 보존하고, AI가 만든 그대로면 최신 오답에 맞게 다시 생성한다.
+    // 해설은 유저가 직접 쓰거나 고친 경우에만 보존하고, AI가 만든 그대로인데 오답이 바뀌어 낡았을 때만 다시 생성한다.
+    if (!canGenerateOptions) return;
     const existingDistractors = options.filter((opt, i) => i !== answer && opt.trim().length > 0);
-    const skipExplanation = explanation.trim().length > 0 && explanation !== lastGeneratedExplanation;
-    if (existingDistractors.length >= 3 && skipExplanation) return;
+    const skipExplanation = !explanationNeedsRegeneration;
     setGenerating(true);
     try {
       const correctAnswer = options[answer!];
@@ -171,6 +176,7 @@ function SubmitContent() {
         setExplanation(generatedExplanation);
         setLastGeneratedExplanation(generatedExplanation);
       }
+      setLastGeneratedSignature(JSON.stringify(next.map((o, i) => (i === answer ? null : o))));
     } finally {
       setGenerating(false);
     }
