@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const q = req.nextUrl.searchParams.get('q')?.trim() ?? '';
-  if (q.length < 5) return NextResponse.json([]);
+  if (q.length < 2) return NextResponse.json([]);
 
   try {
     const embedding = await generateEmbedding(q);
