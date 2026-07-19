@@ -9,7 +9,7 @@ export default function Footer() {
             <p className="text-white font-bold text-base tracking-tight mb-1.5">CSORA</p>
             <p className="text-neutral-500 text-xs mb-1">CS + Aurora</p>
             <p className="text-neutral-600 text-xs leading-relaxed">
-              누구나 CS를 배우며 자신만의<br />가능성을 빛낼 수 있는 공간
+              당신의 지식을 빛내보세요
             </p>
           </div>
 

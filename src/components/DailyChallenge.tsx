@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
+import UserProfileModal from './UserProfileModal';
 
 const CATEGORY_LABEL: Record<string, string> = {
   ds: '자료구조', algo: '알고리즘', os: '운영체제',
@@ -39,6 +40,7 @@ function storageKey(date: string, uid: string) {
 }
 
 interface Participant {
+  userId: string;
   nickname: string;
   correct: boolean;
 }
@@ -53,6 +55,7 @@ export default function DailyChallenge() {
   const [showPanel, setShowPanel] = useState(false);
   const [participants, setParticipants] = useState<Participant[] | null>(null);
   const [panelLoading, setPanelLoading] = useState(false);
+  const [selectedParticipant, setSelectedParticipant] = useState<Participant | null>(null);
 
   const openParticipants = useCallback(async () => {
     if (status !== 'authenticated') { router.push('/auth/login'); return; }
@@ -256,22 +259,35 @@ export default function DailyChallenge() {
           ) : (
             <div className="space-y-1">
               {participants.map((p, i) => (
-                <div key={i} className="flex items-center gap-3 py-2.5 border-b border-neutral-800/50 last:border-0">
+                <button
+                  key={i}
+                  onClick={() => setSelectedParticipant(p)}
+                  className="w-full flex items-center gap-3 py-2.5 border-b border-neutral-800/50 last:border-0 hover:bg-neutral-900/60 rounded-md px-1.5 -mx-1.5 transition-colors text-left"
+                >
                   <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${p.correct ? 'bg-emerald-500/20 border border-emerald-500/30' : 'bg-neutral-800'}`}>
                     <span className={`text-xs font-semibold ${p.correct ? 'text-emerald-400' : 'text-neutral-400'}`}>
                       {(p.nickname[0] ?? '?').toUpperCase()}
                     </span>
                   </div>
                   <span className="text-sm text-neutral-200 flex-1 truncate">{p.nickname}</span>
-                  <span className={`text-[10px] rounded px-1.5 py-0.5 border ${p.correct ? 'text-emerald-400 border-emerald-500/30' : 'text-red-400 border-red-500/30'}`}>
+                  <span className={`text-[10px] rounded px-1.5 py-0.5 border flex-shrink-0 ${p.correct ? 'text-emerald-400 border-emerald-500/30' : 'text-red-400 border-red-500/30'}`}>
                     {p.correct ? '정답' : '오답'}
                   </span>
-                </div>
+                </button>
               ))}
             </div>
           )}
         </div>
       </div>
+
+      {selectedParticipant && (
+        <UserProfileModal
+          userId={selectedParticipant.userId}
+          nickname={selectedParticipant.nickname}
+          isSelf={selectedParticipant.userId === userId}
+          onClose={() => setSelectedParticipant(null)}
+        />
+      )}
     </section>
   );
 }
