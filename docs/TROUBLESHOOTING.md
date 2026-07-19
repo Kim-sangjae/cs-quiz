@@ -76,6 +76,14 @@
 | `cannot add 'presence' callbacks for realtime:online-users after subscribe()` | `useSupabaseRealtime` 훅을 `FriendPanel`과 `AnalyticsTab` 두 곳에서 호출 → Supabase JS가 동일 채널명을 캐시하여 이미 구독된 채널 객체를 반환 → `.on()` 재호출 오류 | `RealtimeContext`(Provider 패턴)로 구독을 앱 최상단에서 **한 번만** 실행. 모든 컴포넌트는 `useRealtime()` 훅으로 동일 Context 소비 |
 | 친구 패널에서 프로필 공개 설정 변경 후 새로고침해야 반영됨 | `UserProfileModal`의 `staleTime: 60_000` + Supabase 구독 없음 | `staleTime: 0` + `csora-profile-modal-{userId}` 채널 구독 → `queryClient.invalidateQueries` |
 
+### 커스텀 도메인 (csora.co.kr 이전)
+
+| 문제 | 원인 | 해결 |
+|------|------|------|
+| 구 도메인(`csora.vercel.app`)에서 로그인 시 `MissingCSRF` 에러 | `NEXTAUTH_URL`을 새 도메인 하나로 고정하면, 로그인 폼이 (쿠키가 없는) 다른 도메인으로 제출되며 CSRF 쿠키 불일치 발생 | 구 도메인의 NEXTAUTH_URL을 도메인별로 분기하는 대신, Vercel Domains에서 구 도메인 → 새 도메인 308 리다이렉트를 걸어 애초에 구 도메인 페이지 자체에 도달 못하게 처리 (상세: [ADR-036](./ADR.md#adr-036-커스텀-도메인csoracokr-채택-대표-도메인은-www-없는-apex)) |
+| `curl`로 `/api/auth/signin/google`을 직접 GET 요청하면 `error=Configuration`로 리다이렉트 | NextAuth `signIn()`은 실제로는 CSRF 토큰이 포함된 POST 요청 — 로그인 페이지 로드 없이 URL만 직접 호출하면 CSRF 토큰이 없어 서버가 (부정확하게) "Configuration" 에러로 응답. **실제 버그가 아니라 테스트 방법 자체가 실사용 흐름과 다름** | curl 대신 Playwright로 로그인 페이지를 먼저 로드해 CSRF 쿠키를 확보한 뒤 실제 버튼을 클릭해서 검증 — 정상적으로 구글/카카오 로그인 화면까지 진입하는 것으로 확인됨 |
+| Vercel Domains에서 도메인 상태가 "Invalid Configuration" ↔ "Valid Configuration"로 번갈아 뜸 | 국내 도메인 등록업체(hosting.co.kr 등)의 네임서버가 해외에서 조회 시 간헐적으로 응답이 느려, Vercel의 주기적 상태 체크가 타이밍에 따라 실패/성공을 반복 | Google/Cloudflare/KT 등 주요 DNS로 직접 조회해 실제 레코드가 정확한지, 그리고 실제 HTTP(S) 접속이 되는지로 판단 — 둘 다 정상이면 Vercel 대시보드 표시는 무시해도 됨(실사용에 영향 없음) |
+
 ---
 
 ## 설계 시행착오

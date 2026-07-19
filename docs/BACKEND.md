@@ -33,7 +33,7 @@
 | `UserReport` | reporterId, reportedId, reason(INAPPROPRIATE_NICKNAME/HARASSMENT/SPAM/OTHER) — 유저 신고 |
 | `QuestionComment` | userId, questionId, content, blinded, deletedAt |
 | `CommentReport` | reporterId, commentId, reason(INAPPROPRIATE/SPAM/HARASSMENT/OTHER) |
-| `Notification` | type(QUESTION_APPROVED/REJECTED/ROLE_CHANGED/INQUIRY_REPLIED/LEVEL_UP/BADGE_EARNED/FRIEND_REQUEST/FRIEND_ACCEPTED/BATTLE_INVITE 등), payload(Json), isRead |
+| `Notification` | type(QUESTION_APPROVED/REJECTED/ROLE_CHANGED/INQUIRY_REPLIED/LEVEL_UP/BADGE_EARNED/FRIEND_REQUEST/FRIEND_ACCEPTED/BATTLE_INVITE/QUESTION_COMMENTED 등), payload(Json), isRead |
 | `Inquiry` | userId, type(BUG_REPORT/ACCOUNT_ISSUE/CONTENT_ISSUE/SUGGESTION/OTHER), title, content, status(PENDING/IN_PROGRESS/RESOLVED), adminReply, repliedAt |
 | `AuditLog` | actorId, actorRole, action(LOGIN/QUESTION_APPROVE/REJECT/BLIND 등), targetType, targetId, payload(Json) |
 | `ErrorLog` | userId, statusCode, errorCode, message, path, digest |
@@ -49,6 +49,7 @@
 | `PointTransaction` | userId, delta, reason — 포인트 증감 내역 |
 | `WeeklyGoalClaim` | @@unique([userId, goalKey]) — 주간 목표 보상 수령 내역 |
 | `BlockedWord` | word(unique), createdBy — 관리자 커스텀 금칙어 |
+| `RateLimit` | key(PK, `{action}:{userId 또는 ip}`), count, windowStart — DB 기반 레이트리밋 카운터 |
 | `Account`, `Session`, `VerificationToken` | NextAuth PrismaAdapter 전용 |
 
 **역정규화**: `Question.attemptCount`, `correctCount`는 퀴즈 제출 $transaction에서 원자적 업데이트.
@@ -82,6 +83,24 @@
 - `auth.ts` JWT 콜백: 매 서버사이드 `auth()` 호출마다 DB에서 tokenVersion·role·deletedAt 조회
 - 미들웨어(`auth.config.ts`): Edge Runtime 제약으로 DB 미조회 — API 호출 시점에 무효화됨
 
+## 레이트리밋 / 부정 이용 방어
+
+`src/lib/rate-limit.ts`의 `isRateLimited(key, limit, windowSeconds)` — `RateLimit` 테이블에 키별 카운터를 저장하는 DB 기반 구현(Redis 등 외부 인프라 없음). 창이 지나면 자동 리셋, 낮은 확률로 오래된 행 정리(별도 크론 불필요). 비로그인 요청은 `getClientIp(req)`(x-forwarded-for)로 IP 기준 키 사용.
+
+| 대상 | 제한 | 키 |
+|------|------|-----|
+| 댓글 작성 | 10초 5회 | `comment:{userId}` |
+| 문제/유저/댓글 신고 | 60초 10회 | `report:{userId}` |
+| 문의 등록 | 60초 5회 | `inquiry:{userId}` |
+| 채팅 메시지 | 10초 20회 | `chat:{userId}` |
+| 문제 목록/상세 조회(스크래핑 방지) | 60초 60회 | `questions-list:user:{userId}` 또는 `:ip:{ip}` |
+| 퀴즈 세션 제출(무한 재제출로 XP/포인트/뱃지 파밍 방지) | 60초 10회 | `quiz-submit:{userId}` |
+| 대결방 생성(알트 계정 XP 파밍 방지) | 하루 50회, **친구쌍 단위**(유저 전체 합산 아님) | `battle-create:{[userId,friendId].sort().join('-')}` |
+
+**채팅 친구관계 서버 검증**: `POST /api/chat/messages`는 발신자·수신자 간 `Friendship(status: ACCEPTED)`가 없으면 403. 프론트(FriendPanel)가 친구에게만 메시지 버튼을 보여주는 것과 별개로, API 자체도 검증해야 함 — UI 숨김은 보안이 아님(userId는 공개 프로필에서 노출되므로 API 직접 호출로 우회 가능했음).
+
+**퀴즈 정답 비노출**: `quiz/play/page.tsx` → `QuizPlayClient`로 내려가는 문제 목록은 `Omit<Question, "answer" | "explanation">` 타입만 사용 — 채점은 `/api/quiz/sessions`가 서버에서 DB 정답과 재대조하므로 클라이언트는 애초에 정답 필드를 받지 않음(CLAUDE.md "정답 prop 전달 금지" 규칙).
+
 ## TanStack Query 사용 규칙
 
 - 클라이언트 컴포넌트의 서버 데이터 fetching: `useQuery`, `useMutation`
@@ -95,7 +114,7 @@
 DATABASE_URL=               # Supabase connection pooler (런타임)
 DIRECT_URL=                 # Supabase direct connection (마이그레이션)
 NEXTAUTH_SECRET=            # openssl rand -base64 32
-NEXTAUTH_URL=               # http://localhost:3000 (dev) | 배포 시 실제 도메인 필수 (OG 이미지 URL 기준)
+NEXTAUTH_URL=               # http://localhost:3000 (dev) | https://csora.co.kr (프로덕션, OG 이미지 URL·이메일 링크 기준)
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
 KAKAO_CLIENT_ID=            # 카카오 로그인 REST API 키 (NextAuth Provider)
