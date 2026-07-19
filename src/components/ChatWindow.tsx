@@ -9,11 +9,12 @@ interface Props {
   friend: { userId: string; nickname: string };
   isOnline: boolean;
   onClose: () => void;
+  onNicknameClick?: () => void;
 }
 
 const MAX_LENGTH = 200;
 
-export default function ChatWindow({ myId, friend, isOnline, onClose }: Props) {
+export default function ChatWindow({ myId, friend, isOnline, onClose, onNicknameClick }: Props) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [input, setInput] = useState('');
@@ -175,15 +176,22 @@ export default function ChatWindow({ myId, friend, isOnline, onClose }: Props) {
     >
       {/* 헤더 */}
       <div className="flex items-center justify-between px-3 py-2.5 border-b border-neutral-800 flex-shrink-0">
-        <div className="flex items-center gap-2 min-w-0">
+        <button
+          type="button"
+          onClick={onNicknameClick}
+          disabled={!onNicknameClick}
+          className="flex items-center gap-2 min-w-0 disabled:cursor-default text-left"
+        >
           <div className="w-6 h-6 rounded-full bg-neutral-800 border border-neutral-700 flex items-center justify-center text-[10px] font-bold text-neutral-400 flex-shrink-0">
             {friend.nickname[0]?.toUpperCase() ?? '?'}
           </div>
-          <span className="text-xs font-medium text-white truncate">{friend.nickname}</span>
+          <span className={`text-xs font-medium text-white truncate ${onNicknameClick ? 'hover:text-neutral-300 transition-colors' : ''}`}>
+            {friend.nickname}
+          </span>
           {!channelReady && !loading && (
             <span className="text-[10px] text-neutral-600 flex-shrink-0">연결 중...</span>
           )}
-        </div>
+        </button>
         <button
           onClick={onClose}
           className="flex-shrink-0 text-neutral-600 hover:text-white transition-colors ml-2"

@@ -263,6 +263,10 @@ export default function FriendPanel() {
           friend={chatFriend}
           isOnline={onlineUserIds.has(chatFriend.userId)}
           onClose={() => setChatFriend(null)}
+          onNicknameClick={() => {
+            const f = allFriends.find((x) => x.userId === chatFriend.userId);
+            if (f) setSelectedFriend(f);
+          }}
         />
       )}
 
