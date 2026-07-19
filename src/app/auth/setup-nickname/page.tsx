@@ -1,14 +1,13 @@
 'use client';
 
 import { Suspense, useEffect, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { toast } from 'sonner';
 
 const NICKNAME_REGEX = /^[a-zA-Z0-9가-힣]{2,12}$/;
 
 function SetupNicknameForm() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get('callbackUrl') ?? '/';
   const { update } = useSession();
@@ -60,7 +59,9 @@ function SetupNicknameForm() {
 
       await update({ nickname });
       toast.success('닉네임이 설정되었습니다!');
-      router.push(callbackUrl === '/auth/setup-nickname' ? '/' : callbackUrl);
+      // router.push는 방금 setup-nickname으로 리다이렉트됐던 경로의 클라이언트 라우터 캐시를
+      // 재사용해 제자리로 돌아올 수 있어, 미들웨어를 반드시 다시 타는 완전한 새로고침으로 이동
+      window.location.href = callbackUrl === '/auth/setup-nickname' ? '/' : callbackUrl;
     } finally {
       setSubmitting(false);
     }
