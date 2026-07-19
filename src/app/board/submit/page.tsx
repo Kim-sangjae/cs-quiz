@@ -129,13 +129,17 @@ function SubmitContent() {
 
   async function handleGenerateOptions() {
     if (!question.trim() || !options[answer ?? -1]?.trim() || (usage && usage.remaining <= 0)) return;
+    // 유저가 이미 작성한 오답 보기/해설은 보존하고 빈 부분만 AI로 채운다
+    const existingDistractors = options.filter((opt, i) => i !== answer && opt.trim().length > 0);
+    const skipExplanation = explanation.trim().length > 0;
+    if (existingDistractors.length >= 3 && skipExplanation) return;
     setGenerating(true);
     try {
       const correctAnswer = options[answer!];
       const r = await fetch('/api/questions/generate-options', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question, answer: correctAnswer }),
+        body: JSON.stringify({ question, answer: correctAnswer, existingDistractors, skipExplanation }),
       });
       const data = await r.json() as {
         distractors?: string[]; explanation?: string;
@@ -148,14 +152,14 @@ function SubmitContent() {
       }
       if (!r.ok || !data.distractors) return;
       const { distractors, explanation: generatedExplanation } = data;
-      const next = ['', '', '', ''];
+      const next = [...options];
       next[answer!] = correctAnswer;
       let di = 0;
       for (let i = 0; i < 4; i++) {
-        if (i !== answer!) next[i] = distractors[di++] ?? '';
+        if (i !== answer! && !next[i].trim()) next[i] = distractors[di++] ?? next[i];
       }
       setOptions(next);
-      if (generatedExplanation) setExplanation(generatedExplanation);
+      if (!skipExplanation && generatedExplanation) setExplanation(generatedExplanation);
     } finally {
       setGenerating(false);
     }
