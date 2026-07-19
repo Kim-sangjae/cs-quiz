@@ -1513,6 +1513,23 @@ function UsersTab({ currentUserId, requestConfirm }: { currentUserId: string; re
     }
   }
 
+  async function doDelete(userId: string) {
+    setActionLoading(userId + ':hard-delete');
+    try {
+      const res = await fetch(`/api/admin/users/${userId}`, { method: 'DELETE' });
+      if (res.ok) {
+        toast.success('계정이 완전히 삭제되었습니다.');
+        queryClient.invalidateQueries({ queryKey: ['admin', 'users'] });
+        setSelectedIds(new Set());
+      } else {
+        const data = await res.json() as { error?: string };
+        toast.error(data.error ?? '삭제에 실패했습니다.');
+      }
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
   function toggleSelect(id: string) {
     setSelectedIds((prev) => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   }
@@ -1687,6 +1704,13 @@ function UsersTab({ currentUserId, requestConfirm }: { currentUserId: string; re
                             disabled={!!actionLoading || isSelf}
                             className="rounded-md bg-orange-500/10 border border-orange-500/30 text-orange-400 text-xs px-3 py-1.5 hover:bg-orange-500/20 transition-colors disabled:opacity-40">
                             통계초기화
+                          </button>
+                        )}
+                        {!isSelf && (
+                          <button onClick={() => requestConfirm(`'${u.nickname ?? u.email}' 계정을 완전히 삭제하시겠습니까? 되돌릴 수 없으며, 계정 정보·풀이기록·알림·좋아요·문의·주최한 대결이 영구히 삭제됩니다. (작성한 문제·댓글은 작성자 표시만 지워진 채 남습니다)`, () => doDelete(u.id))}
+                            disabled={!!actionLoading || isSelf}
+                            className="rounded-md bg-red-600/10 border border-red-600/40 text-red-300 text-xs px-3 py-1.5 hover:bg-red-600/20 transition-colors disabled:opacity-40">
+                            완전삭제
                           </button>
                         )}
                       </div>

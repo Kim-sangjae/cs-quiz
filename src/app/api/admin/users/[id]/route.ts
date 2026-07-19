@@ -98,3 +98,46 @@ export async function PATCH(
 
   return NextResponse.json({ ok: true });
 }
+
+// 계정 완전 삭제 (비활성화와 달리 되돌릴 수 없음). QuizSession/QuestionAttempt/Notification/
+// Like/Inquiry/Report/hostedRooms는 User FK가 RESTRICT라 명시적으로 먼저 지워야 함.
+// 작성한 문제(Question.authorId)/댓글 등은 SET NULL 또는 CASCADE로 DB가 자동 처리.
+export async function DELETE(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const user = await getServerUser();
+  if (!user || user.role !== 'ADMIN') {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
+  const { id } = await params;
+  if (id === user.id) {
+    return NextResponse.json({ error: 'Cannot delete yourself' }, { status: 400 });
+  }
+
+  const target = await prisma.user.findUnique({ where: { id } });
+  if (!target) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+
+  await prisma.$transaction([
+    prisma.questionAttempt.deleteMany({ where: { userId: id } }),
+    prisma.quizSession.deleteMany({ where: { userId: id } }),
+    prisma.notification.deleteMany({ where: { userId: id } }),
+    prisma.like.deleteMany({ where: { userId: id } }),
+    prisma.inquiry.deleteMany({ where: { userId: id } }),
+    prisma.report.deleteMany({ where: { reporterId: id } }),
+    prisma.gameRoom.deleteMany({ where: { hostId: id } }),
+    prisma.user.delete({ where: { id } }),
+  ]);
+
+  writeLog({
+    actorId: user.id,
+    actorRole: user.role,
+    action: 'USER_DELETE',
+    targetType: 'User',
+    targetId: id,
+    payload: { targetEmail: target.email, targetNickname: target.nickname },
+  });
+
+  return NextResponse.json({ ok: true });
+}
