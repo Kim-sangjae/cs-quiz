@@ -52,6 +52,7 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
   const [waitTimedOut, setWaitTimedOut] = useState(false);
   const [waitCountdown, setWaitCountdown] = useState(20);
   const [isAutoMode, setIsAutoMode] = useState(false);
+  const [showExitConfirm, setShowExitConfirm] = useState(false);
   const hasAutoSubmittedRef = useRef(false);
   const waitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autoModeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -418,7 +419,8 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
         <button
           onClick={() => {
             if (room?.status === 'PLAYING') {
-              if (!confirm('대결이 진행 중입니다. 정말 나가시겠습니까?')) return;
+              setShowExitConfirm(true);
+              return;
             }
             router.back();
           }}
@@ -430,6 +432,32 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
           {CATEGORY_LABEL[room.category] ?? room.category}
         </span>
       </div>
+
+      {/* 대결 나가기 확인 모달 */}
+      {showExitConfirm && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 px-4">
+          <div className="bg-[#111] border border-neutral-800 rounded-xl p-6 max-w-sm w-full">
+            <h2 className="text-white font-semibold text-base mb-2">대결을 나가시겠습니까?</h2>
+            <p className="text-neutral-400 text-sm mb-6 leading-relaxed">
+              대결이 진행 중입니다. 지금 나가면 대결이 중단됩니다.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => router.back()}
+                className="flex-1 rounded-lg bg-neutral-800 border border-neutral-700 text-sm text-neutral-200 py-2.5 hover:bg-neutral-700 transition-colors"
+              >
+                나가기
+              </button>
+              <button
+                onClick={() => setShowExitConfirm(false)}
+                className="flex-1 rounded-lg bg-white text-black text-sm font-semibold py-2.5 hover:bg-neutral-200 transition-colors"
+              >
+                계속하기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* WAITING */}
       {room.status === 'WAITING' && (
@@ -552,7 +580,7 @@ export default function BattleRoomPage({ params }: { params: Promise<{ id: strin
                 {(frozenAnswer ? frozenAnswer.options : room.question.options as string[]).map((opt, i) => {
                   const dispMyAnswered = frozenAnswer ? true : (myAnswered && !isAutoSubmitted);
                   const dispSelected = frozenAnswer ? frozenAnswer.selected : room.mySelected;
-                  let cls = 'w-full text-left rounded-md border px-4 py-2.5 text-sm flex items-start gap-3 transition-colors ';
+                  let cls = 'w-full text-left rounded-md border px-4 py-3 text-sm flex items-start gap-3 transition-colors ';
                   if (dispMyAnswered) {
                     cls += i === dispSelected
                       ? 'border-blue-500 bg-blue-500/20 text-blue-200 cursor-default'

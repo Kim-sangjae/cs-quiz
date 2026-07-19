@@ -531,7 +531,7 @@ export default function QuizPlayClient({ questions, category, mode = 'normal', i
       </div>
 
       {/* 하단 고정 영역 */}
-      <div className="sticky bottom-0 bg-[#0a0a0a]/95 backdrop-blur border-t border-neutral-800/60 py-3 mt-4">
+      <div className="sticky bottom-0 bg-[#0a0a0a]/95 backdrop-blur border-t border-neutral-800/60 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] mt-4">
         {/* Navigator */}
         <div className="mb-3 overflow-x-auto pb-1">
           <Navigator
