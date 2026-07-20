@@ -383,10 +383,7 @@ export default function QuizPlayClient({ questions, category, mode = 'normal', i
     'text-neutral-400 border-neutral-800';
 
   return (
-    <div
-      className="max-w-2xl mx-auto px-4 flex flex-col"
-      style={{ height: 'calc(100dvh - 3.5rem - 1px)' }}
-    >
+    <div className="max-w-2xl mx-auto px-4 py-6">
       {/* 로그인 유도 모달 */}
       {showLoginPrompt && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 px-4">
@@ -439,8 +436,6 @@ export default function QuizPlayClient({ questions, category, mode = 'normal', i
         </div>
       )}
 
-      {/* 문제 영역 — 이 안에서만 스크롤(문제가 길 때만), 하단 고정 영역과는 분리되지 않음 */}
-      <div className="flex-1 min-h-0 overflow-y-auto py-6">
       {/* 상단 진행 상태 */}
       <div className="mb-4">
         <div className="flex items-center justify-between mb-2">
@@ -534,10 +529,9 @@ export default function QuizPlayClient({ questions, category, mode = 'normal', i
           )
         )}
       </div>
-      </div>
 
-      {/* 하단 고정 영역 — 페이지 스크롤 없이 항상 같은 위치에 보임 */}
-      <div className="flex-shrink-0 bg-[#0a0a0a]/95 backdrop-blur border-t border-neutral-800/60 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
+      {/* 하단 영역 — 페이지 흐름을 따라 문제 길이만큼 자연스럽게 아래로 이어짐 */}
+      <div className="border-t border-neutral-800/60 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] mt-4">
         {/* Navigator — 우측은 친구패널 플로팅 버튼과 겹치지 않게 여백 확보 */}
         <div className="mb-3 pr-16 sm:pr-0">
           <Navigator
