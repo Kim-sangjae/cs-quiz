@@ -1,13 +1,6 @@
-'use client';
-
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
 
 export default function Footer() {
-  const pathname = usePathname();
-  // 퀴즈 풀이 화면은 한 화면에 딱 맞게 표시(스크롤 없음) — 푸터가 붙으면 스크롤이 생겨버림
-  if (pathname === '/quiz/play') return null;
-
   return (
     <footer className="border-t border-neutral-800/60 mt-20">
       <div className="max-w-4xl mx-auto px-4 py-10">
