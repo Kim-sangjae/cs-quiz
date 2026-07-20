@@ -1,6 +1,12 @@
 'use client';
 
+import { usePathname } from 'next/navigation';
+
 export default function ScrollButtons() {
+  const pathname = usePathname();
+  // 퀴즈 풀이 화면은 페이지 스크롤이 없어 맨 위/아래 버튼이 무의미 + 하단 번호 영역과 겹침
+  if (pathname === '/quiz/play') return null;
+
   return (
     <div className="fixed flex flex-col gap-2 z-40" style={{ bottom: 'max(1.5rem, env(safe-area-inset-bottom, 1.5rem))', right: '1.25rem' }}>
       <button
