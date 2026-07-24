@@ -6,7 +6,9 @@
 src/
 ├── app/
 │   ├── layout.tsx
-│   ├── page.tsx                          # 홈 (히어로 + 개인화 배너 + 랭킹)
+│   ├── robots.ts                          # MetadataRoute.Robots — /robots.txt 생성
+│   ├── sitemap.ts                         # MetadataRoute.Sitemap — /sitemap.xml 생성
+│   ├── page.tsx                          # 홈 (히어로 + 개인화 배너 + 랭킹, 비로그인도 랭킹 열람 가능)
 │   ├── about/page.tsx                    # 서비스 소개
 │   ├── leaderboard/page.tsx              # 기여도 순위
 │   ├── friends/page.tsx                  # 친구 목록 전체 페이지
@@ -103,11 +105,12 @@ src/
 │           ├── errors/route.ts           # GET — 오류 로그
 │           ├── analytics/route.ts        # GET — 통계 대시보드 데이터
 │           ├── blocked-words/route.ts    # GET / POST(bulk) / DELETE — 금칙어 CRUD
+│           ├── synonyms/route.ts         # GET / POST / DELETE — 유사문제 검색 동의어 그룹 CRUD
 │           ├── comment-reports/route.ts  # GET / PATCH — 댓글 신고 처리
 │           ├── user-reports/route.ts     # GET / PATCH — 유저 신고 처리
 │           └── users/
 │               ├── route.ts
-│               ├── [id]/route.ts
+│               ├── [id]/route.ts         # GET / PATCH(권한·비활성화) / DELETE(계정 완전삭제, $transaction)
 │               └── bulk/route.ts         # POST — 일괄 권한 변경/삭제
 ├── components/
 │   ├── Header.tsx                        # 공통 헤더 (PWA 설치 버튼, 관리자 배지 포함)
@@ -151,6 +154,7 @@ src/
 │   ├── similar-search.ts                # 유사문제 검색 순수 함수 (토큰 추출, 희귀토큰 가중치, 한/영 동의어 사전)
 │   ├── pagination.ts                     # buildPageList() — 페이지 번호+말줄임표(…) 목록 계산 순수 함수
 │   ├── rate-limit.ts                     # isRateLimited(), getClientIp() — DB 기반 레이트리밋 (상세: BACKEND.md)
+│   ├── kst.ts                            # getKSTNow/getKSTDateStr/getKSTMidnight/getKSTWeekStart — 서버(UTC) 환경에서 KST 날짜 경계 계산 (new Date().toISOString() 직접 사용 금지, CLAUDE.md 참고)
 │   ├── review-schedule.ts               # 오답 복습 스케줄링 (1/3/7/30일 간격)
 │   ├── rankings.ts                       # 랭킹 집계 SQL (review 모드 세션 제외)
 │   ├── sample.ts                         # Fisher-Yates 랜덤 샘플링

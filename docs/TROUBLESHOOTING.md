@@ -183,3 +183,43 @@ pg_trgm은 문자 수준 비교 → 동의어·역방향 표현 처리 불가.
 - `handleSubmitRef.current = handleSubmit` — effect 바깥에서 항상 최신 참조 유지
 
 → 설계 결정은 [ADR-027](./ADR.md#adr-027-시간제한-타이머--단일-useeffect--로컬-변수-패턴) 참조.
+
+---
+
+### TS-005: 접속 상태(Presence) stale 버그 2건
+
+**문제 1 — 첫 진입 시 "현재 접속 중" 배지가 안 보이다가 새로고침해야 나타남**
+
+`OnlineCountBadge`(마운트 시 `GET /api/stats/online` 조회)와 `Header`(마운트 시 + 15초 간격 `POST /api/presence/heartbeat`)가 서로 조율 없는 독립적인 `useEffect` 두 개로 되어 있었음. 최초 진입 시 count 조회가 heartbeat보다 먼저 응답하면, 본인이 유일한 접속자인 경우 count가 0으로 나와 배지가 아예 렌더링 안 됨(`count === null || count === 0`이면 `return null`)—다음 30초 폴링까지 계속 숨겨짐.
+
+**해결**: `OnlineCountBadge`의 조회 순서를 `await heartbeat 먼저 → count 조회`로 직렬화해, 최초 조회 시점에 이미 본인 접속 기록이 남아있도록 함.
+
+**문제 2 — 친구 온라인 상태가 새로고침 전까지 고정됨(모바일에서 주로 발생)**
+
+Supabase Realtime 채널 구독 상태는 `SUBSCRIBED | CHANNEL_ERROR | TIMED_OUT | CLOSED` 4가지인데, `RealtimeContext`는 이 중 3개만 처리하고 `CLOSED`를 누락 — 모바일에서 탭을 백그라운드로 보냈다 복귀하는 등으로 채널이 `CLOSED`되면 `realtimeActive`가 `true`로 고정된 채 남고, `FriendPanel`은 `realtimeActive`가 true인 동안 (이미 죽어서 더 이상 갱신되지 않는) presence 데이터를 계속 신뢰함.
+
+**해결**: `CLOSED`도 `CHANNEL_ERROR`/`TIMED_OUT`과 동일하게 `realtimeActive = false`로 처리. 추가로 `document.visibilitychange` 이벤트로 탭이 다시 보이면 `reconnectTick` 상태를 증가시켜 채널 구독 effect를 강제로 재실행(재구독)하도록 함.
+
+---
+
+### TS-006: 닉네임 설정 후 원래 페이지로 리다이렉트 안 됨 (Next.js Router Cache)
+
+**문제**: `/auth/setup-nickname`에서 닉네임 저장 후 `router.push(callbackUrl)`을 호출해도 다시 `/auth/setup-nickname`으로 되돌아오는 경우가 있었음(신규가입 직후 재현).
+
+**원인 분석**: Next.js App Router의 클라이언트 Router Cache가, 방금 미들웨어가 "닉네임 미설정 → `/auth/setup-nickname`로 리다이렉트"했던 목적지 경로에 대해 그 리다이렉트 결과를 캐싱해둔 상태였음. 닉네임 저장 직후 `router.push(callbackUrl)`을 호출하면 미들웨어를 다시 타지 않고 이 캐시된 리다이렉트 결과를 재생해버려, 방금 닉네임을 설정했는데도 여전히 "미설정" 상태였던 시점의 리다이렉트로 돌아가는 것처럼 동작함.
+
+**해결**: `router.push` 대신 `window.location.href`로 하드 네비게이션 — 브라우저가 완전히 새 요청을 보내 미들웨어가 갱신된 쿠키/세션으로 다시 평가되도록 함.
+
+**검증 한계**: 실제 OAuth 신규가입 플로우가 있어야 재현되는 케이스라 샌드박스에서 라이브 검증은 못 했음. 빌드/타입체크만 통과 확인.
+
+---
+
+### TS-007: 관리자 통계 "오늘" 기준이 UTC 자정에 갱신되던 버그
+
+**문제**: 관리자 통계 페이지의 오늘 방문자/신규가입자/퀴즈풀이 집계가 한국 자정(00:00 KST)이 아니라 다른 시각에 갱신되는 것 아니냐는 의심.
+
+**원인 분석**: `presence/heartbeat`(DailyVisit 기록)와 `admin/analytics`(오늘 집계 조회) 둘 다 `const today = new Date().toISOString().slice(0, 10)`로 "오늘"을 구하고 있었음 — 서버가 UTC로 도는 Vercel 환경에서 이건 UTC 자정 기준이라, 실제로는 **KST 오전 9시**에 날짜가 넘어감. KST 00:00~08:59 사이에는 UTC 날짜가 아직 전날이라 "오늘" 집계가 실제 한국 기준 오늘이 아니라 전날 것으로 표시됨. 더 나아가 `admin/analytics`의 `periodAttempts`(day 기간)는 `attemptsByKey[today]`로 조회하는데, `attemptsByKey`의 키는 세션의 `submittedAt`을 KST로 변환해 만든 값이라 — 이 시간대(KST 00:00~08:59)에는 `today`(UTC 날짜, 버그)와 `attemptsByKey`의 키(KST 날짜, 정상) 형식 자체가 어긋나 조회가 아예 실패(0으로 표시)하는 문제까지 있었음.
+
+**해결**: 이미 프로젝트에 있던 `src/lib/kst.ts`의 `getKSTDateStr()`/`getKSTMidnight()`로 교체(다른 라우트 — daily-reset, infra-stats, daily/participants, quiz/sessions —는 이미 이 유틸을 쓰고 있었고 이 두 곳만 예전 방식이 남아있었음). "오늘 신규가입자"/"오늘 퀴즈풀이" 쿼리도 `T00:00:00.000Z`~`T23:59:59.999Z`(사실상 UTC 하루) 범위 대신 `getKSTMidnight()`~`getKSTMidnight(1)`(KST 하루)로 수정.
+
+**검증**: `getKSTDateStr()`에 대해 KST 자정 정각/자정 1초 전/버그가 실제 발생하던 KST 오전 0~9시 구간(UTC 날짜는 전날, KST로는 이미 다음날)을 `vi.setSystemTime`으로 시간을 고정해 검증하는 테스트 4개 추가(`src/lib/kst.test.ts`) — 전부 통과 확인.
