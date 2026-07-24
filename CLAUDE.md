@@ -46,6 +46,7 @@ python scripts/execute.py {phase} --push # 실행 후 push
 - **셔플은 Fisher-Yates만**: `Array.sort(() => Math.random() - 0.5)` 사용 금지
 - **TDD**: 새 순수 함수 구현 시 테스트 먼저
 - **커밋**: conventional commits (`feat:`, `fix:`, `refactor:`, `chore:`)
+- **날짜 계산은 KST 유틸만**: 서버(Vercel)는 UTC로 실행되므로 "오늘" 등 날짜 경계 계산에 `new Date().toISOString().slice(0,10)` 금지 — `src/lib/kst.ts`의 `getKSTDateStr()`/`getKSTMidnight()` 사용. 안 그러면 한국 자정이 아닌 UTC 자정(오전 9시)에 날짜가 바뀌는 버그 발생(과거 실제 발생: presence heartbeat, 관리자 통계)
 - API 인증·Prisma·JWT 무효화 규칙 → ./docs/BACKEND.md
 
 ---
@@ -73,6 +74,7 @@ phases 0~6 + UX 개선 전부 완료. 아래 기능이 모두 구현된 상태�
 | 14-level | 유저 레벨(XP) 시스템(`User.xp`, `src/lib/user-level.ts`, 최대 200Lv, 곡선 150+(n-1)×10, 백필 `scripts/backfill-xp.ts`), XP 지급(퀴즈 10+정답1·데일리 20·문제승인 50·대전 15/10/5), 대전 10문제, 카테고리 현황은 단계명만 표시+등급 Lv2부터, 마이페이지 프로필 카드 개편(경험치바+툴팁), PC 알림(`src/lib/notify.ts` 탭깜빡임·OS알림·앱뱃지·`public/sw.js`, 모바일 비활성), 채팅 개인별 숨김(hiddenBySender/Receiver, 로그아웃·재로그인 시 정리), UA 분기 manifest(PC 투명 아이콘), 친구패널 드래그 이동, 관리자 가입일 정렬 |
 | 15-polish | 유사문제 검색 하이브리드 재정렬(벡터+pg_trgm+희귀토큰 가중치, 한/영 CS 용어 동의어 사전 `src/lib/similar-search.ts`), AI 오답생성 이탈경고(board/submit·admin 양쪽), 채팅 Realtime 폴링 폴백(5s), 문제 보기 글자수 200→100자·문의 내용 2000→1000자 축소, AI 오답생성 시 정답과 글자수 유사화(±10자) 프롬프트, 공용 페이지네이션 컴포넌트(`PaginationNav`+`buildPageList`, 원형 화살표+숫자목록+말줄임표, 13곳 통합) |
 | 16-security | 내 게시글 댓글 알림(`QUESTION_COMMENTED`), 알림 개별 확인 시 즉시 삭제, 보안 점검 후 발견된 취약점 수정 5건(채팅 친구관계 서버 미검증, 일반 API 레이트리밋 부재, 퀴즈 플레이 화면 정답 노출, 퀴즈 세션 무한 재제출, 대결 생성 무제한으로 인한 XP 파밍) — DB 기반 레이트리밋 인프라(`RateLimit` 모델 + `src/lib/rate-limit.ts`) 신규 도입, 커스텀 도메인(csora.co.kr) 이전(DNS·HTTPS·OAuth 리디렉션·카카오 공유 도메인·GitHub Actions APP_URL, 구도메인 308 리다이렉트) |
+| 17-fixes | 유사문제 검색 최소 글자수 5→2자 완화(짧은 키워드만 입력해도 검색), 관리자 동의어 그룹 DB 관리(`SynonymGroup`/`SynonymTerm` 모델 + `/admin` 동의어 관리 탭, 기존 하드코딩 `SYNONYM_GROUPS`와 병합), AI 오답/해설 자동생성 개선(유저가 이미 작성한 오답·해설은 보존하고 빈 칸만 채움, 생성할 내용 없으면 버튼 비활성화, 오답 변경 후 재생성 시 해설도 같이 갱신), 검색엔진 노출 SEO(robots.txt/sitemap.xml/JSON-LD 구조화데이터/키워드 메타태그, 구글 서치콘솔·네이버 서치어드바이저 소유권 확인), 관리자 유저 관리에 계정 완전삭제(하드 딜리트) 버튼 추가(기존 비활성화/소프트딜리트와 별도, FK RESTRICT 테이블 트랜잭션 사전삭제), 닉네임 설정 후 리다이렉트 안 되던 버그 수정(Router Cache stale 리다이렉트 → `window.location.href` 하드 네비게이션), 접속 상태 stale 버그 2건 수정(온라인 배지 최초진입 시 heartbeat/count 조회 순서 race condition, Realtime 채널 `CLOSED` 상태 미처리로 친구 온라인 상태 고정), 모바일 UX 개선(대결 나가기 확인창 커스텀 모달화, 대결 답변 버튼 터치영역 확대, 퀴즈 하단바 safe-area 대응), 관리자 통계 "오늘" 기준이 KST 자정이 아닌 UTC 자정(오전 9시)에 갱신되던 버그 수정(`src/lib/kst.ts` 유틸로 교체 + 회귀 테스트) |
 
 ---
 
