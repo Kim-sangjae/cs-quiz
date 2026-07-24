@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { getKSTMidnight, getKSTNow } from './kst';
+import { getKSTMidnight, getKSTNow, getKSTDateStr } from './kst';
 
 describe('getKSTNow', () => {
   afterEach(() => {
@@ -48,5 +48,41 @@ describe('getKSTMidnight', () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-07-14T06:00:00Z'));
     expect(getKSTMidnight(-1).toISOString()).toBe('2026-07-12T15:00:00.000Z');
+  });
+});
+
+describe('getKSTDateStr', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  // 관리자 통계/presence heartbeat가 예전에 new Date().toISOString().slice(0,10)를
+  // 써서 "오늘"이 KST 자정이 아니라 UTC 자정(=KST 오전 9시)에 바뀌던 버그를 재발 방지
+  it('KST 자정 정각 - 새 날짜로 바뀐다', () => {
+    // 2026-07-24 00:00:00 KST == 2026-07-23 15:00:00 UTC
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-07-23T15:00:00Z'));
+    expect(getKSTDateStr()).toBe('2026-07-24');
+  });
+
+  it('KST 자정 1초 전 - 아직 이전 날짜', () => {
+    // 2026-07-23 23:59:59 KST == 2026-07-23 14:59:59 UTC
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-07-23T14:59:59Z'));
+    expect(getKSTDateStr()).toBe('2026-07-23');
+  });
+
+  it('KST 오전 0~9시 구간 - UTC 날짜는 전날이지만 KST로는 새 날짜(예전 버그 재현 지점)', () => {
+    // 2026-07-24 08:59 KST == 2026-07-23 23:59 UTC (UTC 기준으로는 아직 7/23)
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-07-23T23:59:00Z'));
+    expect(getKSTDateStr()).toBe('2026-07-24');
+  });
+
+  it('UTC 자정 직후 - KST로는 오전 9시라 이미 같은 날짜(우연히 버그가 안 보이던 구간)', () => {
+    // 2026-07-24 09:01 KST == 2026-07-24 00:01 UTC
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-07-24T00:01:00Z'));
+    expect(getKSTDateStr()).toBe('2026-07-24');
   });
 });
