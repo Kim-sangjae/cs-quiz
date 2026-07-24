@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerUser } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { getKSTDateStr, getKSTMidnight } from '@/lib/kst';
 
 function groupByKey(dates: string[], keyFn: (d: string) => string): Record<string, number> {
   const map: Record<string, number> = {};
@@ -21,7 +22,9 @@ export async function GET(req: NextRequest) {
   const period = (searchParams.get('period') ?? 'day') as 'day' | 'month' | 'year';
   const target = searchParams.get('target') ?? null;
 
-  const today = new Date().toISOString().slice(0, 10);
+  // 한국 기준(KST) 날짜 — 서버(Vercel)가 UTC로 돌아 new Date().toISOString()을 그대로
+  // 쓰면 자정이 아니라 UTC 자정(=KST 오전 9시)에 "오늘"이 바뀌는 버그가 생김
+  const today = getKSTDateStr();
   const twoMinutesAgo = new Date(Date.now() - 45 * 1000);
 
   let chartFrom: string;
@@ -29,7 +32,7 @@ export async function GET(req: NextRequest) {
   let keyFn: (date: string) => string;
 
   if (period === 'day') {
-    chartFrom = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    chartFrom = new Date(Date.now() + 9 * 60 * 60 * 1000 - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
     chartTo = today;
     keyFn = (date) => date;
   } else if (period === 'month') {
@@ -106,12 +109,12 @@ export async function GET(req: NextRequest) {
       select: { user: { select: { nickname: true, email: true } } },
       orderBy: { userId: 'asc' },
     }),
-    // 오늘 신규 가입자 목록
+    // 오늘 신규 가입자 목록 (KST 자정~자정)
     prisma.user.findMany({
       where: {
         createdAt: {
-          gte: new Date(`${today}T00:00:00.000Z`),
-          lte: new Date(`${today}T23:59:59.999Z`),
+          gte: getKSTMidnight(),
+          lt: getKSTMidnight(1),
         },
         deletedAt: null,
       },
@@ -129,9 +132,9 @@ export async function GET(req: NextRequest) {
       },
       select: { createdAt: true },
     }),
-    // 오늘 퀴즈 풀기 유저 목록
+    // 오늘 퀴즈 풀기 유저 목록 (KST 자정 기준)
     prisma.quizSession.findMany({
-      where: { submittedAt: { gte: new Date(`${today}T00:00:00.000Z`) } },
+      where: { submittedAt: { gte: getKSTMidnight() } },
       select: { userId: true, user: { select: { nickname: true, email: true } } },
       orderBy: { submittedAt: 'asc' },
       take: 200,
