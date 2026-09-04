@@ -167,8 +167,13 @@ export default async function QuizPlayPage({
 
   const effectiveCategory = sharedFrom ? (sharedCategory ?? category ?? 'all') : (category ?? 'all');
 
+  // 퀴즈가 바뀌면(카테고리/모드/문제세트 변경) 항상 리마운트해 이전 퀴즈의 currentIndex 등
+  // 내부 state가 새 questions 배열에 남아 범위를 벗어나는 사고를 방지한다
+  const quizKey = `${quizMode}:${effectiveCategory}:${questions.map((q) => q.id).join(',')}`;
+
   return (
     <QuizPlayClient
+      key={quizKey}
       questions={questions}
       category={effectiveCategory}
       mode={quizMode}
