@@ -1,9 +1,11 @@
 name: Daily Digest Email
 
-# 매일 KST 08:00 = UTC 23:00 (전날)
+# 매일 KST 약 08:07 = UTC 23:07 (전날)
+# 정각(0분)은 GitHub Actions 스케줄 실행이 몰려 지연되기 쉬운 시간대라 7분으로 오프셋
+# (https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows#schedule)
 on:
   schedule:
-    - cron: '0 23 * * *'
+    - cron: '7 23 * * *'
   workflow_dispatch: # 수동 실행 가능
 
 jobs:

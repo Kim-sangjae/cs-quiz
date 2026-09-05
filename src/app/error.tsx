@@ -20,6 +20,7 @@ export default function GlobalError({
         message: error.message ?? '알 수 없는 오류가 발생했습니다.',
         path: typeof window !== 'undefined' ? window.location.pathname : null,
         digest: error.digest ?? null,
+        stack: error.stack ?? null,
       }),
     }).catch(() => {});
   }, [error]);

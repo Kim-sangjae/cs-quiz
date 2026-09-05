@@ -366,7 +366,8 @@ export default function QuizPlayClient({ questions, category, mode = 'normal', i
 
   if (questions.length === 0) return null;
 
-  const current = questions[currentIndex];
+  // currentIndex가 questions 범위를 벗어나면(예: 리마운트 전 과도기 상태) 크래시 대신 첫 문제로 방어
+  const current = questions[currentIndex] ?? questions[0];
   const selectedIndex =
     answers.find((a) => a.questionId === current.id)?.selected ?? null;
   const answeredIndices = answers.map((a) =>

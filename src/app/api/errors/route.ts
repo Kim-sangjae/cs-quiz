@@ -10,6 +10,7 @@ export async function POST(req: NextRequest) {
       message?: string;
       path?: string;
       digest?: string;
+      stack?: string;
     };
 
     const user = await getServerUser().catch(() => null);
@@ -22,6 +23,7 @@ export async function POST(req: NextRequest) {
         message: String(body.message ?? 'Unknown error').slice(0, 500),
         path: body.path ? String(body.path).slice(0, 500) : null,
         digest: body.digest ? String(body.digest).slice(0, 100) : null,
+        stack: body.stack ? String(body.stack).slice(0, 5000) : null,
       },
     });
 

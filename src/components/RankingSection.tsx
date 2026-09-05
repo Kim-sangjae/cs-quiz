@@ -109,7 +109,7 @@ export default function RankingSection({ rankings, currentUserId, myRanks, contr
   const isContributorsTab = activeTab === 'contributors';
   const entries: RankEntry[] = (isFriendsTab || isContributorsTab) ? [] : (rankings[activeTab as keyof CategoryRankings] ?? []);
   const myRank = (isFriendsTab || isContributorsTab) ? null : (myRanks[activeTab as keyof CategoryRankings] ?? null);
-  const isMeInTop5 = !isFriendsTab && !isContributorsTab && currentUserId != null && entries.some(e => e.userId === currentUserId);
+  const isMeInTop = !isFriendsTab && !isContributorsTab && currentUserId != null && entries.some(e => e.userId === currentUserId);
 
   return (
     <section className="mt-12 border-t border-neutral-800 pt-8">
@@ -125,7 +125,7 @@ export default function RankingSection({ rankings, currentUserId, myRanks, contr
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-1.5">
           <h2 className="text-sm font-medium text-neutral-400">
-            {isContributorsTab ? '문제 기여자 TOP 5' : activeTab === 'overall' ? '전체 합산 TOP 5' : '카테고리별 TOP 5'}
+            {isContributorsTab ? '문제 기여자 TOP 5' : activeTab === 'overall' ? '전체 합산 TOP 30' : '카테고리별 TOP 30'}
           </h2>
           {!isContributorsTab && !isFriendsTab && (
             <div className="relative">
@@ -244,8 +244,9 @@ export default function RankingSection({ rankings, currentUserId, myRanks, contr
         <p className="text-sm text-neutral-500 py-4">아직 랭킹 데이터가 없습니다</p>
       ) : (
         <>
+        <div className="max-h-[248px] overflow-y-auto">
         <table className="w-full text-sm">
-          <thead>
+          <thead className="sticky top-0 bg-[#0a0a0a]">
             <tr className="text-neutral-500 text-left border-b border-neutral-800">
               <th className="pb-2 font-normal w-10">순위</th>
               <th className="pb-2 font-normal">닉네임</th>
@@ -284,7 +285,7 @@ export default function RankingSection({ rankings, currentUserId, myRanks, contr
                 </tr>
               );
             })}
-            {!isMeInTop5 && myRank && (
+            {!isMeInTop && myRank && (
               <>
                 <tr><td colSpan={4} className="py-1"><div className="border-t border-dashed border-neutral-700" /></td></tr>
                 <tr className="bg-neutral-800/40">
@@ -306,6 +307,7 @@ export default function RankingSection({ rankings, currentUserId, myRanks, contr
             )}
           </tbody>
         </table>
+        </div>
         </>
       )}
     </section>
