@@ -3148,6 +3148,7 @@ interface AdminErrorLog {
   message: string;
   path: string | null;
   digest: string | null;
+  stack: string | null;
   createdAt: string;
   user: { nickname: string | null; email: string } | null;
 }
@@ -3164,6 +3165,7 @@ function ErrorLogsTab() {
   const [errorCodeFilter, setErrorCodeFilter] = useState('');
   const [sort, setSort] = useState<'desc' | 'asc'>('desc');
   const [confirmClear, setConfirmClear] = useState(false);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   function resetPage() { setPage(1); }
 
@@ -3257,9 +3259,13 @@ function ErrorLogsTab() {
       <div className="space-y-2">
         {logs.map((log) => {
           const sc = log.statusCode ? (STATUS_COLOR[log.statusCode] ?? 'text-neutral-400 border-neutral-700') : 'text-neutral-400 border-neutral-700';
+          const isExpanded = expandedId === log.id;
           return (
             <div key={log.id} className="bg-[#111111] border border-neutral-800 rounded-xl px-4 py-3">
-              <div className="flex items-start justify-between gap-3">
+              <div
+                className={`flex items-start justify-between gap-3 ${log.stack ? 'cursor-pointer' : ''}`}
+                onClick={() => { if (log.stack) setExpandedId(isExpanded ? null : log.id); }}
+              >
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap mb-1">
                     {log.statusCode && (
@@ -3275,6 +3281,9 @@ function ErrorLogsTab() {
                     <span className="text-[11px] text-neutral-600">
                       {new Date(log.createdAt).toLocaleString('ko-KR')}
                     </span>
+                    {log.stack && (
+                      <span className="text-[11px] text-neutral-700">{isExpanded ? '▲' : '▼ stack trace'}</span>
+                    )}
                   </div>
                   <p className="text-sm text-neutral-200 break-all">{log.message}</p>
                   {log.path && (
@@ -3288,7 +3297,7 @@ function ErrorLogsTab() {
                   )}
                 </div>
                 <button
-                  onClick={() => handleDelete(log.id)}
+                  onClick={(e) => { e.stopPropagation(); handleDelete(log.id); }}
                   className="flex-shrink-0 text-neutral-700 hover:text-red-400 transition-colors"
                   title="삭제"
                 >
@@ -3297,6 +3306,15 @@ function ErrorLogsTab() {
                   </svg>
                 </button>
               </div>
+              {isExpanded && log.stack && (
+                <pre
+                  onClick={() => { void navigator.clipboard.writeText(log.stack!); toast.success('스택 트레이스가 복사되었습니다.'); }}
+                  title="클릭해서 복사"
+                  className="mt-2 pt-2 border-t border-neutral-800 text-[11px] text-neutral-400 font-mono whitespace-pre-wrap break-all cursor-pointer hover:text-neutral-200 transition-colors"
+                >
+                  {log.stack}
+                </pre>
+              )}
             </div>
           );
         })}

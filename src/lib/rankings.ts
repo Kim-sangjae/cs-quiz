@@ -226,7 +226,7 @@ export async function buildRankings(): Promise<CategoryRankings> {
       )
       SELECT "userId", category, "attemptCount", "correctCount", nickname
       FROM ranked
-      WHERE rn <= 5
+      WHERE rn <= 30
       ORDER BY category, rn
     `,
     prisma.$queryRaw<OverallRawRow[]>`
@@ -249,7 +249,7 @@ export async function buildRankings(): Promise<CategoryRankings> {
       )
       SELECT "userId", nickname, "attemptCount", "correctCount"
       FROM totals
-      WHERE rn <= 5
+      WHERE rn <= 30
       ORDER BY rn
     `,
   ]);
