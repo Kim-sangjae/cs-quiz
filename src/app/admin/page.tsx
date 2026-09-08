@@ -292,13 +292,18 @@ function QuestionPreviewModal({ id, prefilled, onClose }: {
   );
 }
 
-function SimilarQuestionsPanel({ questionText }: { questionText: string }) {
+function SimilarQuestionsPanel({ questionText, options, answer }: { questionText: string; options: string[]; answer: number }) {
   const [previewId, setPreviewId] = useState<string | null>(null);
 
+  // 관리자 검토 시점엔 정답이 이미 있으므로 문제+정답으로 2차검증(embeddingFull) —
+  // 표현이 크게 다른 패러프레이즈까지 잡아냄 (실시간 입력 힌트는 정답 없이 embedding만 사용)
+  const answerText = options?.[answer] ?? '';
+  const fullQuery = answerText ? `${questionText} ${answerText}` : questionText;
+
   const { data: similar = [], isFetching } = useQuery<SimilarQuestion[]>({
-    queryKey: ['similar', questionText],
+    queryKey: ['similar', fullQuery],
     queryFn: async () => {
-      const r = await fetch(`/api/questions/similar?q=${encodeURIComponent(questionText)}`);
+      const r = await fetch(`/api/questions/similar?q=${encodeURIComponent(fullQuery)}&full=true`);
       if (!r.ok) return [];
       return r.json();
     },
@@ -527,7 +532,7 @@ function QuestionsTab({ prevSeenAt }: { prevSeenAt: string | null }) {
           <p className="text-sm text-neutral-200 mb-4 leading-relaxed pl-6">
             {q.question.length > 120 ? q.question.slice(0, 120) + '…' : q.question}
           </p>
-          {showSimilarId === q.id && <SimilarQuestionsPanel questionText={q.question} />}
+          {showSimilarId === q.id && <SimilarQuestionsPanel questionText={q.question} options={q.options} answer={q.answer} />}
           {rejectingId === q.id ? (
             <div className="space-y-3 mt-4 bg-[#1a1a1a] border border-neutral-800 rounded-lg p-4">
               <p className="text-xs text-neutral-400 font-medium">거절 사유 선택</p>

@@ -18,6 +18,10 @@ export async function GET(req: NextRequest) {
 
   const q = req.nextUrl.searchParams.get('q')?.trim() ?? '';
   if (q.length < 2) return NextResponse.json([]);
+  // full=true: 관리자 승인 화면 2차검증 전용 — 호출측이 "문제+정답"을 q로 합쳐서 보내고,
+  // embeddingFull(같은 방식으로 저장된 벡터)과 비교해 표현이 크게 다른 패러프레이즈까지 잡아낸다.
+  // 기본(false)은 실시간 입력 힌트용 — 문제 텍스트만 담긴 embedding과 비교.
+  const useFull = req.nextUrl.searchParams.get('full') === 'true';
 
   try {
     const embedding = await generateEmbedding(q);
@@ -46,17 +50,29 @@ export async function GET(req: NextRequest) {
     // 목적은 무엇인가?" 같은 흔한 질문 형식이 실제 주제보다 점수에 더 큰
     // 영향을 줘서, "트리거"처럼 드문 핵심 단어가 있는 진짜 관련 문제가
     // 벡터 임계값 밖으로 밀려나는 경우가 있음
-    const candidates = await prisma.$queryRaw<CandidateRow[]>`
-      SELECT id, question, category,
-        CAST(1 - (embedding <=> ${vectorStr}::vector) AS FLOAT) AS sim,
-        CAST(similarity(question, ${q}) AS FLOAT) AS trgm
-      FROM "Question"
-      WHERE status IN ('OFFICIAL', 'APPROVED')
-        AND embedding IS NOT NULL
-        AND 1 - (embedding <=> ${vectorStr}::vector) > 0.35
-      ORDER BY embedding <=> ${vectorStr}::vector ASC
-      LIMIT 100
-    `;
+    const candidates = useFull
+      ? await prisma.$queryRaw<CandidateRow[]>`
+          SELECT id, question, category,
+            CAST(1 - ("embeddingFull" <=> ${vectorStr}::vector) AS FLOAT) AS sim,
+            CAST(similarity(question, ${q}) AS FLOAT) AS trgm
+          FROM "Question"
+          WHERE status IN ('OFFICIAL', 'APPROVED')
+            AND "embeddingFull" IS NOT NULL
+            AND 1 - ("embeddingFull" <=> ${vectorStr}::vector) > 0.35
+          ORDER BY "embeddingFull" <=> ${vectorStr}::vector ASC
+          LIMIT 100
+        `
+      : await prisma.$queryRaw<CandidateRow[]>`
+          SELECT id, question, category,
+            CAST(1 - (embedding <=> ${vectorStr}::vector) AS FLOAT) AS sim,
+            CAST(similarity(question, ${q}) AS FLOAT) AS trgm
+          FROM "Question"
+          WHERE status IN ('OFFICIAL', 'APPROVED')
+            AND embedding IS NOT NULL
+            AND 1 - (embedding <=> ${vectorStr}::vector) > 0.35
+          ORDER BY embedding <=> ${vectorStr}::vector ASC
+          LIMIT 100
+        `;
 
     // 벡터 유사도 + 문자열 유사도 + 희귀 토큰 매칭 가중치를 합산해 재정렬
     const results = candidates

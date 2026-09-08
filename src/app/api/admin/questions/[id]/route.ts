@@ -67,12 +67,21 @@ export async function PATCH(
       writeLog({ actorId: user.id, actorRole: user.role, action: 'QUESTION_APPROVE', targetType: 'Question', targetId: id, payload: { questionTitle } });
       if (question.authorId) checkQuestionBadges(question.authorId).catch(() => {});
       // 승인 후 비동기로 임베딩 생성 — 실패해도 승인은 유지됨
-      // 검색 시점(사용자가 입력 중인 문제 텍스트만)과 인코딩을 맞추기 위해 문제 텍스트만 사용 —
-      // 정답을 섞으면 실시간 검색 쿼리와 벡터 공간이 어긋나 정확도가 떨어짐
+      // embedding: 실시간 입력 힌트용 — 정답을 아직 모르는 시점과 인코딩을 맞추기 위해 문제 텍스트만 사용
       generateEmbedding(question.question).then(async (embedding) => {
         const vectorStr = toVectorString(embedding);
         await prisma.$executeRaw`
           UPDATE "Question" SET embedding = ${vectorStr}::vector WHERE id = ${id}
+        `;
+      }).catch(() => { /* 백필 API로 나중에 처리 가능 */ });
+      // embeddingFull: 관리자 승인 화면 2차검증용 — 정답까지 결합해 표현이 크게 다른
+      // 패러프레이즈도 잡아냄 (ADR-021)
+      const opts = question.options as string[];
+      const answerText = opts?.[question.answer] ?? '';
+      generateEmbedding(answerText ? `${question.question} ${answerText}` : question.question).then(async (embedding) => {
+        const vectorStr = toVectorString(embedding);
+        await prisma.$executeRaw`
+          UPDATE "Question" SET "embeddingFull" = ${vectorStr}::vector WHERE id = ${id}
         `;
       }).catch(() => { /* 백필 API로 나중에 처리 가능 */ });
     } else {
