@@ -49,12 +49,17 @@ export async function POST(req: NextRequest) {
     for (const authorId of authorIds) checkQuestionBadges(authorId).catch(() => {});
     // 비동기 임베딩 생성
     for (const q of toApprove) {
-      const opts = q.options as string[];
-      const answerText = opts?.[q.answer] ?? '';
-      const textToEmbed = answerText ? `${q.question} ${answerText}` : q.question;
-      generateEmbedding(textToEmbed).then(async (embedding) => {
+      // embedding: 실시간 입력 힌트용 — 문제 텍스트만
+      generateEmbedding(q.question).then(async (embedding) => {
         const vectorStr = toVectorString(embedding);
         await prisma.$executeRaw`UPDATE "Question" SET embedding = ${vectorStr}::vector WHERE id = ${q.id}`;
+      }).catch(() => {});
+      // embeddingFull: 관리자 승인 화면 2차검증용 — 문제+정답 결합
+      const opts = q.options as string[];
+      const answerText = opts?.[q.answer] ?? '';
+      generateEmbedding(answerText ? `${q.question} ${answerText}` : q.question).then(async (embedding) => {
+        const vectorStr = toVectorString(embedding);
+        await prisma.$executeRaw`UPDATE "Question" SET "embeddingFull" = ${vectorStr}::vector WHERE id = ${q.id}`;
       }).catch(() => {});
     }
   } else if (action === 'reject') {

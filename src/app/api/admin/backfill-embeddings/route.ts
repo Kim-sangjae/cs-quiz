@@ -20,13 +20,19 @@ export async function POST() {
 
   for (const q of questions) {
     try {
-      const opts = q.options as string[];
-      const answerText = opts?.[q.answer] ?? '';
-      const textToEmbed = answerText ? `${q.question} ${answerText}` : q.question;
-      const embedding = await generateEmbedding(textToEmbed);
+      // embedding: 실시간 입력 힌트용 — 문제 텍스트만
+      const embedding = await generateEmbedding(q.question);
       const vectorStr = toVectorString(embedding);
       await prisma.$executeRaw`
         UPDATE "Question" SET embedding = ${vectorStr}::vector WHERE id = ${q.id}
+      `;
+      // embeddingFull: 관리자 승인 화면 2차검증용 — 문제+정답 결합
+      const opts = q.options as string[];
+      const answerText = opts?.[q.answer] ?? '';
+      const embeddingFull = await generateEmbedding(answerText ? `${q.question} ${answerText}` : q.question);
+      const vectorFullStr = toVectorString(embeddingFull);
+      await prisma.$executeRaw`
+        UPDATE "Question" SET "embeddingFull" = ${vectorFullStr}::vector WHERE id = ${q.id}
       `;
       success++;
     } catch {

@@ -18,13 +18,21 @@ export default auth((req) => {
     return NextResponse.next();
   }
 
+  const token = req.auth;
+
+  // 로그인 버튼은 기본적으로 홈('/')으로 돌아오므로, 닉네임 미설정 유저는
+  // 퀴즈 등 보호 라우트를 클릭하기 전에 홈에서부터 바로 설정 화면으로 보냄
+  if (pathname === '/' && token?.user && !token.user.nickname) {
+    const url = new URL('/auth/setup-nickname', req.url);
+    url.searchParams.set('callbackUrl', req.nextUrl.href);
+    return NextResponse.redirect(url);
+  }
+
   const needsLogin = PROTECTED.some(
     (p) => pathname === p || pathname.startsWith(p + '/')
   );
 
   if (!needsLogin) return NextResponse.next();
-
-  const token = req.auth;
 
   if (!token?.user) {
     const url = new URL('/auth/login', req.url);
@@ -50,6 +58,7 @@ export default auth((req) => {
 
 export const config = {
   matcher: [
+    '/',
     '/quiz',
     '/quiz/:path*',
     '/mypage',

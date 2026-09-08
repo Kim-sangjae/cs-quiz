@@ -117,6 +117,9 @@ model Question {
   attemptCount    Int            @default(0)
   correctCount    Int            @default(0)
   embedding       Unsupported("vector(1536)")?
+  // 문제+정답 결합 임베딩 — 관리자 승인 화면의 유사문제 2차검증 전용
+  // (실시간 입력 힌트는 정답을 아직 모르는 상태라 embedding만 사용)
+  embeddingFull   Unsupported("vector(1536)")?
   createdAt       DateTime       @default(now())
 
   author          User?             @relation(fields: [authorId], references: [id])
