@@ -162,6 +162,22 @@ export default async function Home() {
           </div>
         </section>
 
+        {/* 문제 출제 유도 */}
+        <section className="mb-12 border-t border-neutral-800 pt-8">
+          <div className="bg-[#111111] border border-neutral-800 rounded-xl px-5 py-5 flex items-center justify-between gap-4 flex-wrap">
+            <div>
+              <p className="text-sm font-semibold text-white mb-1">직접 문제를 출제해보세요</p>
+              <p className="text-xs text-neutral-500">승인되면 XP를 받고, 기여자 랭킹에도 이름을 올릴 수 있어요.</p>
+            </div>
+            <Link
+              href="/board/submit"
+              className="rounded-lg bg-white text-black text-sm font-semibold px-5 py-2.5 hover:bg-neutral-100 transition-colors flex-shrink-0"
+            >
+              문제 등록하기 →
+            </Link>
+          </div>
+        </section>
+
         {/* 랭킹 */}
         <RankingSection rankings={rankings} currentUserId={user?.id ?? null} myRanks={myRanks} contributors={contributors} />
 
