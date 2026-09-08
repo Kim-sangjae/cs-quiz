@@ -54,6 +54,7 @@ export async function GET(req: NextRequest) {
       WHERE status IN ('OFFICIAL', 'APPROVED')
         AND embedding IS NOT NULL
         AND 1 - (embedding <=> ${vectorStr}::vector) > 0.35
+      ORDER BY embedding <=> ${vectorStr}::vector ASC
       LIMIT 100
     `;
 

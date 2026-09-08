@@ -67,10 +67,9 @@ export async function PATCH(
       writeLog({ actorId: user.id, actorRole: user.role, action: 'QUESTION_APPROVE', targetType: 'Question', targetId: id, payload: { questionTitle } });
       if (question.authorId) checkQuestionBadges(question.authorId).catch(() => {});
       // 승인 후 비동기로 임베딩 생성 — 실패해도 승인은 유지됨
-      const opts = question.options as string[];
-      const answerText = opts?.[question.answer] ?? '';
-      const textToEmbed = answerText ? `${question.question} ${answerText}` : question.question;
-      generateEmbedding(textToEmbed).then(async (embedding) => {
+      // 검색 시점(사용자가 입력 중인 문제 텍스트만)과 인코딩을 맞추기 위해 문제 텍스트만 사용 —
+      // 정답을 섞으면 실시간 검색 쿼리와 벡터 공간이 어긋나 정확도가 떨어짐
+      generateEmbedding(question.question).then(async (embedding) => {
         const vectorStr = toVectorString(embedding);
         await prisma.$executeRaw`
           UPDATE "Question" SET embedding = ${vectorStr}::vector WHERE id = ${id}

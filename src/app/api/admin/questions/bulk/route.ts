@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
   if (action === 'approve') {
     const toApprove = await prisma.question.findMany({
       where: { id: { in: ids as string[] }, status: 'PENDING' },
-      select: { id: true, authorId: true, question: true, options: true, answer: true },
+      select: { id: true, authorId: true, question: true },
     });
     await prisma.$transaction(async (tx) => {
       await tx.question.updateMany({ where: { id: { in: toApprove.map((q) => q.id) } }, data: { status: 'APPROVED' } });
@@ -47,12 +47,9 @@ export async function POST(req: NextRequest) {
     writeLog({ actorId: user.id, actorRole: user.role, action: 'QUESTION_APPROVE', targetType: 'Question', targetId: ids.join(','), payload: { count: toApprove.length } });
     const authorIds = [...new Set(toApprove.map((q) => q.authorId).filter(Boolean))] as string[];
     for (const authorId of authorIds) checkQuestionBadges(authorId).catch(() => {});
-    // 비동기 임베딩 생성
+    // 비동기 임베딩 생성 — 검색 시점(문제 텍스트만)과 인코딩을 맞추기 위해 문제 텍스트만 사용
     for (const q of toApprove) {
-      const opts = q.options as string[];
-      const answerText = opts?.[q.answer] ?? '';
-      const textToEmbed = answerText ? `${q.question} ${answerText}` : q.question;
-      generateEmbedding(textToEmbed).then(async (embedding) => {
+      generateEmbedding(q.question).then(async (embedding) => {
         const vectorStr = toVectorString(embedding);
         await prisma.$executeRaw`UPDATE "Question" SET embedding = ${vectorStr}::vector WHERE id = ${q.id}`;
       }).catch(() => {});
