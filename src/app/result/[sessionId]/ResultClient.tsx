@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import confetti from "canvas-confetti";
 import type { Question, UserAnswer } from "@/types";
 import ResultCard from "@/components/ResultCard";
@@ -25,10 +26,14 @@ const CATEGORY_LABEL: Record<string, string> = {
 };
 
 interface SessionData {
-  session: { score: number; submittedAt: string };
+  session: { score: number; submittedAt: string; mode: string };
   questions: Question[];
   answers: UserAnswer[];
 }
+
+// 문제 등록 유도 배너 노출 조건(로컬 저장 — 서버 상태 아님): 정답률 80%+ & 일반 모드에서만,
+// 매번 뜨면 피로감 크므로 3번에 1번만, 닫으면 7일간 재노출 안 함
+const SUBMIT_CTA_DISMISS_MS = 7 * 24 * 60 * 60 * 1000;
 
 export default function ResultClient({ sessionId }: { sessionId: string }) {
   const router = useRouter();
@@ -41,6 +46,7 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
   const [bookmarkedIds, setBookmarkedIds] = useState<Set<string>>(new Set());
   const [pointsEarned, setPointsEarned] = useState<number | null>(null);
   const [xpEarned, setXpEarned] = useState<number | null>(null);
+  const [showSubmitCta, setShowSubmitCta] = useState(false);
 
   useEffect(() => {
     fetch(`/api/quiz/sessions/${sessionId}`)
@@ -89,6 +95,18 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
       })
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (!data || data.session.mode !== 'normal' || data.questions.length === 0) return;
+    if (data.session.score / data.questions.length < 0.8) return;
+    try {
+      const dismissedUntil = Number(localStorage.getItem('submit-cta-dismissed-until') ?? '0');
+      if (Date.now() < dismissedUntil) return;
+      const count = Number(localStorage.getItem('submit-cta-count') ?? '0') + 1;
+      localStorage.setItem('submit-cta-count', String(count));
+      if (count % 3 === 0) setShowSubmitCta(true);
+    } catch {}
+  }, [data]);
 
   useEffect(() => {
     if (!data || data.session.score < data.questions.length) return;
@@ -237,6 +255,35 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
             <span className="text-blue-400 text-sm font-semibold">+{xpEarned} XP</span>
           )}
           <span className="text-amber-500/80 text-xs">퀴즈 완료 보상이 지급되었습니다</span>
+        </div>
+      )}
+      {showSubmitCta && catEntries.length > 0 && (
+        <div className="flex items-center justify-between gap-3 bg-emerald-950/30 border border-emerald-800/40 rounded-lg px-4 py-3 mb-4">
+          <p className="text-xs text-emerald-400 leading-relaxed">
+            {CATEGORY_LABEL[catEntries[0][0]] ?? catEntries[0][0]} 자신있으시네요! 문제 등록하고 XP 받아보세요.
+          </p>
+          <div className="flex items-center gap-3 flex-shrink-0">
+            <Link
+              href={`/board/submit?category=${catEntries[0][0]}`}
+              className="text-xs font-semibold text-emerald-300 hover:text-white transition-colors whitespace-nowrap"
+            >
+              등록하기 →
+            </Link>
+            <button
+              onClick={() => {
+                try {
+                  localStorage.setItem('submit-cta-dismissed-until', String(Date.now() + SUBMIT_CTA_DISMISS_MS));
+                } catch {}
+                setShowSubmitCta(false);
+              }}
+              className="text-emerald-700 hover:text-emerald-400 transition-colors"
+              aria-label="닫기"
+            >
+              <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+                <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+          </div>
         </div>
       )}
       <div className="text-center mb-8">

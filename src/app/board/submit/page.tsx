@@ -36,8 +36,11 @@ function SubmitContent() {
   const searchParams = useSearchParams();
   const resubmitId = searchParams.get('resubmit');
   const isResubmit = !!resubmitId;
+  const presetCategory = searchParams.get('category');
 
-  const [category, setCategory] = useState('');
+  const [category, setCategory] = useState(
+    CATEGORIES.some((c) => c.value === presetCategory) ? presetCategory! : ''
+  );
   const [question, setQuestion] = useState('');
   const [options, setOptions] = useState(['', '', '', '']);
   const [answer, setAnswer] = useState<number | null>(null);
