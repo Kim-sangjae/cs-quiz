@@ -64,6 +64,7 @@ export default async function Home() {
           <p className="text-neutral-400 text-sm leading-relaxed mb-7 max-w-sm">
             CS 핵심 개념을 문제로 빠르게 점검하세요.
             틀린 문제는 자동으로 복습 예약되고, 친구와 실시간 1:1 대결도 즐길 수 있습니다.
+            AI 기반 문제 등록으로 나만의 문제도 쉽게 만들어 공유해보세요.
           </p>
 
           <div className="flex items-center gap-3 flex-wrap">
@@ -72,6 +73,12 @@ export default async function Home() {
               className="rounded-lg bg-white text-black text-sm font-semibold px-6 py-2.5 hover:bg-neutral-100 transition-all duration-200"
             >
               퀴즈 시작
+            </Link>
+            <Link
+              href="/board/submit"
+              className="rounded-lg border border-neutral-700 text-neutral-400 text-sm px-4 py-2.5 hover:border-neutral-500 hover:text-white transition-all duration-200"
+            >
+              문제 등록하기
             </Link>
             {user ? (
               <Link
