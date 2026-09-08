@@ -125,7 +125,7 @@ export default function RankingSection({ rankings, currentUserId, myRanks, contr
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-1.5">
           <h2 className="text-sm font-medium text-neutral-400">
-            {isContributorsTab ? '문제 기여자 TOP 5' : activeTab === 'overall' ? '전체 합산 TOP 30' : '카테고리별 TOP 30'}
+            {isContributorsTab ? '문제 기여자 TOP 5' : activeTab === 'overall' ? '전체 합산 TOP 10' : '카테고리별 TOP 10'}
           </h2>
           {!isContributorsTab && !isFriendsTab && (
             <div className="relative">
