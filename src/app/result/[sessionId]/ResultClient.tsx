@@ -104,7 +104,8 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
       if (Date.now() < dismissedUntil) return;
       const count = Number(localStorage.getItem('submit-cta-count') ?? '0') + 1;
       localStorage.setItem('submit-cta-count', String(count));
-      if (count % 3 === 0) setShowSubmitCta(true);
+      // 첫 충족 시엔 무조건 노출(count=1, 홀수), 이후부터는 2번에 1번(홀수 카운트마다)
+      if (count % 2 === 1) setShowSubmitCta(true);
     } catch {}
   }, [data]);
 
