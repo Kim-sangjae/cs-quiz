@@ -59,14 +59,15 @@ export async function POST(req: NextRequest) {
 
   const distractorInstruction = neededDistractors > 0
     ? `정답과 헷갈릴 만큼 그럴듯하지만 명백히 틀린 오답을 정확히 ${neededDistractors}개 생성하세요. ` +
-      `오답은 정답과 비슷한 글자 수(±10자 이내)로 작성해, 글자 수 차이만으로 정답이 티나지 않게 하세요.` +
+      `오답은 정답(${answer.length}자)과 비슷한 글자 수(±10자 이내)로 작성해, 글자 수 차이만으로 정답이 티나지 않게 하세요. ` +
+      `오답 텍스트에는 글자 수·괄호 표기 등 부가 설명을 절대 포함하지 말고 보기 내용만 작성하세요.` +
       (existingDistractors.length > 0 ? ` 이미 작성된 다른 오답과 겹치거나 비슷한 내용은 피하세요.` : '')
     : '오답은 생성하지 마세요. distractors는 빈 배열로 응답하세요.';
   const explanationInstruction = skipExplanation
     ? '해설은 생성하지 마세요. explanation은 빈 문자열로 응답하세요.'
     : '왜 정답이 맞는지 핵심 개념을 1~2문장으로 설명하는 해설을 작성하세요.';
 
-  const userContent = `문제: ${question}\n정답: ${answer} (${answer.length}자)` +
+  const userContent = `문제: ${question}\n정답: ${answer}` +
     (existingDistractors.length > 0 ? `\n이미 작성된 오답: ${existingDistractors.join(', ')}` : '');
 
   const completion = await openai.chat.completions.create({
@@ -96,7 +97,12 @@ export async function POST(req: NextRequest) {
   try {
     const parsed = JSON.parse(raw) as { distractors?: unknown; explanation?: unknown };
     if (Array.isArray(parsed.distractors)) {
-      distractors = parsed.distractors.filter((v): v is string => typeof v === 'string').slice(0, neededDistractors);
+      distractors = parsed.distractors
+        .filter((v): v is string => typeof v === 'string')
+        // 프롬프트에 글자 수 힌트를 준 영향으로 모델이 가끔 "카산드라 (4자)"처럼
+        // 오답 끝에 글자 수 표기를 따라 붙이는 경우가 있어 안전망으로 제거
+        .map((v) => v.replace(/\s*\(\s*\d+\s*자\s*\)\s*$/, '').trim())
+        .slice(0, neededDistractors);
     }
     if (typeof parsed.explanation === 'string') {
       explanation = parsed.explanation;
