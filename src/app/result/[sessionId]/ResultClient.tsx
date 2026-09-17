@@ -259,32 +259,35 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
         </div>
       )}
       {showSubmitCta && catEntries.length > 0 && (
-        <div className="flex items-center justify-between gap-3 bg-emerald-950/30 border border-emerald-800/40 rounded-lg px-4 py-3 mb-4">
-          <p className="text-xs text-emerald-400 leading-relaxed">
-            {CATEGORY_LABEL[catEntries[0][0]] ?? catEntries[0][0]} 자신있으시네요! 문제 등록하고 XP 받아보세요.
-          </p>
-          <div className="flex items-center gap-3 flex-shrink-0">
-            <Link
-              href={`/board/submit?category=${catEntries[0][0]}`}
-              className="text-xs font-semibold text-emerald-300 hover:text-white transition-colors whitespace-nowrap"
-            >
-              등록하기 →
-            </Link>
-            <button
-              onClick={() => {
-                try {
-                  localStorage.setItem('submit-cta-dismissed-until', String(Date.now() + SUBMIT_CTA_DISMISS_MS));
-                } catch {}
-                setShowSubmitCta(false);
-              }}
-              className="text-emerald-700 hover:text-emerald-400 transition-colors"
-              aria-label="닫기"
-            >
-              <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
-                <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-              </svg>
-            </button>
+        <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 bg-gradient-to-r from-emerald-900/50 to-emerald-950/40 border border-emerald-600/50 rounded-xl px-5 py-4 mb-4 shadow-[0_0_20px_-8px_rgba(16,185,129,0.4)]">
+          <button
+            onClick={() => {
+              try {
+                localStorage.setItem('submit-cta-dismissed-until', String(Date.now() + SUBMIT_CTA_DISMISS_MS));
+              } catch {}
+              setShowSubmitCta(false);
+            }}
+            className="absolute top-2.5 right-2.5 text-emerald-700 hover:text-emerald-300 transition-colors"
+            aria-label="닫기"
+          >
+            <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+              <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+          <div className="pr-6 sm:pr-4">
+            <p className="text-sm font-semibold text-emerald-300 mb-1">
+              ✨ {CATEGORY_LABEL[catEntries[0][0]] ?? catEntries[0][0]} 자신있으시네요!
+            </p>
+            <p className="text-xs text-emerald-400/90 leading-relaxed">
+              AI가 오답 보기와 해설까지 자동으로 만들어줘서 문제만 떠올리면 금방 등록할 수 있어요. 등록하면 XP도 드려요.
+            </p>
           </div>
+          <Link
+            href={`/board/submit?category=${catEntries[0][0]}`}
+            className="flex-shrink-0 rounded-lg bg-emerald-500 text-black text-xs font-semibold px-4 py-2.5 hover:bg-emerald-400 transition-colors whitespace-nowrap text-center"
+          >
+            문제 등록하기 →
+          </Link>
         </div>
       )}
       <div className="text-center mb-8">
