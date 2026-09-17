@@ -98,7 +98,7 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
 
   useEffect(() => {
     if (!data || data.session.mode !== 'normal' || data.questions.length === 0) return;
-    if (data.session.score / data.questions.length < 0.7) return;
+    if (data.session.score / data.questions.length < 0.6) return;
     try {
       const dismissedUntil = Number(localStorage.getItem('submit-cta-dismissed-until') ?? '0');
       if (Date.now() < dismissedUntil) return;
