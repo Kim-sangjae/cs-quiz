@@ -31,10 +31,6 @@ interface SessionData {
   answers: UserAnswer[];
 }
 
-// 문제 등록 유도 배너 노출 조건(로컬 저장 — 서버 상태 아님): 정답률 80%+ & 일반 모드에서만,
-// 매번 뜨면 피로감 크므로 3번에 1번만, 닫으면 7일간 재노출 안 함
-const SUBMIT_CTA_DISMISS_MS = 7 * 24 * 60 * 60 * 1000;
-
 export default function ResultClient({ sessionId }: { sessionId: string }) {
   const router = useRouter();
   const [data, setData] = useState<SessionData | null>(null);
@@ -100,8 +96,6 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
     if (!data || data.session.mode !== 'normal' || data.questions.length === 0) return;
     if (data.session.score / data.questions.length < 0.6) return;
     try {
-      const dismissedUntil = Number(localStorage.getItem('submit-cta-dismissed-until') ?? '0');
-      if (Date.now() < dismissedUntil) return;
       const count = Number(localStorage.getItem('submit-cta-count') ?? '0') + 1;
       localStorage.setItem('submit-cta-count', String(count));
       // 첫 충족 시엔 무조건 노출(count=1, 홀수), 이후부터는 2번에 1번(홀수 카운트마다)
@@ -261,12 +255,7 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
       {showSubmitCta && catEntries.length > 0 && (
         <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 bg-gradient-to-r from-emerald-900/50 to-emerald-950/40 border border-emerald-600/50 rounded-xl px-5 py-4 mb-4 shadow-[0_0_20px_-8px_rgba(16,185,129,0.4)]">
           <button
-            onClick={() => {
-              try {
-                localStorage.setItem('submit-cta-dismissed-until', String(Date.now() + SUBMIT_CTA_DISMISS_MS));
-              } catch {}
-              setShowSubmitCta(false);
-            }}
+            onClick={() => setShowSubmitCta(false)}
             className="absolute top-2.5 right-2.5 text-emerald-700 hover:text-emerald-300 transition-colors"
             aria-label="닫기"
           >
