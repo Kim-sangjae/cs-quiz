@@ -70,9 +70,11 @@ function SubmitContent() {
 
   const [generating, setGenerating] = useState(false);
   const [usage, setUsage] = useState<{ used: number; limit: number; remaining: number } | null>(null);
-  // AI가 마지막으로 생성한 해설/오답 스냅샷 — 오답이 그때 이후로 바뀌지 않았다면 재생성할 게 없다고 판단
+  // AI가 마지막으로 생성한 해설/보기 스냅샷 — 이후 사용자가 손대지 않았으면 "AI가 만든 그대로"로 보고
+  // 재생성 시 자유롭게 새로 덮어씀. 사용자가 직접 쓰거나 고쳤으면 보존(덮어쓰지 않음)
   const [lastGeneratedExplanation, setLastGeneratedExplanation] = useState('');
-  const [lastGeneratedSignature, setLastGeneratedSignature] = useState<string | null>(null);
+  const [lastGeneratedOptions, setLastGeneratedOptions] = useState<string[] | null>(null);
+  const [lastGeneratedAnswerIndex, setLastGeneratedAnswerIndex] = useState<number | null>(null);
 
   useEffect(() => {
     fetch('/api/questions/generate-options')
@@ -116,14 +118,19 @@ function SubmitContent() {
     explanation.length > 0 &&
     explanation.length <= 500;
 
-  // 채울 오답 빈칸이 있거나, 해설이 AI가 쓴 그대로인데 그 이후 오답이 바뀌어 해설이 낡았을 때만 버튼 활성화
-  const hasBlankDistractor = options.some((o, i) => i !== answer && !o.trim());
-  const currentDistractorsSignature = JSON.stringify(options.map((o, i) => (i === answer ? null : o)));
+  // 이 오답 슬롯이 "AI가 생성한 그대로, 사용자가 손대지 않은" 상태인지 — 그렇다면 재생성 시 덮어써도 안전
+  function isDistractorAiOwned(i: number): boolean {
+    return (
+      lastGeneratedOptions !== null &&
+      lastGeneratedAnswerIndex !== null &&
+      i !== answer &&
+      i !== lastGeneratedAnswerIndex &&
+      options[i].trim().length > 0 &&
+      options[i] === lastGeneratedOptions[i]
+    );
+  }
   const explanationOwnedByAI = explanation.trim().length > 0 && explanation === lastGeneratedExplanation;
-  const distractorsChangedSinceGeneration = lastGeneratedSignature !== null && currentDistractorsSignature !== lastGeneratedSignature;
-  const explanationNeedsRegeneration =
-    explanation.trim().length === 0 || (explanationOwnedByAI && distractorsChangedSinceGeneration);
-  const canGenerateOptions = hasBlankDistractor || explanationNeedsRegeneration;
+  const allFilled = answer !== null && options.every((o) => o.trim().length > 0) && explanation.trim().length > 0;
 
   function handleQuestionChange(value: string) {
     setQuestion(value);
@@ -144,11 +151,11 @@ function SubmitContent() {
 
   async function handleGenerateOptions() {
     if (!question.trim() || !options[answer ?? -1]?.trim() || (usage && usage.remaining <= 0)) return;
-    // 유저가 이미 작성한 오답 보기는 보존하고 빈 부분만 AI로 채운다.
-    // 해설은 유저가 직접 쓰거나 고친 경우에만 보존하고, AI가 만든 그대로인데 오답이 바뀌어 낡았을 때만 다시 생성한다.
-    if (!canGenerateOptions) return;
-    const existingDistractors = options.filter((opt, i) => i !== answer && opt.trim().length > 0);
-    const skipExplanation = !explanationNeedsRegeneration;
+    // 유저가 직접 쓰거나 고친 오답/해설(= AI가 만든 그대로가 아닌 것)은 보존하고,
+    // 빈 칸이거나 AI가 만든 그대로 남아있는 것만 새로 채운다 — 문제/정답을 바꿨거나
+    // 그냥 다른 결과를 다시 받고 싶을 때 모두 눌러서 새로 생성 가능
+    const existingDistractors = options.filter((opt, i) => i !== answer && opt.trim().length > 0 && !isDistractorAiOwned(i));
+    const skipExplanation = explanation.trim().length > 0 && !explanationOwnedByAI;
     setGenerating(true);
     try {
       const correctAnswer = options[answer!];
@@ -172,14 +179,15 @@ function SubmitContent() {
       next[answer!] = correctAnswer;
       let di = 0;
       for (let i = 0; i < 4; i++) {
-        if (i !== answer! && !next[i].trim()) next[i] = distractors[di++] ?? next[i];
+        if (i !== answer! && (!next[i].trim() || isDistractorAiOwned(i))) next[i] = distractors[di++] ?? next[i];
       }
       setOptions(next);
+      setLastGeneratedOptions(next);
+      setLastGeneratedAnswerIndex(answer);
       if (!skipExplanation && generatedExplanation) {
         setExplanation(generatedExplanation);
         setLastGeneratedExplanation(generatedExplanation);
       }
-      setLastGeneratedSignature(JSON.stringify(next.map((o, i) => (i === answer ? null : o))));
     } finally {
       setGenerating(false);
     }
@@ -375,13 +383,13 @@ function SubmitContent() {
               <button
                 type="button"
                 onClick={handleGenerateOptions}
-                disabled={generating || (usage !== null && usage.remaining <= 0) || !question.trim() || answer === null || !options[answer]?.trim() || !canGenerateOptions}
+                disabled={generating || (usage !== null && usage.remaining <= 0) || !question.trim() || answer === null || !options[answer]?.trim()}
                 className="text-xs text-neutral-400 border border-neutral-700 rounded-md px-3 py-1.5 hover:text-white hover:border-neutral-500 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                 title={
                   usage && usage.remaining <= 0
                     ? '오늘의 AI 생성 횟수를 모두 사용했습니다. 매일 자정(한국시간)에 초기화됩니다.'
-                    : !canGenerateOptions && answer !== null && options[answer]?.trim()
-                      ? '오답 보기와 해설을 이미 모두 채웠습니다.'
+                    : allFilled
+                      ? '직접 고친 내용은 그대로 두고, 나머지는 새로 생성합니다.'
                       : undefined
                 }
               >
@@ -389,7 +397,7 @@ function SubmitContent() {
                   ? '생성 중...'
                   : usage && usage.remaining <= 0
                     ? `AI 생성 불가 (오늘 ${usage.limit}회 모두 사용)`
-                    : `✦ 보기 + 해설 자동 생성${usage ? ` (오늘 ${usage.remaining}/${usage.limit}회 남음)` : ''}`}
+                    : `✦ ${allFilled ? '다시 생성' : '보기 + 해설 자동 생성'}${usage ? ` (오늘 ${usage.remaining}/${usage.limit}회 남음)` : ''}`}
               </button>
               <div className="relative group">
                 <span className="flex items-center justify-center w-4 h-4 rounded-full border border-neutral-700 text-neutral-500 text-[10px] cursor-help hover:border-neutral-500 hover:text-neutral-300 transition-colors select-none">
