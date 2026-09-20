@@ -12,6 +12,7 @@ import Footer from "@/components/Footer";
 import ScrollButtons from "@/components/ScrollButtons";
 import DragScroll from "@/components/DragScroll";
 import SessionGuard from "@/components/SessionGuard";
+import ChunkErrorHandler from "@/components/ChunkErrorHandler";
 import FriendPanel from "@/components/FriendPanel";
 import BattleInviteAlert from "@/components/BattleInviteAlert";
 import BattleRejectedAlert from "@/components/BattleRejectedAlert";
@@ -90,6 +91,7 @@ export default function RootLayout({
           <BattleInviteAlert />
           <BattleRejectedAlert />
           <SessionGuard />
+          <ChunkErrorHandler />
         </Providers>
       </body>
     </html>

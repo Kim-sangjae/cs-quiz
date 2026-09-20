@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import Link from 'next/link';
+import { isChunkLoadError, reloadOnceForChunkError } from '@/lib/chunk-error';
 
 export default function GlobalError({
   error,
@@ -11,6 +12,9 @@ export default function GlobalError({
   reset: () => void;
 }) {
   useEffect(() => {
+    // 배포 직후 예전 탭에서 청크 파일을 못 찾아 나는 오류는 에러 화면 대신 자동 새로고침으로 복구
+    if (isChunkLoadError(error) && reloadOnceForChunkError()) return;
+
     fetch('/api/errors', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
