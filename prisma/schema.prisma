@@ -238,6 +238,7 @@ enum NotificationType {
   ACCOUNT_BLINDED
   COMMENT_DELETED
   QUESTION_COMMENTED
+  REPORT_RESOLVED
 }
 
 enum BadgeType {

@@ -24,11 +24,13 @@ interface NotificationPayload {
   prevNickname?: string;
   newNickname?: string;
   actorId?: string;
+  resolution?: string;
+  note?: string;
 }
 
 interface Notification {
   id: string;
-  type: 'QUESTION_APPROVED' | 'QUESTION_REJECTED' | 'ROLE_CHANGED' | 'INQUIRY_REPLIED' | 'LEVEL_UP' | 'BADGE_EARNED' | 'FRIEND_REQUEST' | 'FRIEND_ACCEPTED' | 'FRIEND_REJECTED' | 'BATTLE_INVITE' | 'BATTLE_REJECTED' | 'BATTLE_QUIT_REQUEST' | 'NICKNAME_FORCED_CHANGED' | 'NICKNAME_CHANGED' | 'ACCOUNT_BLINDED' | 'COMMENT_DELETED' | 'QUESTION_COMMENTED';
+  type: 'QUESTION_APPROVED' | 'QUESTION_REJECTED' | 'ROLE_CHANGED' | 'INQUIRY_REPLIED' | 'LEVEL_UP' | 'BADGE_EARNED' | 'FRIEND_REQUEST' | 'FRIEND_ACCEPTED' | 'FRIEND_REJECTED' | 'BATTLE_INVITE' | 'BATTLE_REJECTED' | 'BATTLE_QUIT_REQUEST' | 'NICKNAME_FORCED_CHANGED' | 'NICKNAME_CHANGED' | 'ACCOUNT_BLINDED' | 'COMMENT_DELETED' | 'QUESTION_COMMENTED' | 'REPORT_RESOLVED';
   payload: NotificationPayload;
   actionUrl: string | null;
   isRead: boolean;
@@ -59,6 +61,7 @@ function getNotificationMessage(n: Notification): string {
   if (n.type === 'ACCOUNT_BLINDED') return `계정이 정지되었습니다. 사유: ${payload.reason ?? '부적절한 닉네임 사용'}`;
   if (n.type === 'COMMENT_DELETED') return `작성하신 댓글이 삭제되었습니다. 사유: ${payload.reason ?? '신고 처리'} · "${payload.commentPreview ?? ''}"`;
   if (n.type === 'QUESTION_COMMENTED') return `${payload.fromNickname ?? '누군가'}님이 '${payload.questionTitle ?? ''}' 문제에 댓글을 남겼습니다: "${payload.commentPreview ?? ''}"`;
+  if (n.type === 'REPORT_RESOLVED') return `신고하신 '${payload.questionTitle ?? ''}' 문제가 처리되었습니다 — ${payload.resolution ?? '처리 완료'}${payload.note ? ` (${payload.note})` : ''}`;
   return '새 알림이 있습니다.';
 }
 
