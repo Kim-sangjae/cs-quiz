@@ -16,7 +16,7 @@ export async function GET() {
       questionId: true,
       status: true,
       createdAt: true,
-      question: { select: { id: true, category: true, question: true, status: true } },
+      question: { select: { id: true, category: true, question: true, status: true, options: true, answer: true, explanation: true } },
       reporter: { select: { nickname: true } },
     },
     orderBy: { createdAt: 'asc' },
