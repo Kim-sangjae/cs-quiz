@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import { getLevelInfo, MAX_LEVEL } from '@/lib/user-level';
 import { SYNONYM_GROUPS as BUILTIN_SYNONYM_GROUPS } from '@/lib/similar-search';
 import PaginationNav from '@/components/PaginationNav';
+import { REPORT_RESOLUTION_REASONS } from '@/lib/report-resolution';
 
 type Tab = 'questions' | 'board' | 'reports' | 'users' | 'inquiries' | 'logs' | 'analytics' | 'errors' | 'generate' | 'blocked-words' | 'synonyms' | 'points-log';
 
@@ -1078,18 +1079,30 @@ function ReportsTab({ prevSeenAt }: { prevSeenAt: string | null }) {
   }
 
   const mutation = useMutation({
-    mutationFn: ({ questionId, action }: { questionId: string; action: 'blind' | 'dismiss' }) =>
+    mutationFn: ({ questionId, action, resolutionReason, resolutionNote }: { questionId: string; action: 'blind' | 'dismiss'; resolutionReason?: string; resolutionNote?: string }) =>
       fetch(`/api/admin/reports/${questionId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action }),
+        body: JSON.stringify({ action, resolutionReason, resolutionNote }),
       }).then((r) => r.json()),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin', 'reports'] });
       queryClient.invalidateQueries({ queryKey: ['admin', 'badge'] });
       setSelectedIds(new Set());
+      setResolvingId(null);
+      toast.success('처리되었습니다. 신고자에게 알림이 발송됩니다.');
     },
   });
+  // 처리 완료(무시) 시 사유/메모를 남기는 인라인 패널 상태
+  const [resolvingId, setResolvingId] = useState<string | null>(null);
+  const [resolutionReason, setResolutionReason] = useState<string>(REPORT_RESOLUTION_REASONS[2].value);
+  const [resolutionNote, setResolutionNote] = useState('');
+
+  function openResolvePanel(questionId: string) {
+    setResolvingId(questionId);
+    setResolutionReason(REPORT_RESOLUTION_REASONS[2].value);
+    setResolutionNote('');
+  }
 
   const filtered = reportGroups
     .filter((g) => {
@@ -1362,7 +1375,7 @@ function ReportsTab({ prevSeenAt }: { prevSeenAt: string | null }) {
           </button>
           <button onClick={() => handleBulk('dismiss')} disabled={bulkPending}
             className="rounded-md bg-[#1a1a1a] border border-neutral-700 text-neutral-400 text-xs px-3 py-1.5 hover:text-white transition-colors disabled:opacity-40">
-            일괄 무시
+            일괄 처리 완료
           </button>
           <button onClick={() => setSelectedIds(new Set())} className="ml-auto text-xs text-neutral-600 hover:text-neutral-400 transition-colors">선택 해제</button>
         </div>
@@ -1419,18 +1432,57 @@ function ReportsTab({ prevSeenAt }: { prevSeenAt: string | null }) {
                 ))}
               </div>
               {!group.dismissed && (
-                <div className="flex gap-2">
-                  <button onClick={() => mutation.mutate({ questionId: group.question.id, action: 'blind' })}
-                    disabled={mutation.isPending || group.question.status === 'BLINDED'}
-                    className="rounded-md bg-red-500/10 border border-red-500/30 text-red-400 text-xs px-3 py-1.5 hover:bg-red-500/20 transition-colors disabled:opacity-40">
-                    블라인드
-                  </button>
-                  <button onClick={() => mutation.mutate({ questionId: group.question.id, action: 'dismiss' })}
-                    disabled={mutation.isPending}
-                    className="rounded-md bg-[#1a1a1a] border border-neutral-700 text-neutral-400 text-xs px-3 py-1.5 hover:text-white transition-colors disabled:opacity-40">
-                    무시
-                  </button>
-                </div>
+                <>
+                  <div className="flex gap-2">
+                    <button onClick={() => mutation.mutate({ questionId: group.question.id, action: 'blind', resolutionReason: 'BLINDED' })}
+                      disabled={mutation.isPending || group.question.status === 'BLINDED'}
+                      className="rounded-md bg-red-500/10 border border-red-500/30 text-red-400 text-xs px-3 py-1.5 hover:bg-red-500/20 transition-colors disabled:opacity-40">
+                      블라인드
+                    </button>
+                    <button
+                      onClick={() => resolvingId === group.question.id ? setResolvingId(null) : openResolvePanel(group.question.id)}
+                      disabled={mutation.isPending}
+                      className="rounded-md bg-[#1a1a1a] border border-neutral-700 text-neutral-400 text-xs px-3 py-1.5 hover:text-white transition-colors disabled:opacity-40">
+                      처리 완료
+                    </button>
+                  </div>
+                  {resolvingId === group.question.id && (
+                    <div className="mt-3 rounded-lg border border-neutral-800 bg-[#0d0d0d] p-3 space-y-2">
+                      <label className="block">
+                        <span className="text-[11px] text-neutral-500">처리 사유 (신고자에게 알림으로 전달됩니다)</span>
+                        <select
+                          value={resolutionReason}
+                          onChange={(e) => setResolutionReason(e.target.value)}
+                          className="mt-1 w-full rounded-md border border-neutral-700 bg-[#1a1a1a] px-2.5 py-1.5 text-xs text-neutral-200 focus:outline-none focus:border-neutral-500"
+                        >
+                          {REPORT_RESOLUTION_REASONS.map((r) => (
+                            <option key={r.value} value={r.value}>{r.label}</option>
+                          ))}
+                        </select>
+                      </label>
+                      <textarea
+                        value={resolutionNote}
+                        onChange={(e) => setResolutionNote(e.target.value)}
+                        placeholder="추가로 전달할 내용(선택)"
+                        rows={2}
+                        maxLength={300}
+                        className="w-full rounded-md border border-neutral-700 bg-[#1a1a1a] px-2.5 py-1.5 text-xs text-neutral-200 placeholder-neutral-600 focus:outline-none focus:border-neutral-500 resize-none"
+                      />
+                      <div className="flex gap-2 justify-end">
+                        <button onClick={() => setResolvingId(null)}
+                          className="text-xs text-neutral-500 hover:text-white transition-colors px-2 py-1">
+                          취소
+                        </button>
+                        <button
+                          onClick={() => mutation.mutate({ questionId: group.question.id, action: 'dismiss', resolutionReason, resolutionNote })}
+                          disabled={mutation.isPending}
+                          className="rounded-md bg-white text-black text-xs font-medium px-3 py-1.5 hover:bg-neutral-200 transition-colors disabled:opacity-40">
+                          완료 처리
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           ))}
