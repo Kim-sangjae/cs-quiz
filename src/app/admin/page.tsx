@@ -47,7 +47,7 @@ interface ReportItem {
   reporter: { nickname: string | null };
 }
 interface ReportGroup {
-  question: { id: string; category: string; question: string; status: string };
+  question: { id: string; category: string; question: string; status: string; options: string[]; answer: number; explanation: string };
   reportCount: number; latestReportAt: string; dismissed: boolean; reports: ReportItem[];
 }
 interface BoardQuestion {
@@ -179,7 +179,7 @@ export default function AdminPage() {
       {activeTab === 'analytics' && <AnalyticsTab />}
       {activeTab === 'questions' && <QuestionsTab prevSeenAt={prevSeenAt} />}
       {activeTab === 'board' && <BoardTab requestConfirm={requestConfirm} />}
-      {activeTab === 'reports' && <ReportsTab prevSeenAt={prevSeenAt} />}
+      {activeTab === 'reports' && <ReportsTab prevSeenAt={prevSeenAt} requestConfirm={requestConfirm} />}
       {activeTab === 'users' && <UsersTab currentUserId={session.user?.id ?? ''} requestConfirm={requestConfirm} />}
       {activeTab === 'inquiries' && <InquiriesTab prevSeenAt={prevSeenAt} />}
       {activeTab === 'logs' && <LogsTab />}
@@ -638,6 +638,111 @@ const SORT_OPTIONS: { v: BoardSort; l: string }[] = [
   { v: 'likes', l: '좋아요순' },
 ];
 
+// 게시판 관리 탭과 신고 접수 탭에서 공용으로 쓰는 문제 수정 모달
+function QuestionEditModal({
+  editState, setEditState, onCancel, onSave, saving, requestConfirm,
+}: {
+  editState: EditState;
+  setEditState: (s: EditState) => void;
+  onCancel: () => void;
+  onSave: () => void;
+  saving: boolean;
+  requestConfirm: (msg: string, fn: () => void) => void;
+}) {
+  return (
+    <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+      <div className="bg-[#111111] border border-neutral-800 rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <h2 className="text-base font-semibold text-white mb-5">문제 수정</h2>
+
+        <div className="space-y-4">
+          <div>
+            <label className="text-xs text-neutral-400 mb-1 block">카테고리</label>
+            <select
+              value={editState.category}
+              onChange={(e) => setEditState({ ...editState, category: e.target.value })}
+              className="w-full bg-[#1a1a1a] border border-neutral-700 rounded-md px-3 py-2 text-sm text-white focus:outline-none focus:border-neutral-500"
+            >
+              {CATEGORIES.map((c) => (
+                <option key={c} value={c}>{CATEGORY_LABEL[c]}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="text-xs text-neutral-400 mb-1 block">문제</label>
+            <textarea
+              value={editState.question}
+              onChange={(e) => setEditState({ ...editState, question: e.target.value })}
+              rows={3}
+              className="w-full bg-[#1a1a1a] border border-neutral-700 rounded-md px-3 py-2 text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-neutral-500 resize-none"
+            />
+          </div>
+
+          {(['A', 'B', 'C', 'D'] as const).map((label, i) => (
+            <div key={label}>
+              <label className="text-xs text-neutral-400 mb-1 block">보기 {label}</label>
+              <input
+                type="text"
+                value={editState.options[i]}
+                onChange={(e) => {
+                  const opts = [...editState.options] as [string, string, string, string];
+                  opts[i] = e.target.value;
+                  setEditState({ ...editState, options: opts });
+                }}
+                className="w-full bg-[#1a1a1a] border border-neutral-700 rounded-md px-3 py-2 text-sm text-white focus:outline-none focus:border-neutral-500"
+              />
+            </div>
+          ))}
+
+          <div>
+            <label className="text-xs text-neutral-400 mb-2 block">정답</label>
+            <div className="flex gap-4">
+              {(['A', 'B', 'C', 'D'] as const).map((label, i) => (
+                <label key={label} className="flex items-center gap-1.5 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="answer"
+                    checked={editState.answer === i}
+                    onChange={() => setEditState({ ...editState, answer: i })}
+                    className="accent-white"
+                  />
+                  <span className="text-sm text-neutral-300">{label}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className="text-xs text-neutral-400 mb-1 block">해설</label>
+            <textarea
+              value={editState.explanation}
+              onChange={(e) => setEditState({ ...editState, explanation: e.target.value })}
+              rows={3}
+              className="w-full bg-[#1a1a1a] border border-neutral-700 rounded-md px-3 py-2 text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-neutral-500 resize-none"
+            />
+          </div>
+        </div>
+
+        <div className="flex gap-2 mt-6 justify-end">
+          <button
+            onClick={onCancel}
+            className="rounded-md border border-neutral-700 text-sm text-neutral-300 px-5 py-2 hover:text-white transition-colors"
+          >
+            취소
+          </button>
+          <button
+            onClick={() => requestConfirm('문제를 수정하시겠습니까?', onSave)}
+            disabled={saving}
+            className="rounded-md bg-white text-black text-sm font-medium px-5 py-2 hover:bg-neutral-200 disabled:opacity-40 transition-colors"
+          >
+            {saving ? '저장 중...' : '저장'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function BoardTab({ requestConfirm }: { requestConfirm: (msg: string, fn: () => void) => void }) {
   const queryClient = useQueryClient();
   const [statusFilter, setStatusFilter] = useState('all');
@@ -919,96 +1024,14 @@ function BoardTab({ requestConfirm }: { requestConfirm: (msg: string, fn: () => 
       </div>
 
       {editState && (
-        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
-          <div className="bg-[#111111] border border-neutral-800 rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <h2 className="text-base font-semibold text-white mb-5">문제 수정</h2>
-
-            <div className="space-y-4">
-              <div>
-                <label className="text-xs text-neutral-400 mb-1 block">카테고리</label>
-                <select
-                  value={editState.category}
-                  onChange={(e) => setEditState({ ...editState, category: e.target.value })}
-                  className="w-full bg-[#1a1a1a] border border-neutral-700 rounded-md px-3 py-2 text-sm text-white focus:outline-none focus:border-neutral-500"
-                >
-                  {CATEGORIES.map((c) => (
-                    <option key={c} value={c}>{CATEGORY_LABEL[c]}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="text-xs text-neutral-400 mb-1 block">문제</label>
-                <textarea
-                  value={editState.question}
-                  onChange={(e) => setEditState({ ...editState, question: e.target.value })}
-                  rows={3}
-                  className="w-full bg-[#1a1a1a] border border-neutral-700 rounded-md px-3 py-2 text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-neutral-500 resize-none"
-                />
-              </div>
-
-              {(['A', 'B', 'C', 'D'] as const).map((label, i) => (
-                <div key={label}>
-                  <label className="text-xs text-neutral-400 mb-1 block">보기 {label}</label>
-                  <input
-                    type="text"
-                    value={editState.options[i]}
-                    onChange={(e) => {
-                      const opts = [...editState.options] as [string, string, string, string];
-                      opts[i] = e.target.value;
-                      setEditState({ ...editState, options: opts });
-                    }}
-                    className="w-full bg-[#1a1a1a] border border-neutral-700 rounded-md px-3 py-2 text-sm text-white focus:outline-none focus:border-neutral-500"
-                  />
-                </div>
-              ))}
-
-              <div>
-                <label className="text-xs text-neutral-400 mb-2 block">정답</label>
-                <div className="flex gap-4">
-                  {(['A', 'B', 'C', 'D'] as const).map((label, i) => (
-                    <label key={label} className="flex items-center gap-1.5 cursor-pointer">
-                      <input
-                        type="radio"
-                        name="answer"
-                        checked={editState.answer === i}
-                        onChange={() => setEditState({ ...editState, answer: i })}
-                        className="accent-white"
-                      />
-                      <span className="text-sm text-neutral-300">{label}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <label className="text-xs text-neutral-400 mb-1 block">해설</label>
-                <textarea
-                  value={editState.explanation}
-                  onChange={(e) => setEditState({ ...editState, explanation: e.target.value })}
-                  rows={3}
-                  className="w-full bg-[#1a1a1a] border border-neutral-700 rounded-md px-3 py-2 text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-neutral-500 resize-none"
-                />
-              </div>
-            </div>
-
-            <div className="flex gap-2 mt-6 justify-end">
-              <button
-                onClick={() => setEditState(null)}
-                className="rounded-md border border-neutral-700 text-sm text-neutral-300 px-5 py-2 hover:text-white transition-colors"
-              >
-                취소
-              </button>
-              <button
-                onClick={() => requestConfirm('문제를 수정하시겠습니까?', saveEdit)}
-                disabled={editSaving}
-                className="rounded-md bg-white text-black text-sm font-medium px-5 py-2 hover:bg-neutral-200 disabled:opacity-40 transition-colors"
-              >
-                {editSaving ? '저장 중...' : '저장'}
-              </button>
-            </div>
-          </div>
-        </div>
+        <QuestionEditModal
+          editState={editState}
+          setEditState={setEditState}
+          onCancel={() => setEditState(null)}
+          onSave={saveEdit}
+          saving={editSaving}
+          requestConfirm={requestConfirm}
+        />
       )}
     </>
   );
@@ -1016,7 +1039,7 @@ function BoardTab({ requestConfirm }: { requestConfirm: (msg: string, fn: () => 
 
 const REPORTS_PAGE_SIZE = 10;
 
-function ReportsTab({ prevSeenAt }: { prevSeenAt: string | null }) {
+function ReportsTab({ prevSeenAt, requestConfirm }: { prevSeenAt: string | null; requestConfirm: (msg: string, fn: () => void) => void }) {
   const queryClient = useQueryClient();
   const [reportKind, setReportKind] = useState<'question' | 'user' | 'comment'>('question');
   const [reasonFilter, setReasonFilter] = useState<string>('');
@@ -1025,6 +1048,40 @@ function ReportsTab({ prevSeenAt }: { prevSeenAt: string | null }) {
   const [page, setPage] = useState(1);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkPending, setBulkPending] = useState(false);
+  const [editState, setEditState] = useState<EditState | null>(null);
+  const [editSaving, setEditSaving] = useState(false);
+
+  function openEdit(q: ReportGroup['question']) {
+    setEditState({
+      id: q.id,
+      category: q.category,
+      question: q.question,
+      options: [q.options[0] ?? '', q.options[1] ?? '', q.options[2] ?? '', q.options[3] ?? ''],
+      answer: q.answer,
+      explanation: q.explanation,
+    });
+  }
+
+  async function saveEdit() {
+    if (!editState) return;
+    setEditSaving(true);
+    try {
+      const res = await fetch(`/api/admin/questions/${editState.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'edit', editData: editState }),
+      });
+      if (res.ok) {
+        toast.success('문제가 수정되었습니다.');
+        queryClient.invalidateQueries({ queryKey: ['admin', 'reports'] });
+        setEditState(null);
+      } else {
+        toast.error('수정에 실패했습니다.');
+      }
+    } finally {
+      setEditSaving(false);
+    }
+  }
 
   const { data: reportGroups = [] } = useQuery<ReportGroup[]>({
     queryKey: ['admin', 'reports'],
@@ -1434,6 +1491,10 @@ function ReportsTab({ prevSeenAt }: { prevSeenAt: string | null }) {
               {!group.dismissed && (
                 <>
                   <div className="flex gap-2">
+                    <button onClick={() => openEdit(group.question)}
+                      className="rounded-md bg-[#1a1a1a] border border-neutral-700 text-neutral-300 text-xs px-3 py-1.5 hover:text-white transition-colors">
+                      수정
+                    </button>
                     <button onClick={() => mutation.mutate({ questionId: group.question.id, action: 'blind', resolutionReason: 'BLINDED' })}
                       disabled={mutation.isPending || group.question.status === 'BLINDED'}
                       className="rounded-md bg-red-500/10 border border-red-500/30 text-red-400 text-xs px-3 py-1.5 hover:bg-red-500/20 transition-colors disabled:opacity-40">
@@ -1498,6 +1559,16 @@ function ReportsTab({ prevSeenAt }: { prevSeenAt: string | null }) {
         </>
       )}
       </>
+    )}
+    {editState && (
+      <QuestionEditModal
+        editState={editState}
+        setEditState={setEditState}
+        onCancel={() => setEditState(null)}
+        onSave={saveEdit}
+        saving={editSaving}
+        requestConfirm={requestConfirm}
+      />
     )}
     </div>
   );
