@@ -12,6 +12,7 @@ import PaginationNav from '@/components/PaginationNav';
 import { REPORT_RESOLUTION_REASONS } from '@/lib/report-resolution';
 
 type Tab = 'questions' | 'board' | 'reports' | 'users' | 'inquiries' | 'logs' | 'analytics' | 'errors' | 'generate' | 'blocked-words' | 'synonyms' | 'points-log';
+const VALID_TABS: Tab[] = ['questions', 'board', 'reports', 'users', 'inquiries', 'logs', 'analytics', 'errors', 'generate', 'blocked-words', 'synonyms', 'points-log'];
 
 const CATEGORY_LABEL: Record<string, string> = {
   ds: '자료구조', algo: '알고리즘', os: '운영체제',
@@ -82,6 +83,12 @@ export default function AdminPage() {
   const [confirm, setConfirm] = useState<ConfirmState | null>(null);
   const [prevSeenAt, setPrevSeenAt] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+
+  // 이메일 알림의 "관리자 패널에서 확인" 링크(?tab=reports 등)로 바로 해당 탭이 열리게
+  useEffect(() => {
+    const tab = new URLSearchParams(window.location.search).get('tab');
+    if (tab && (VALID_TABS as string[]).includes(tab)) setActiveTab(tab as Tab);
+  }, []);
 
   const { data: badge } = useQuery<{ questions: number; reports: number; inquiries: number; userReports: number; commentReports: number }>({
     queryKey: ['admin', 'badge'],

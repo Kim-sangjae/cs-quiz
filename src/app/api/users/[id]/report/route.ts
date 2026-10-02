@@ -2,9 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { isRateLimited } from '@/lib/rate-limit';
+import { sendMail, ADMIN_EMAIL, escapeHtml } from '@/lib/mailer';
 
 const VALID_REASONS = ['INAPPROPRIATE_NICKNAME', 'HARASSMENT', 'SPAM', 'OTHER'] as const;
 type Reason = typeof VALID_REASONS[number];
+
+const REASON_LABEL: Record<Reason, string> = {
+  INAPPROPRIATE_NICKNAME: '부적절한 닉네임', HARASSMENT: '괴롭힘/욕설', SPAM: '스팸', OTHER: '기타',
+};
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
@@ -26,7 +31,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
   const description = typeof body.description === 'string' ? body.description.slice(0, 200) : undefined;
 
-  const reported = await prisma.user.findUnique({ where: { id: reportedId }, select: { id: true } });
+  const reported = await prisma.user.findUnique({ where: { id: reportedId }, select: { id: true, nickname: true } });
   if (!reported) return NextResponse.json({ error: 'User not found' }, { status: 404 });
 
   const existing = await prisma.userReport.findUnique({
@@ -39,6 +44,21 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   await prisma.userReport.create({
     data: { reporterId: session.user.id, reportedId, reason, description },
   });
+
+  sendMail({
+    to: ADMIN_EMAIL(),
+    subject: `[CSORA] 유저 신고: ${reported.nickname ?? reportedId}`,
+    html: `
+      <h3>유저 신고가 접수되었습니다</h3>
+      <table style="border-collapse:collapse;width:100%;font-family:sans-serif">
+        <tr><td style="padding:6px 12px;color:#888">사유</td><td style="padding:6px 12px">${REASON_LABEL[reason]}</td></tr>
+        <tr><td style="padding:6px 12px;color:#888">신고자</td><td style="padding:6px 12px">${escapeHtml(session.user.nickname ?? session.user.id)}</td></tr>
+        <tr><td style="padding:6px 12px;color:#888">피신고자</td><td style="padding:6px 12px">${escapeHtml(reported.nickname ?? reportedId)}</td></tr>
+        ${description ? `<tr><td style="padding:6px 12px;color:#888;vertical-align:top">설명</td><td style="padding:6px 12px;white-space:pre-wrap">${escapeHtml(description)}</td></tr>` : ''}
+      </table>
+      <p style="margin-top:16px"><a href="${process.env.NEXTAUTH_URL}/admin?tab=reports" style="color:#6366f1">관리자 패널에서 확인 →</a></p>
+    `,
+  }).catch(() => {});
 
   return NextResponse.json({ ok: true });
 }

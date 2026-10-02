@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { isRateLimited } from '@/lib/rate-limit';
+import { sendMail, ADMIN_EMAIL, escapeHtml } from '@/lib/mailer';
+
+const REASON_LABEL: Record<string, string> = {
+  INAPPROPRIATE: '부적절한 내용', SPAM: '스팸', HARASSMENT: '괴롭힘/욕설', OTHER: '기타',
+};
 
 export async function POST(
   req: NextRequest,
@@ -25,7 +30,7 @@ export async function POST(
 
   const comment = await prisma.questionComment.findUnique({
     where: { id: commentId },
-    select: { id: true, deletedAt: true, blinded: true, userId: true },
+    select: { id: true, deletedAt: true, blinded: true, userId: true, content: true, user: { select: { nickname: true } } },
   });
   if (!comment || comment.deletedAt || comment.blinded) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 });
@@ -46,6 +51,22 @@ export async function POST(
   } catch {
     return NextResponse.json({ error: 'Already reported' }, { status: 409 });
   }
+
+  sendMail({
+    to: ADMIN_EMAIL(),
+    subject: `[CSORA] 댓글 신고: ${(comment.user.nickname ?? '익명')}님의 댓글`,
+    html: `
+      <h3>댓글 신고가 접수되었습니다</h3>
+      <table style="border-collapse:collapse;width:100%;font-family:sans-serif">
+        <tr><td style="padding:6px 12px;color:#888">사유</td><td style="padding:6px 12px">${REASON_LABEL[reason] ?? reason}</td></tr>
+        <tr><td style="padding:6px 12px;color:#888">신고자</td><td style="padding:6px 12px">${escapeHtml(session.user.nickname ?? session.user.id)}</td></tr>
+        <tr><td style="padding:6px 12px;color:#888">작성자</td><td style="padding:6px 12px">${escapeHtml(comment.user.nickname ?? '익명')}</td></tr>
+        <tr><td style="padding:6px 12px;color:#888;vertical-align:top">댓글 내용</td><td style="padding:6px 12px;white-space:pre-wrap">${escapeHtml(comment.content)}</td></tr>
+        ${description ? `<tr><td style="padding:6px 12px;color:#888;vertical-align:top">설명</td><td style="padding:6px 12px;white-space:pre-wrap">${escapeHtml(description)}</td></tr>` : ''}
+      </table>
+      <p style="margin-top:16px"><a href="${process.env.NEXTAUTH_URL}/admin?tab=reports" style="color:#6366f1">관리자 패널에서 확인 →</a></p>
+    `,
+  }).catch(() => {});
 
   return NextResponse.json({ ok: true });
 }
