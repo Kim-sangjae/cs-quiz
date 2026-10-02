@@ -2,9 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerUser } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { isRateLimited } from '@/lib/rate-limit';
+import { sendMail, ADMIN_EMAIL, escapeHtml } from '@/lib/mailer';
 
 const VALID_REASONS = ['INAPPROPRIATE', 'ERROR', 'DUPLICATE', 'OTHER'] as const;
 type ReportReason = (typeof VALID_REASONS)[number];
+
+const REASON_LABEL: Record<ReportReason, string> = {
+  INAPPROPRIATE: '부적절한 내용', ERROR: '오류/오답', DUPLICATE: '중복 문제', OTHER: '기타',
+};
 
 export async function POST(
   req: NextRequest,
@@ -21,7 +26,7 @@ export async function POST(
 
   const question = await prisma.question.findUnique({
     where: { id },
-    select: { authorId: true },
+    select: { authorId: true, question: true, category: true },
   });
 
   if (!question) return NextResponse.json({ error: 'Not found' }, { status: 404 });
@@ -55,6 +60,22 @@ export async function POST(
       status: 'PENDING',
     },
   });
+
+  sendMail({
+    to: ADMIN_EMAIL(),
+    subject: `[CSORA] 문제 신고: ${question.question.slice(0, 40)}`,
+    html: `
+      <h3>문제 신고가 접수되었습니다</h3>
+      <table style="border-collapse:collapse;width:100%;font-family:sans-serif">
+        <tr><td style="padding:6px 12px;color:#888">사유</td><td style="padding:6px 12px">${REASON_LABEL[reason]}</td></tr>
+        <tr><td style="padding:6px 12px;color:#888">신고자</td><td style="padding:6px 12px">${escapeHtml(user.nickname ?? user.email ?? '')}</td></tr>
+        <tr><td style="padding:6px 12px;color:#888">카테고리</td><td style="padding:6px 12px">${escapeHtml(question.category)}</td></tr>
+        <tr><td style="padding:6px 12px;color:#888;vertical-align:top">문제</td><td style="padding:6px 12px;white-space:pre-wrap">${escapeHtml(question.question)}</td></tr>
+        ${description ? `<tr><td style="padding:6px 12px;color:#888;vertical-align:top">설명</td><td style="padding:6px 12px;white-space:pre-wrap">${escapeHtml(description)}</td></tr>` : ''}
+      </table>
+      <p style="margin-top:16px"><a href="${process.env.NEXTAUTH_URL}/admin?tab=reports" style="color:#6366f1">관리자 패널에서 확인 →</a></p>
+    `,
+  }).catch(() => {});
 
   return NextResponse.json({ ok: true }, { status: 201 });
 }

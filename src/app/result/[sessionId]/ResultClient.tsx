@@ -94,7 +94,6 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
 
   useEffect(() => {
     if (!data || data.session.mode !== 'normal' || data.questions.length === 0) return;
-    if (data.session.score / data.questions.length < 0.6) return;
     try {
       const count = Number(localStorage.getItem('submit-cta-count') ?? '0') + 1;
       localStorage.setItem('submit-cta-count', String(count));
@@ -265,7 +264,7 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
           </button>
           <div className="pr-6 sm:pr-4">
             <p className="text-sm font-semibold text-emerald-300 mb-1">
-              ✨ {CATEGORY_LABEL[catEntries[0][0]] ?? catEntries[0][0]} 자신있으시네요!
+              ✨ {CATEGORY_LABEL[catEntries[0][0]] ?? catEntries[0][0]} 공부한 김에 문제도 하나 내보는 건 어때요?
             </p>
             <p className="text-xs text-emerald-400/90 leading-relaxed">
               AI가 오답 보기와 해설까지 자동으로 만들어줘서 문제만 떠올리면 금방 등록할 수 있어요. 등록하면 XP도 드려요.
