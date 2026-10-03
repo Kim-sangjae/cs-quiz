@@ -44,7 +44,18 @@ export default function QuizPlayClient({ questions, category, mode = 'normal', i
 
   // 보기 순서 셔플 (question당 1회, Fisher-Yates on [0,1,2,3])
   // optionOrders[qId][visualPos] = originalIndex
-  const optionOrders = useMemo<Record<string, [number, number, number, number]>>(() => {
+  // Math.random() 결과가 서버/클라이언트에서 달라 hydration mismatch가 나므로,
+  // 초기 렌더는 원본 순서로 맞추고 마운트 후(useEffect, 클라이언트 전용)에만 셔플한다.
+  const questionIdsKey = useMemo(() => questions.map((q) => q.id).join(','), [questions]);
+  const [optionOrders, setOptionOrders] = useState<Record<string, [number, number, number, number]>>(() => {
+    const result: Record<string, [number, number, number, number]> = {};
+    for (const q of questions) {
+      result[q.id] = [0, 1, 2, 3];
+    }
+    return result;
+  });
+
+  useEffect(() => {
     const result: Record<string, [number, number, number, number]> = {};
     for (const q of questions) {
       const order: [number, number, number, number] = [0, 1, 2, 3];
@@ -54,9 +65,9 @@ export default function QuizPlayClient({ questions, category, mode = 'normal', i
       }
       result[q.id] = order;
     }
-    return result;
+    setOptionOrders(result);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [questions.map((q) => q.id).join(',')]);
+  }, [questionIdsKey]);
 
   // 시각 위치(visual) ↔ 원본 인덱스(original) 변환
   const visualToOrig = useCallback((qId: string, visual: number): 0 | 1 | 2 | 3 => {

@@ -1,6 +1,13 @@
+'use client';
+
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 
 export default function Footer() {
+  const pathname = usePathname();
+  const hideFooter = pathname === '/quiz/play' || pathname.startsWith('/battle/');
+  if (hideFooter) return null;
+
   return (
     <footer className="border-t border-neutral-800/60 mt-20">
       <div className="max-w-4xl mx-auto px-4 py-10">
