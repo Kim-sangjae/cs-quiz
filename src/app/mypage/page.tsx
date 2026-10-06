@@ -1480,7 +1480,7 @@ export default function MyPage() {
                                         {item.questionNumber}.
                                       </span>
                                       <span className="text-xs text-neutral-500 border border-neutral-800 rounded px-1.5 py-0.5 flex-shrink-0">
-                                        {item.question.category}
+                                        {CATEGORY_LABELS[item.question.category as Category] ?? item.question.category}
                                       </span>
                                       <span className="text-sm text-neutral-400 truncate">
                                         {item.question.question}
