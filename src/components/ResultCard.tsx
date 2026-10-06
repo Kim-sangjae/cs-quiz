@@ -15,6 +15,11 @@ interface ResultCardProps {
 
 const LABELS = ['A', 'B', 'C', 'D'] as const;
 
+const CATEGORY_LABEL: Record<string, string> = {
+  ds: '자료구조', algo: '알고리즘', os: '운영체제',
+  network: '네트워크', db: '데이터베이스', arch: '컴퓨터 구조', se: '소프트웨어공학',
+};
+
 export default function ResultCard({
   questionNumber,
   question,
@@ -43,7 +48,7 @@ export default function ResultCard({
     <div className="bg-[#111111] border border-neutral-800 rounded-lg p-6">
       <div className="flex items-center gap-3 mb-4">
         <span className="text-xs text-neutral-500 border border-neutral-800 rounded px-2 py-0.5">
-          {question.category}
+          {CATEGORY_LABEL[question.category] ?? question.category}
         </span>
         <span className="text-sm text-neutral-500">Q.{questionNumber}</span>
         {question.authorNickname && (
