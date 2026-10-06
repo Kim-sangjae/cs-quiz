@@ -125,23 +125,30 @@ export default async function Home() {
                   🔥 {personalization.streak.count}일 연속 출석 중
                 </p>
               )}
-              {personalization.weakCategory && (
-                <div className="flex items-center justify-between bg-neutral-900/60 border border-neutral-800 rounded-xl px-4 py-3">
-                  <span className="text-sm text-neutral-300">
-                    약점 카테고리:{" "}
-                    <span className="text-white font-medium">{personalization.weakCategory.label}</span>
-                    <span className="text-neutral-600 ml-2 text-xs">
-                      정답률 {(personalization.weakCategory.accuracy * 100).toFixed(0)}%
+              {personalization.weakCategory && (() => {
+                const accuracyPct = Math.round(personalization.weakCategory.accuracy * 100);
+                const accuracyColor =
+                  accuracyPct < 60 ? 'text-red-400' :
+                  accuracyPct < 75 ? 'text-yellow-400' :
+                  'text-emerald-400';
+                return (
+                  <div className="flex items-center justify-between bg-red-950/20 border border-red-900/30 rounded-xl px-4 py-3">
+                    <span className="text-sm text-neutral-300">
+                      <span className="text-[10px] text-red-400 border border-red-900/50 rounded-full px-1.5 py-0.5 mr-2 align-middle">약점</span>
+                      <span className="text-white font-medium">{personalization.weakCategory.label}</span>
+                      <span className={`ml-2 text-xs font-medium ${accuracyColor}`}>
+                        정답률 {accuracyPct}%
+                      </span>
                     </span>
-                  </span>
-                  <Link
-                    href={`/quiz/play?category=${personalization.weakCategory.category}`}
-                    className="text-xs text-neutral-400 hover:text-white font-medium transition-colors"
-                  >
-                    집중 연습 →
-                  </Link>
-                </div>
-              )}
+                    <Link
+                      href={`/quiz/play?category=${personalization.weakCategory.category}`}
+                      className="text-xs text-red-400 hover:text-red-200 font-medium transition-colors"
+                    >
+                      집중 연습 →
+                    </Link>
+                  </div>
+                );
+              })()}
             </div>
           )}
         </div>
