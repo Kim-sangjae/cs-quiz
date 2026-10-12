@@ -166,7 +166,7 @@ export async function POST(req: NextRequest) {
         <tr><td style="padding:6px 12px;color:#888">작성자</td><td style="padding:6px 12px">${escapeHtml(user.nickname ?? user.email ?? '')}</td></tr>
         <tr><td style="padding:6px 12px;color:#888;vertical-align:top">문제</td><td style="padding:6px 12px;white-space:pre-wrap">${escapeHtml(question as string)}</td></tr>
       </table>
-      <p style="margin-top:16px"><a href="${process.env.NEXTAUTH_URL}/admin?tab=pending" style="color:#6366f1">관리자 패널에서 확인 →</a></p>
+      <p style="margin-top:16px"><a href="${process.env.NEXTAUTH_URL ?? 'https://csora.co.kr'}/admin?tab=pending" style="color:#6366f1">관리자 패널에서 확인 →</a></p>
     `,
   }).catch(() => {});
 

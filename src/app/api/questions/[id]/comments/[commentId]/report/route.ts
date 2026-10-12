@@ -64,7 +64,7 @@ export async function POST(
         <tr><td style="padding:6px 12px;color:#888;vertical-align:top">댓글 내용</td><td style="padding:6px 12px;white-space:pre-wrap">${escapeHtml(comment.content)}</td></tr>
         ${description ? `<tr><td style="padding:6px 12px;color:#888;vertical-align:top">설명</td><td style="padding:6px 12px;white-space:pre-wrap">${escapeHtml(description)}</td></tr>` : ''}
       </table>
-      <p style="margin-top:16px"><a href="${process.env.NEXTAUTH_URL}/admin?tab=reports" style="color:#6366f1">관리자 패널에서 확인 →</a></p>
+      <p style="margin-top:16px"><a href="${process.env.NEXTAUTH_URL ?? 'https://csora.co.kr'}/admin?tab=reports" style="color:#6366f1">관리자 패널에서 확인 →</a></p>
     `,
   }).catch(() => {});
 
