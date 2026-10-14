@@ -145,7 +145,7 @@ export default function RankingSection({ rankings, currentUserId, myRanks, contr
                     <p className="text-neutral-200 font-medium mb-1">랭킹 집계 기준</p>
                     <p>• 문제 10개 이상 풀어야 집계됩니다</p>
                     <p>• 오답복습 모드는 제외됩니다</p>
-                    <p>• 정답률 → 풀이 수 순으로 순위 결정</p>
+                    <p>• 정답률과 풀이 수를 함께 반영해 순위 결정</p>
                   </div>
                 </>
               )}
