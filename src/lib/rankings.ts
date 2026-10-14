@@ -36,30 +36,48 @@ export type MyRankEntry = {
   totalParticipants: number;
 } | null;
 
+// 랭킹 정렬 점수(베이지안 보정): 풀이 수가 적을수록 전체 평균 정답률 쪽으로 보정해
+// 소수 문제만 풀고 운 좋게 높은 정답률을 찍은 경우가 다수 풀이자를 이기지 못하게 함.
+// score = (n/(n+M)) * 내정답률 + (M/(n+M)) * 전체평균정답률, M=30
+const RANK_PRIOR_WEIGHT = 30;
+
 export async function getMyRanks(
   userId: string
 ): Promise<Record<string, MyRankEntry>> {
   const rows = await prisma.$queryRaw<
     { category: string; rank: bigint; attemptCount: number; correctCount: number; totalParticipants: bigint }[]
   >`
-    WITH ranked AS (
+    WITH user_stats AS (
       SELECT
         qa."userId",
         q.category,
         COUNT(*)::int AS "attemptCount",
-        SUM(CASE WHEN qa."isCorrect" THEN 1 ELSE 0 END)::int AS "correctCount",
-        RANK() OVER (
-          PARTITION BY q.category
-          ORDER BY
-            (SUM(CASE WHEN qa."isCorrect" THEN 1 ELSE 0 END)::float / NULLIF(COUNT(*), 0)) DESC,
-            COUNT(*) DESC
-        ) AS rank,
-        COUNT(*) OVER (PARTITION BY q.category) AS "totalParticipants"
+        SUM(CASE WHEN qa."isCorrect" THEN 1 ELSE 0 END)::int AS "correctCount"
       FROM "QuestionAttempt" qa
       JOIN "Question" q ON qa."questionId" = q.id
       JOIN "QuizSession" qs ON qa."sessionId" = qs.id AND qs.mode != 'review'
       GROUP BY qa."userId", q.category
       HAVING COUNT(*) >= 10
+    ),
+    cat_avg AS (
+      SELECT category, AVG("correctCount"::float / "attemptCount") AS avg_accuracy
+      FROM user_stats
+      GROUP BY category
+    ),
+    scored AS (
+      SELECT
+        us.*,
+        (us."attemptCount"::float / (us."attemptCount" + ${RANK_PRIOR_WEIGHT})) * (us."correctCount"::float / us."attemptCount")
+          + (${RANK_PRIOR_WEIGHT}::float / (us."attemptCount" + ${RANK_PRIOR_WEIGHT})) * ca.avg_accuracy AS score
+      FROM user_stats us
+      JOIN cat_avg ca ON ca.category = us.category
+    ),
+    ranked AS (
+      SELECT
+        *,
+        RANK() OVER (PARTITION BY category ORDER BY score DESC, "attemptCount" DESC) AS rank,
+        COUNT(*) OVER (PARTITION BY category) AS "totalParticipants"
+      FROM scored
     )
     SELECT category, rank, "attemptCount", "correctCount", "totalParticipants"
     FROM ranked
@@ -69,24 +87,35 @@ export async function getMyRanks(
   const overallRows = await prisma.$queryRaw<
     { rank: bigint; attemptCount: number; correctCount: number; totalParticipants: bigint }[]
   >`
-    WITH totals AS (
+    WITH user_stats AS (
       SELECT
         qa."userId",
         COUNT(*)::int AS "attemptCount",
-        SUM(CASE WHEN qa."isCorrect" THEN 1 ELSE 0 END)::int AS "correctCount",
-        RANK() OVER (
-          ORDER BY
-            (SUM(CASE WHEN qa."isCorrect" THEN 1 ELSE 0 END)::float / NULLIF(COUNT(*), 0)) DESC,
-            COUNT(*) DESC
-        ) AS rank,
-        COUNT(*) OVER () AS "totalParticipants"
+        SUM(CASE WHEN qa."isCorrect" THEN 1 ELSE 0 END)::int AS "correctCount"
       FROM "QuestionAttempt" qa
       JOIN "QuizSession" qs ON qa."sessionId" = qs.id AND qs.mode != 'review'
       GROUP BY qa."userId"
       HAVING COUNT(*) >= 10
+    ),
+    avg_acc AS (
+      SELECT AVG("correctCount"::float / "attemptCount") AS avg_accuracy FROM user_stats
+    ),
+    scored AS (
+      SELECT
+        us.*,
+        (us."attemptCount"::float / (us."attemptCount" + ${RANK_PRIOR_WEIGHT})) * (us."correctCount"::float / us."attemptCount")
+          + (${RANK_PRIOR_WEIGHT}::float / (us."attemptCount" + ${RANK_PRIOR_WEIGHT})) * aa.avg_accuracy AS score
+      FROM user_stats us, avg_acc aa
+    ),
+    ranked AS (
+      SELECT
+        *,
+        RANK() OVER (ORDER BY score DESC, "attemptCount" DESC) AS rank,
+        COUNT(*) OVER () AS "totalParticipants"
+      FROM scored
     )
     SELECT rank, "attemptCount", "correctCount", "totalParticipants"
-    FROM totals
+    FROM ranked
     WHERE "userId" = ${userId}
   `;
 
@@ -204,25 +233,36 @@ type OverallRawRow = {
 export async function buildRankings(): Promise<CategoryRankings> {
   const [rows, overallRows] = await Promise.all([
     prisma.$queryRaw<RawRow[]>`
-      WITH ranked AS (
+      WITH user_stats AS (
         SELECT
           qa."userId",
           q.category,
           COUNT(*)::int AS "attemptCount",
           SUM(CASE WHEN qa."isCorrect" THEN 1 ELSE 0 END)::int AS "correctCount",
-          u.nickname,
-          ROW_NUMBER() OVER (
-            PARTITION BY q.category
-            ORDER BY
-              (SUM(CASE WHEN qa."isCorrect" THEN 1 ELSE 0 END)::float / NULLIF(COUNT(*), 0)) DESC,
-              COUNT(*) DESC
-          ) AS rn
+          u.nickname
         FROM "QuestionAttempt" qa
         JOIN "Question" q ON qa."questionId" = q.id
         JOIN "User" u ON qa."userId" = u.id
         JOIN "QuizSession" qs ON qa."sessionId" = qs.id AND qs.mode != 'review'
         GROUP BY qa."userId", q.category, u.nickname
         HAVING COUNT(*) >= 10
+      ),
+      cat_avg AS (
+        SELECT category, AVG("correctCount"::float / "attemptCount") AS avg_accuracy
+        FROM user_stats
+        GROUP BY category
+      ),
+      scored AS (
+        SELECT
+          us.*,
+          (us."attemptCount"::float / (us."attemptCount" + ${RANK_PRIOR_WEIGHT})) * (us."correctCount"::float / us."attemptCount")
+            + (${RANK_PRIOR_WEIGHT}::float / (us."attemptCount" + ${RANK_PRIOR_WEIGHT})) * ca.avg_accuracy AS score
+        FROM user_stats us
+        JOIN cat_avg ca ON ca.category = us.category
+      ),
+      ranked AS (
+        SELECT *, ROW_NUMBER() OVER (PARTITION BY category ORDER BY score DESC, "attemptCount" DESC) AS rn
+        FROM scored
       )
       SELECT "userId", category, "attemptCount", "correctCount", nickname
       FROM ranked
@@ -230,25 +270,34 @@ export async function buildRankings(): Promise<CategoryRankings> {
       ORDER BY category, rn
     `,
     prisma.$queryRaw<OverallRawRow[]>`
-      WITH totals AS (
+      WITH user_stats AS (
         SELECT
           qa."userId",
           u.nickname,
           COUNT(*)::int AS "attemptCount",
-          SUM(CASE WHEN qa."isCorrect" THEN 1 ELSE 0 END)::int AS "correctCount",
-          ROW_NUMBER() OVER (
-            ORDER BY
-              (SUM(CASE WHEN qa."isCorrect" THEN 1 ELSE 0 END)::float / NULLIF(COUNT(*), 0)) DESC,
-              COUNT(*) DESC
-          ) AS rn
+          SUM(CASE WHEN qa."isCorrect" THEN 1 ELSE 0 END)::int AS "correctCount"
         FROM "QuestionAttempt" qa
         JOIN "User" u ON qa."userId" = u.id
         JOIN "QuizSession" qs ON qa."sessionId" = qs.id AND qs.mode != 'review'
         GROUP BY qa."userId", u.nickname
         HAVING COUNT(*) >= 10
+      ),
+      avg_acc AS (
+        SELECT AVG("correctCount"::float / "attemptCount") AS avg_accuracy FROM user_stats
+      ),
+      scored AS (
+        SELECT
+          us.*,
+          (us."attemptCount"::float / (us."attemptCount" + ${RANK_PRIOR_WEIGHT})) * (us."correctCount"::float / us."attemptCount")
+            + (${RANK_PRIOR_WEIGHT}::float / (us."attemptCount" + ${RANK_PRIOR_WEIGHT})) * aa.avg_accuracy AS score
+        FROM user_stats us, avg_acc aa
+      ),
+      ranked AS (
+        SELECT *, ROW_NUMBER() OVER (ORDER BY score DESC, "attemptCount" DESC) AS rn
+        FROM scored
       )
       SELECT "userId", nickname, "attemptCount", "correctCount"
-      FROM totals
+      FROM ranked
       WHERE rn <= 10
       ORDER BY rn
     `,
