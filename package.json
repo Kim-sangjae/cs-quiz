@@ -1,6 +1,6 @@
 {
   "name": "cs-quiz",
-  "version": "0.1.0",
+  "version": "1.41.0",
   "private": true,
   "scripts": {
     "dev": "powershell -Command \"Remove-Item -Recurse -Force .next -ErrorAction SilentlyContinue; next dev -H 0.0.0.0\"",

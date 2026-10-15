@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
-export default function Footer() {
+export default function Footer({ version }: { version?: string }) {
   const pathname = usePathname();
   const hideFooter = pathname === '/quiz/play' || pathname.startsWith('/battle/');
   if (hideFooter) return null;
@@ -50,7 +50,10 @@ export default function Footer() {
         </div>
 
         <div className="border-t border-neutral-800/60 pt-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1.5">
-          <p className="text-neutral-600 text-xs">© 2026 CSORA. All rights reserved.</p>
+          <p className="text-neutral-600 text-xs">
+            © 2026 CSORA. All rights reserved.
+            {version && <span className="text-neutral-700"> · v{version}</span>}
+          </p>
           <p className="text-neutral-700 text-xs">CS 학습자를 위해 만들었습니다</p>
         </div>
       </div>
