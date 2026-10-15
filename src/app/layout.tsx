@@ -17,6 +17,7 @@ import ChunkErrorHandler from "@/components/ChunkErrorHandler";
 import FriendPanel from "@/components/FriendPanel";
 import BattleInviteAlert from "@/components/BattleInviteAlert";
 import BattleRejectedAlert from "@/components/BattleRejectedAlert";
+import pkg from "../../package.json";
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXTAUTH_URL ?? 'http://localhost:3000'),
@@ -85,7 +86,7 @@ export default function RootLayout({
         <Providers>
           <Header />
           {children}
-          <Footer />
+          <Footer version={pkg.version} />
           <ScrollButtons />
           <DragScroll />
           <FriendPanel />
