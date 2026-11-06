@@ -15,6 +15,7 @@ export async function GET() {
       description: true,
       questionId: true,
       status: true,
+      resolutionReason: true,
       createdAt: true,
       question: { select: { id: true, category: true, question: true, status: true, options: true, answer: true, explanation: true } },
       reporter: { select: { nickname: true } },
@@ -27,6 +28,7 @@ export async function GET() {
     reportCount: number;
     latestReportAt: string;
     dismissed: boolean;
+    resolutionReason: string | null;
     reports: typeof reports;
   }>();
 
@@ -38,6 +40,7 @@ export async function GET() {
         reportCount: 0,
         latestReportAt: report.createdAt.toISOString(),
         dismissed: false,
+        resolutionReason: null,
         reports: [],
       });
     }
@@ -51,8 +54,12 @@ export async function GET() {
   }
 
   // dismissed = 해당 문제의 모든 신고가 REVIEWED 상태인 경우
+  // resolutionReason은 가장 최근에 처리된 신고의 사유를 대표값으로 사용(뱃지 표시용)
   for (const [, entry] of map) {
     entry.dismissed = entry.reports.every((r) => r.status === 'REVIEWED');
+    if (entry.dismissed) {
+      entry.resolutionReason = [...entry.reports].reverse().find((r) => r.resolutionReason)?.resolutionReason ?? null;
+    }
   }
 
   const grouped = Array.from(map.values()).sort((a, b) => b.reportCount - a.reportCount);

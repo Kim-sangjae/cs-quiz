@@ -46,14 +46,14 @@ export async function PATCH(
       });
       await tx.report.updateMany({
         where: { questionId, status: 'PENDING' },
-        data: { status: 'REVIEWED' },
+        data: { status: 'REVIEWED', resolutionReason: 'BLINDED' },
       });
     });
     writeLog({ actorId: user.id, actorRole: user.role, action: 'REPORT_BLIND', targetType: 'Question', targetId: questionId });
   } else {
     await prisma.report.updateMany({
       where: { questionId, status: 'PENDING' },
-      data: { status: 'REVIEWED' },
+      data: { status: 'REVIEWED', resolutionReason },
     });
     writeLog({ actorId: user.id, actorRole: user.role, action: 'REPORT_DISMISS', targetType: 'Question', targetId: questionId });
   }

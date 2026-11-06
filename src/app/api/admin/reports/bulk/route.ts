@@ -23,11 +23,11 @@ export async function POST(req: NextRequest) {
   if (action === 'blind') {
     await prisma.$transaction(async (tx) => {
       await tx.question.updateMany({ where: { id: { in: questionIds as string[] }, status: { not: 'BLINDED' } }, data: { status: 'BLINDED' } });
-      await tx.report.updateMany({ where: { questionId: { in: questionIds as string[] }, status: 'PENDING' }, data: { status: 'REVIEWED' } });
+      await tx.report.updateMany({ where: { questionId: { in: questionIds as string[] }, status: 'PENDING' }, data: { status: 'REVIEWED', resolutionReason: 'BLINDED' } });
     });
     writeLog({ actorId: user.id, actorRole: user.role, action: 'REPORT_BLIND', targetType: 'Question', targetId: questionIds.join(','), payload: { count: questionIds.length } });
   } else {
-    await prisma.report.updateMany({ where: { questionId: { in: questionIds as string[] }, status: 'PENDING' }, data: { status: 'REVIEWED' } });
+    await prisma.report.updateMany({ where: { questionId: { in: questionIds as string[] }, status: 'PENDING' }, data: { status: 'REVIEWED', resolutionReason: 'NO_ISSUE' } });
     writeLog({ actorId: user.id, actorRole: user.role, action: 'REPORT_DISMISS', targetType: 'Question', targetId: questionIds.join(','), payload: { count: questionIds.length } });
   }
 

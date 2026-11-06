@@ -49,8 +49,12 @@ interface ReportItem {
 }
 interface ReportGroup {
   question: { id: string; category: string; question: string; status: string; options: string[]; answer: number; explanation: string };
-  reportCount: number; latestReportAt: string; dismissed: boolean; reports: ReportItem[];
+  reportCount: number; latestReportAt: string; dismissed: boolean; resolutionReason: string | null; reports: ReportItem[];
 }
+
+const RESOLUTION_BADGE_LABEL: Record<string, string> = {
+  FIXED: '수정완료', BLINDED: '블라인드됨', NO_ISSUE: '무시됨', OTHER: '처리완료',
+};
 interface BoardQuestion {
   id: string; category: string; question: string;
   options: string[]; answer: number; explanation: string;
@@ -1471,7 +1475,11 @@ function ReportsTab({ prevSeenAt, requestConfirm }: { prevSeenAt: string | null;
                       {CATEGORY_LABEL[group.question.category] ?? group.question.category}
                     </span>
                     <span className="text-xs text-neutral-500">신고 {group.reportCount}건</span>
-                    {group.dismissed && <span className="text-xs text-neutral-500 border border-neutral-700 rounded px-1.5 py-0.5">무시됨</span>}
+                    {group.dismissed && (
+                      <span className="text-xs text-neutral-500 border border-neutral-700 rounded px-1.5 py-0.5">
+                        {RESOLUTION_BADGE_LABEL[group.resolutionReason ?? ''] ?? '무시됨'}
+                      </span>
+                    )}
                     {group.question.status === 'BLINDED' && <span className="text-xs text-red-400 border border-red-500/30 rounded px-1.5 py-0.5">블라인드됨</span>}
                     {!group.dismissed && prevSeenAt && new Date(group.latestReportAt) > new Date(prevSeenAt) && (
                       <span className="text-[10px] font-bold text-amber-400 border border-amber-500/40 rounded px-1.5 py-0.5">NEW</span>
