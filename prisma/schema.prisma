@@ -188,6 +188,7 @@ model Report {
   reason      ReportReason
   description String?
   status      ReportStatus @default(PENDING)
+  resolutionReason String?
   createdAt   DateTime     @default(now())
 
   reporter User     @relation(fields: [reporterId], references: [id])
