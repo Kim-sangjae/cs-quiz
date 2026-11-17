@@ -7,6 +7,7 @@ import ReportModal from '@/components/board/ReportModal';
 import BoardQuizWidget from '@/components/board/BoardQuizWidget';
 import CommentSection from '@/components/board/CommentSection';
 import AuthorButton from '@/components/AuthorButton';
+import AdminQuestionEditButton from '@/components/AdminQuestionEditButton';
 
 const CATEGORY_LABELS: Record<string, string> = {
   ds: '자료구조',
@@ -92,6 +93,18 @@ export default async function BoardDetailPage({ params }: PageProps) {
               등록요청
             </span>
           )}
+          <div className="ml-auto">
+            <AdminQuestionEditButton
+              question={{
+                id: question.id,
+                category: question.category,
+                question: question.question,
+                options,
+                answer: question.answer,
+                explanation: question.explanation,
+              }}
+            />
+          </div>
         </div>
 
         <p className="text-base font-medium text-white leading-relaxed mb-6">
@@ -114,6 +127,9 @@ export default async function BoardDetailPage({ params }: PageProps) {
             <span>시도 {question.attemptCount}회</span>
             <span>정답률 {accuracyText}</span>
             <span>{new Date(question.createdAt).toLocaleDateString('ko-KR')}</span>
+            {question.lastEditedAt && (
+              <span>(수정됨 {new Date(question.lastEditedAt).toLocaleDateString('ko-KR')})</span>
+            )}
           </div>
         </div>
 

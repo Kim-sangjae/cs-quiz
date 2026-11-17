@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import ResultCard from './ResultCard';
 import CommentSection from './board/CommentSection';
 import AuthorButton from './AuthorButton';
+import AdminQuestionEditButton from './AdminQuestionEditButton';
 import type { Question } from '@/types';
 import { useScrollLock } from '@/lib/use-scroll-lock';
 
@@ -27,6 +28,7 @@ interface FetchedQuestion {
   rejectionReason?: string | null;
   authorId?: string | null;
   author?: { nickname: string | null } | null;
+  lastEditedAt?: string | null;
 }
 
 interface PrefetchedQuestion {
@@ -68,10 +70,7 @@ export default function QuestionDrawer({
       .catch(() => {});
   }, []);
 
-  useEffect(() => {
-    if (!open) { setFetched(null); setBookmarked(false); return; }
-    const qid = prefetched?.id ?? questionId;
-    if (qid) fetchBookmark(qid);
+  const refetchQuestion = useCallback(() => {
     if (!questionId) return;
     setLoading(true);
     fetch(`/api/questions/${questionId}`)
@@ -79,7 +78,14 @@ export default function QuestionDrawer({
       .then((data) => setFetched(data as FetchedQuestion))
       .catch(() => setFetched(null))
       .finally(() => setLoading(false));
-  }, [open, questionId, prefetched, fetchBookmark]);
+  }, [questionId]);
+
+  useEffect(() => {
+    if (!open) { setFetched(null); setBookmarked(false); return; }
+    const qid = prefetched?.id ?? questionId;
+    if (qid) fetchBookmark(qid);
+    refetchQuestion();
+  }, [open, questionId, prefetched, fetchBookmark, refetchQuestion]);
 
   async function toggleBookmark(qid: string) {
     if (bookmarkPending) return;
@@ -166,6 +172,24 @@ export default function QuestionDrawer({
                   <span className="text-xs text-neutral-600">
                     출제: <AuthorButton authorId={fetched.authorId} authorNickname={fetched.author.nickname} className="hover:text-neutral-400 transition-colors" />
                   </span>
+                )}
+                {fetched?.lastEditedAt && (
+                  <span className="text-xs text-neutral-600">(수정됨 {new Date(fetched.lastEditedAt).toLocaleDateString('ko-KR')})</span>
+                )}
+                {fetched && (
+                  <div className="ml-auto">
+                    <AdminQuestionEditButton
+                      question={{
+                        id: fetched.id,
+                        category: fetched.category,
+                        question: fetched.question,
+                        options,
+                        answer: fetched.answer,
+                        explanation: fetched.explanation,
+                      }}
+                      onSaved={refetchQuestion}
+                    />
+                  </div>
                 )}
               </div>
               <p className="text-sm text-white leading-relaxed mb-5">{q.question}</p>

@@ -19,6 +19,7 @@ const SORTS = [
   { value: 'accuracy_asc', label: '정답률 낮은순' },
   { value: 'accuracy_desc', label: '정답률 높은순' },
   { value: 'likes', label: '좋아요순' },
+  { value: 'comments', label: '댓글 많은순' },
 ] as const;
 
 export default function FilterBar({ isLoggedIn = false }: { isLoggedIn?: boolean }) {

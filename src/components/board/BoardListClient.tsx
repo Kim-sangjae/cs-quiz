@@ -11,7 +11,6 @@ interface BoardQuestion {
   status: string;
   attemptCount: number;
   correctCount: number;
-  createdAt: Date | string;
   author: { nickname: string | null } | null;
   likeCount: number;
   commentCount: number;

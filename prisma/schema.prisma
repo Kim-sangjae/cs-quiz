@@ -121,6 +121,7 @@ model Question {
   // (실시간 입력 힌트는 정답을 아직 모르는 상태라 embedding만 사용)
   embeddingFull   Unsupported("vector(1536)")?
   createdAt       DateTime       @default(now())
+  lastEditedAt    DateTime?
 
   author          User?             @relation(fields: [authorId], references: [id])
   attempts        QuestionAttempt[]
@@ -240,6 +241,7 @@ enum NotificationType {
   COMMENT_DELETED
   QUESTION_COMMENTED
   REPORT_RESOLVED
+  QUESTION_EDITED
 }
 
 enum BadgeType {
