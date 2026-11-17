@@ -1410,7 +1410,7 @@ function ReportsTab({ prevSeenAt, requestConfirm }: { prevSeenAt: string | null;
       <><div className="flex gap-1">
         {([
           { key: 'pending', label: `대기 중 ${pendingCount}` },
-          { key: 'dismissed', label: `무시됨 ${dismissedCount}` },
+          { key: 'dismissed', label: `처리완료 ${dismissedCount}` },
           { key: 'all', label: '전체' },
         ] as const).map(({ key, label }) => (
           <button key={key} onClick={() => { setStatusFilter(key); setPage(1); setSelectedIds(new Set()); }}
@@ -1451,7 +1451,7 @@ function ReportsTab({ prevSeenAt, requestConfirm }: { prevSeenAt: string | null;
 
       {filtered.length === 0 ? (
         <p className="text-neutral-500 text-sm text-center py-8">
-          {statusFilter === 'dismissed' ? '무시 처리된 신고가 없습니다.' : '처리할 신고가 없습니다.'}
+          {statusFilter === 'dismissed' ? '처리 완료된 신고가 없습니다.' : '처리할 신고가 없습니다.'}
         </p>
       ) : (
         <>
