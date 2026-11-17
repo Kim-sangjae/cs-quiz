@@ -19,7 +19,6 @@ const questionSelect = {
   status: true,
   attemptCount: true,
   correctCount: true,
-  createdAt: true,
   author: { select: { nickname: true } },
   _count: { select: { likes: true, comments: { where: { deletedAt: null, blinded: false } } } },
 } as const;
@@ -75,7 +74,6 @@ export default async function BoardPage({ searchParams }: PageProps) {
     status: string;
     attemptCount: number;
     correctCount: number;
-    createdAt: Date;
     author: { nickname: string | null } | null;
     _count: { likes: number; comments: number };
   }>;
@@ -93,7 +91,9 @@ export default async function BoardPage({ searchParams }: PageProps) {
     questions = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
   } else {
     const orderBy: Prisma.QuestionOrderByWithRelationInput =
-      sort === 'likes' ? { likes: { _count: 'desc' } } : { createdAt: 'desc' };
+      sort === 'likes' ? { likes: { _count: 'desc' } }
+        : sort === 'comments' ? { comments: { _count: 'desc' } }
+        : { createdAt: 'desc' };
 
     [totalCount, questions] = await Promise.all([
       prisma.question.count({ where }),
@@ -173,7 +173,6 @@ export default async function BoardPage({ searchParams }: PageProps) {
               status: q.status,
               attemptCount: q.attemptCount,
               correctCount: q.correctCount,
-              createdAt: q.createdAt.toISOString(),
               author: q.author,
               likeCount: q._count.likes,
               commentCount: q._count.comments,

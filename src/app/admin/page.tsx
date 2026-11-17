@@ -11,8 +11,8 @@ import { SYNONYM_GROUPS as BUILTIN_SYNONYM_GROUPS } from '@/lib/similar-search';
 import PaginationNav from '@/components/PaginationNav';
 import { REPORT_RESOLUTION_REASONS } from '@/lib/report-resolution';
 
-type Tab = 'questions' | 'board' | 'reports' | 'users' | 'inquiries' | 'logs' | 'analytics' | 'errors' | 'generate' | 'blocked-words' | 'synonyms' | 'points-log';
-const VALID_TABS: Tab[] = ['questions', 'board', 'reports', 'users', 'inquiries', 'logs', 'analytics', 'errors', 'generate', 'blocked-words', 'synonyms', 'points-log'];
+type Tab = 'questions' | 'board' | 'reports' | 'users' | 'inquiries' | 'comments' | 'logs' | 'analytics' | 'errors' | 'generate' | 'blocked-words' | 'synonyms' | 'points-log';
+const VALID_TABS: Tab[] = ['questions', 'board', 'reports', 'users', 'inquiries', 'comments', 'logs', 'analytics', 'errors', 'generate', 'blocked-words', 'synonyms', 'points-log'];
 
 const CATEGORY_LABEL: Record<string, string> = {
   ds: '자료구조', algo: '알고리즘', os: '운영체제',
@@ -137,6 +137,7 @@ export default function AdminPage() {
     { key: 'reports', label: '신고 접수', count: (badge?.reports ?? 0) + (badge?.userReports ?? 0) + (badge?.commentReports ?? 0) || undefined },
     { key: 'users', label: '유저 관리' },
     { key: 'inquiries', label: '문의 관리', count: badge?.inquiries },
+    { key: 'comments', label: '댓글 관리' },
     { key: 'logs', label: '활동 로그' },
     { key: 'errors', label: '오류 내역' },
     { key: 'generate', label: 'AI 문제 생성' },
@@ -193,6 +194,7 @@ export default function AdminPage() {
       {activeTab === 'reports' && <ReportsTab prevSeenAt={prevSeenAt} requestConfirm={requestConfirm} />}
       {activeTab === 'users' && <UsersTab currentUserId={session.user?.id ?? ''} requestConfirm={requestConfirm} />}
       {activeTab === 'inquiries' && <InquiriesTab prevSeenAt={prevSeenAt} />}
+      {activeTab === 'comments' && <CommentsTab requestConfirm={requestConfirm} />}
       {activeTab === 'logs' && <LogsTab />}
       {activeTab === 'errors' && <ErrorLogsTab />}
       {activeTab === 'generate' && <GenerateQuestionsTab />}
@@ -2107,6 +2109,123 @@ function InquiriesTab({ prevSeenAt }: { prevSeenAt: string | null }) {
                 pageCount={pageCount}
                 onChange={(p) => { setPage(p); setExpandedId(null); setSelectedIds(new Set()); }}
               />
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+interface AdminComment {
+  id: string;
+  content: string;
+  blinded: boolean;
+  createdAt: string;
+  user: { nickname: string | null } | null;
+  question: { id: string; question: string; category: string };
+}
+
+function CommentsTab({ requestConfirm }: { requestConfirm: (msg: string, fn: () => void) => void }) {
+  const queryClient = useQueryClient();
+  const [searchInput, setSearchInput] = useState('');
+  const [search, setSearch] = useState('');
+  const [category, setCategory] = useState('');
+  const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
+  const [page, setPage] = useState(1);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const t = setTimeout(() => { setSearch(searchInput); setPage(1); }, 300);
+    return () => clearTimeout(t);
+  }, [searchInput]);
+
+  interface CommentsResponse { comments: AdminComment[]; total: number; pageCount: number; }
+
+  const { data, isLoading } = useQuery<CommentsResponse>({
+    queryKey: ['admin', 'comments', search, category, sortOrder, page],
+    queryFn: async () => {
+      const params = new URLSearchParams({ search, category, sort: sortOrder, page: String(page) });
+      const r = await fetch(`/api/admin/comments?${params}`);
+      if (!r.ok) return { comments: [], total: 0, pageCount: 1 };
+      return r.json();
+    },
+  });
+
+  const comments = data?.comments ?? [];
+  const pageCount = data?.pageCount ?? 1;
+
+  async function handleDelete(commentId: string) {
+    setDeletingId(commentId);
+    try {
+      const res = await fetch('/api/admin/comment-reports', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ commentId, action: 'delete' }),
+      });
+      if (res.ok) {
+        toast.success('댓글이 삭제되었습니다.');
+        queryClient.invalidateQueries({ queryKey: ['admin', 'comments'] });
+      } else {
+        toast.error('삭제에 실패했습니다.');
+      }
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
+  if (isLoading) return <p className="text-neutral-500 text-sm text-center py-8">로딩 중...</p>;
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-3 flex-wrap">
+        <input value={searchInput} onChange={(e) => setSearchInput(e.target.value)} placeholder="댓글 내용 검색..."
+          className="bg-[#1a1a1a] border border-neutral-700 rounded-md px-3 py-1.5 text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-neutral-500" />
+        <select value={category} onChange={(e) => { setCategory(e.target.value); setPage(1); }}
+          className="bg-[#1a1a1a] border border-neutral-700 rounded-md px-3 py-1.5 text-sm text-white focus:outline-none focus:border-neutral-500">
+          <option value="">전체 카테고리</option>
+          {CATEGORIES.map((c) => <option key={c} value={c}>{CATEGORY_LABEL[c]}</option>)}
+        </select>
+        <select value={sortOrder} onChange={(e) => { setSortOrder(e.target.value as 'newest' | 'oldest'); setPage(1); }}
+          className="bg-[#1a1a1a] border border-neutral-700 rounded-md px-3 py-1.5 text-sm text-white focus:outline-none focus:border-neutral-500">
+          <option value="newest">최신순</option>
+          <option value="oldest">오래된순</option>
+        </select>
+        <span className="text-xs text-neutral-500">{data?.total ?? 0}건</span>
+      </div>
+
+      {comments.length === 0 ? (
+        <p className="text-neutral-500 text-sm text-center py-8">댓글이 없습니다.</p>
+      ) : (
+        <>
+          {comments.map((c) => (
+            <div key={c.id} className="bg-[#111111] border border-neutral-800 rounded-lg p-4">
+              <div className="flex items-start justify-between gap-4 mb-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs text-neutral-500 border border-neutral-800 rounded px-2 py-0.5">
+                    {CATEGORY_LABEL[c.question.category] ?? c.question.category}
+                  </span>
+                  {c.blinded && <span className="text-xs text-red-400 border border-red-500/30 rounded px-1.5 py-0.5">블라인드됨</span>}
+                  <span className="text-xs text-neutral-600">{c.user?.nickname ?? '(탈퇴)'}</span>
+                </div>
+                <a href={`/board/${c.question.id}`} target="_blank" rel="noreferrer"
+                  className="text-xs text-neutral-500 hover:text-white transition-colors underline flex-shrink-0">
+                  문제 보기
+                </a>
+              </div>
+              <p className="text-xs text-neutral-500 truncate mb-2">{c.question.question}</p>
+              <p className="text-sm text-neutral-200 leading-relaxed mb-3">{c.content}</p>
+              <button
+                onClick={() => requestConfirm('이 댓글을 삭제하시겠습니까?', () => handleDelete(c.id))}
+                disabled={deletingId === c.id}
+                className="rounded-md bg-red-500/10 border border-red-500/30 text-red-400 text-xs px-3 py-1.5 hover:bg-red-500/20 transition-colors disabled:opacity-40">
+                삭제
+              </button>
+            </div>
+          ))}
+          {pageCount > 1 && (
+            <div className="mt-4">
+              <PaginationNav page={page} pageCount={pageCount} onChange={setPage} />
             </div>
           )}
         </>
