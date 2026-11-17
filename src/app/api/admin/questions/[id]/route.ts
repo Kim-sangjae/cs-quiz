@@ -32,7 +32,7 @@ export async function PATCH(
 
   const question = await prisma.question.findUnique({
     where: { id },
-    select: { id: true, authorId: true, question: true, options: true, answer: true, status: true },
+    select: { id: true, authorId: true, category: true, question: true, options: true, answer: true, explanation: true, status: true },
   });
 
   if (!question) return NextResponse.json({ error: 'Not found' }, { status: 404 });
@@ -154,6 +154,16 @@ export async function PATCH(
     const explanation = typeof d.explanation === 'string' && d.explanation.trim().length > 0
       ? d.explanation.trim() : undefined;
 
+    const FIELD_LABEL: Record<string, string> = {
+      category: '카테고리', question: '문제', options: '보기', answer: '정답', explanation: '해설',
+    };
+    const changedFields: string[] = [];
+    if (category !== undefined && category !== question.category) changedFields.push('category');
+    if (questionText !== undefined && questionText !== question.question) changedFields.push('question');
+    if (options !== undefined && JSON.stringify(options) !== JSON.stringify(question.options)) changedFields.push('options');
+    if (answer !== undefined && answer !== question.answer) changedFields.push('answer');
+    if (explanation !== undefined && explanation !== question.explanation) changedFields.push('explanation');
+
     const updateData = {
       ...(category !== undefined ? { category } : {}),
       ...(questionText !== undefined ? { question: questionText } : {}),
@@ -166,7 +176,18 @@ export async function PATCH(
       return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 });
     }
 
-    await prisma.question.update({ where: { id }, data: updateData });
+    await prisma.question.update({ where: { id }, data: { ...updateData, lastEditedAt: new Date() } });
+
+    if (changedFields.length > 0 && question.authorId && question.authorId !== user.id) {
+      await prisma.notification.create({
+        data: {
+          userId: question.authorId,
+          type: 'QUESTION_EDITED',
+          payload: { questionId: id, questionTitle, fields: changedFields.map((f) => FIELD_LABEL[f] ?? f) },
+          actionUrl: `/board/${id}`,
+        },
+      });
+    }
     writeLog({ actorId: user.id, actorRole: user.role, action: 'QUESTION_EDIT', targetType: 'Question', targetId: id, payload: { questionTitle, fields: Object.keys(updateData) } });
   }
 
