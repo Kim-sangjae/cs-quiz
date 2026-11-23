@@ -2634,6 +2634,9 @@ function WeekCalendarPicker({ selectedMonday, onSelect }: { selectedMonday: stri
   }
 
   const weeks = getMonthGridWeeks(viewYear, viewMonth);
+  // 연도 드롭다운 범위는 기간별 추이의 월별/연도별 뷰(availableYears)와 동일하게 맞춤
+  const pickerYears = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i);
+  const yearOptions = pickerYears.includes(viewYear) ? pickerYears : [viewYear, ...pickerYears];
 
   return (
     <div ref={ref} className="relative">
@@ -2646,10 +2649,21 @@ function WeekCalendarPicker({ selectedMonday, onSelect }: { selectedMonday: stri
       </button>
       {open && (
         <div className="absolute z-30 top-full mt-1 left-0 w-64 bg-[#1a1a1a] border border-neutral-700 rounded-lg shadow-xl p-3">
-          <div className="flex items-center justify-between mb-2">
-            <button onClick={() => shiftMonth(-1)} className="text-neutral-400 hover:text-white px-1.5 py-0.5 text-xs">◀</button>
-            <span className="text-xs text-neutral-200 font-medium">{viewYear}년 {viewMonth}월</span>
-            <button onClick={() => shiftMonth(1)} className="text-neutral-400 hover:text-white px-1.5 py-0.5 text-xs">▶</button>
+          <div className="flex items-center justify-between mb-2 gap-1">
+            <button onClick={() => shiftMonth(-1)} className="text-neutral-400 hover:text-white px-1.5 py-0.5 text-xs flex-shrink-0">◀</button>
+            <div className="flex items-center gap-1">
+              <select
+                value={viewYear}
+                onChange={(e) => setViewYear(Number(e.target.value))}
+                className="bg-[#1a1a1a] border border-neutral-700 rounded px-1 py-0.5 text-xs text-neutral-200 focus:outline-none focus:border-neutral-500 cursor-pointer"
+              >
+                {yearOptions.map((y) => (
+                  <option key={y} value={y}>{y}년</option>
+                ))}
+              </select>
+              <span className="text-xs text-neutral-200 font-medium">{viewMonth}월</span>
+            </div>
+            <button onClick={() => shiftMonth(1)} className="text-neutral-400 hover:text-white px-1.5 py-0.5 text-xs flex-shrink-0">▶</button>
           </div>
           <div className="grid grid-cols-7 gap-0.5 mb-1">
             {WEEKDAY_LABELS.map((d) => (
