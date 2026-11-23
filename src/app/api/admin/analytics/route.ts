@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerUser } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-import { getKSTDateStr, getKSTMidnight } from '@/lib/kst';
+import { getKSTDateStr, getKSTMidnight, getKSTWeekStartStr } from '@/lib/kst';
 
 function groupByKey(dates: string[], keyFn: (d: string) => string): Record<string, number> {
   const map: Record<string, number> = {};
@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
   }
 
   const { searchParams } = new URL(req.url);
-  const period = (searchParams.get('period') ?? 'day') as 'day' | 'month' | 'year';
+  const period = (searchParams.get('period') ?? 'day') as 'day' | 'week' | 'month' | 'year';
   const target = searchParams.get('target') ?? null;
 
   // 한국 기준(KST) 날짜 — 서버(Vercel)가 UTC로 돌아 new Date().toISOString()을 그대로
@@ -34,6 +34,12 @@ export async function GET(req: NextRequest) {
   if (period === 'day') {
     chartFrom = new Date(Date.now() + 9 * 60 * 60 * 1000 - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
     chartTo = today;
+    keyFn = (date) => date;
+  } else if (period === 'week') {
+    // 월~일을 한 주로 보는 주간 리포트. target은 해당 주 월요일 날짜(YYYY-MM-DD)
+    const monday = target ?? getKSTWeekStartStr();
+    chartFrom = monday;
+    chartTo = new Date(new Date(`${monday}T00:00:00.000Z`).getTime() + 6 * 86400_000).toISOString().slice(0, 10);
     keyFn = (date) => date;
   } else if (period === 'month') {
     const tm = target ?? today.slice(0, 7);

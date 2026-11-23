@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { getKSTMidnight, getKSTNow, getKSTDateStr } from './kst';
+import { getKSTMidnight, getKSTNow, getKSTDateStr, getKSTWeekStartStr } from './kst';
 
 describe('getKSTNow', () => {
   afterEach(() => {
@@ -84,5 +84,32 @@ describe('getKSTDateStr', () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-07-24T00:01:00Z'));
     expect(getKSTDateStr()).toBe('2026-07-24');
+  });
+});
+
+describe('getKSTWeekStartStr', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('월요일 - 오늘 날짜를 그대로 반환', () => {
+    // 2026-11-16은 월요일
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-11-16T05:00:00Z')); // KST 11/16 14:00
+    expect(getKSTWeekStartStr()).toBe('2026-11-16');
+  });
+
+  it('일요일 - 지난 월요일 날짜를 반환(주는 월~일)', () => {
+    // 2026-11-22는 일요일
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-11-22T05:00:00Z')); // KST 11/22 14:00
+    expect(getKSTWeekStartStr()).toBe('2026-11-16');
+  });
+
+  it('KST로 날짜가 넘어간 직후(UTC 기준 전날) - KST 기준 요일로 월요일을 계산', () => {
+    // 2026-11-23 00:30 KST == 2026-11-22 15:30 UTC (UTC로는 일요일, KST로는 월요일)
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-11-22T15:30:00Z'));
+    expect(getKSTWeekStartStr()).toBe('2026-11-23');
   });
 });
