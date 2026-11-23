@@ -2573,6 +2573,14 @@ function addDaysToDateStr(dateStr: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
+// 날짜 선택기에서 고른 날짜가 속한 주의 월요일(YYYY-MM-DD) 계산 — 명시적으로 주어진
+// 날짜 문자열에 대한 순수 계산이라 "오늘" 기준 KST 유틸은 필요 없음
+function mondayOfWeekContaining(dateStr: string): string {
+  const dayOfWeek = new Date(`${dateStr}T00:00:00.000Z`).getUTCDay(); // 0=Sun, 1=Mon, ..., 6=Sat
+  const daysToMonday = (dayOfWeek + 6) % 7;
+  return addDaysToDateStr(dateStr, -daysToMonday);
+}
+
 function MiniBarChart({ data, color, period }: { data: { label: string; count: number }[]; color: string; period: Period }) {
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
   const maxCount = Math.max(...data.map((d) => d.count), 1);
@@ -3053,6 +3061,13 @@ function AnalyticsTab() {
                 >
                   다음 주 →
                 </button>
+                <input
+                  type="date"
+                  value={weekTarget ?? weekVisits?.[0]?.label ?? ''}
+                  onChange={(e) => { if (e.target.value) setWeekTarget(mondayOfWeekContaining(e.target.value)); }}
+                  className="bg-[#1a1a1a] border border-neutral-700 rounded-md px-2 py-1 text-xs text-neutral-300 focus:outline-none focus:border-neutral-500 cursor-pointer"
+                  title="날짜를 선택하면 해당 날짜가 속한 주로 이동"
+                />
                 {weekTarget !== null && (
                   <button
                     onClick={() => setWeekTarget(null)}
