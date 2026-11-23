@@ -2581,6 +2581,113 @@ function mondayOfWeekContaining(dateStr: string): string {
   return addDaysToDateStr(dateStr, -daysToMonday);
 }
 
+// 달력에 표시할 월~일 주 단위 행 목록. 해당 월의 1일이 속한 주부터 말일이 속한 주까지
+function getMonthGridWeeks(year: number, month: number): string[][] {
+  const firstOfMonth = `${year}-${String(month).padStart(2, '0')}-01`;
+  const lastDay = new Date(year, month, 0).getDate();
+  const lastOfMonth = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+  const weeks: string[][] = [];
+  let cursor = mondayOfWeekContaining(firstOfMonth);
+  while (true) {
+    const week = Array.from({ length: 7 }, (_, i) => addDaysToDateStr(cursor, i));
+    weeks.push(week);
+    if (week[6] >= lastOfMonth) break;
+    cursor = addDaysToDateStr(cursor, 7);
+  }
+  return weeks;
+}
+
+const WEEKDAY_LABELS = ['월', '화', '수', '목', '금', '토', '일'] as const;
+
+// 주 단위 리포트용 달력 - 요일 하나가 아니라 그 요일이 속한 한 주(월~일) 전체를 선택하게 하기 위해
+// 네이티브 input[type=date](라이트 테마 고정이라 다크 UI에서 잘 안 보이고 하루 단위로만 선택됨) 대신 직접 구현
+function WeekCalendarPicker({ selectedMonday, onSelect }: { selectedMonday: string; onSelect: (monday: string) => void }) {
+  // 데이터 로딩 전(초기 렌더)엔 selectedMonday가 빈 문자열일 수 있어 안전한 기본값으로 대체
+  const safeMonday = selectedMonday || new Date().toISOString().slice(0, 10);
+  const [open, setOpen] = useState(false);
+  const [viewYear, setViewYear] = useState(() => new Date(`${safeMonday}T00:00:00.000Z`).getUTCFullYear());
+  const [viewMonth, setViewMonth] = useState(() => new Date(`${safeMonday}T00:00:00.000Z`).getUTCMonth() + 1);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  function openPicker() {
+    const base = new Date(`${safeMonday}T00:00:00.000Z`);
+    setViewYear(base.getUTCFullYear());
+    setViewMonth(base.getUTCMonth() + 1);
+    setOpen(true);
+  }
+
+  function shiftMonth(delta: number) {
+    let m = viewMonth + delta;
+    let y = viewYear;
+    if (m < 1) { m = 12; y -= 1; }
+    if (m > 12) { m = 1; y += 1; }
+    setViewMonth(m);
+    setViewYear(y);
+  }
+
+  const weeks = getMonthGridWeeks(viewYear, viewMonth);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => (open ? setOpen(false) : openPicker())}
+        title="날짜를 선택하면 해당 날짜가 속한 주(월~일)로 이동"
+        className="px-2 py-1 text-xs text-neutral-400 hover:text-white border border-neutral-800 hover:border-neutral-600 rounded-lg transition-colors"
+      >
+        📅 날짜로 이동
+      </button>
+      {open && (
+        <div className="absolute z-30 top-full mt-1 left-0 w-64 bg-[#1a1a1a] border border-neutral-700 rounded-lg shadow-xl p-3">
+          <div className="flex items-center justify-between mb-2">
+            <button onClick={() => shiftMonth(-1)} className="text-neutral-400 hover:text-white px-1.5 py-0.5 text-xs">◀</button>
+            <span className="text-xs text-neutral-200 font-medium">{viewYear}년 {viewMonth}월</span>
+            <button onClick={() => shiftMonth(1)} className="text-neutral-400 hover:text-white px-1.5 py-0.5 text-xs">▶</button>
+          </div>
+          <div className="grid grid-cols-7 gap-0.5 mb-1">
+            {WEEKDAY_LABELS.map((d) => (
+              <div key={d} className="text-center text-[10px] text-neutral-600 py-1">{d}</div>
+            ))}
+          </div>
+          <div className="space-y-0.5">
+            {weeks.map((week) => {
+              const isSelectedWeek = week[0] === selectedMonday;
+              return (
+                <button
+                  key={week[0]}
+                  onClick={() => { onSelect(week[0]); setOpen(false); }}
+                  className={`w-full grid grid-cols-7 gap-0.5 rounded transition-colors ${
+                    isSelectedWeek ? 'bg-indigo-500/30 ring-1 ring-indigo-400' : 'hover:bg-neutral-800'
+                  }`}
+                >
+                  {week.map((dateStr) => {
+                    const inMonth = parseInt(dateStr.slice(5, 7)) === viewMonth;
+                    return (
+                      <span
+                        key={dateStr}
+                        className={`text-center text-xs py-1.5 rounded ${inMonth ? 'text-neutral-200' : 'text-neutral-700'}`}
+                      >
+                        {parseInt(dateStr.slice(8))}
+                      </span>
+                    );
+                  })}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function MiniBarChart({ data, color, period }: { data: { label: string; count: number }[]; color: string; period: Period }) {
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
   const maxCount = Math.max(...data.map((d) => d.count), 1);
@@ -3061,12 +3168,9 @@ function AnalyticsTab() {
                 >
                   다음 주 →
                 </button>
-                <input
-                  type="date"
-                  value={weekTarget ?? weekVisits?.[0]?.label ?? ''}
-                  onChange={(e) => { if (e.target.value) setWeekTarget(mondayOfWeekContaining(e.target.value)); }}
-                  className="bg-[#1a1a1a] border border-neutral-700 rounded-md px-2 py-1 text-xs text-neutral-300 focus:outline-none focus:border-neutral-500 cursor-pointer"
-                  title="날짜를 선택하면 해당 날짜가 속한 주로 이동"
+                <WeekCalendarPicker
+                  selectedMonday={weekTarget ?? weekVisits?.[0]?.label ?? ''}
+                  onSelect={(monday) => setWeekTarget(monday)}
                 />
                 {weekTarget !== null && (
                   <button
