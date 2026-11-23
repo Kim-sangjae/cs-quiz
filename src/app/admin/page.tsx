@@ -2557,13 +2557,20 @@ interface AnalyticsData {
   todayQuizList: { nickname: string | null; email: string }[];
 }
 
-type Period = 'day' | 'month' | 'year';
+type Period = 'day' | 'week' | 'month' | 'year';
 
 function formatChartLabel(label: string, period: Period): string {
   if (period === 'year') return `${parseInt(label.slice(5))}`;
   if (period === 'month') return `${parseInt(label.slice(8))}`;
   const [, m, d] = label.split('-');
   return `${parseInt(m)}/${parseInt(d)}`;
+}
+
+// YYYY-MM-DD 날짜 문자열에 날짜 단위로 더하기(문자열 입력 그대로 반환 형태 유지)
+function addDaysToDateStr(dateStr: string, days: number): string {
+  const d = new Date(`${dateStr}T00:00:00.000Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
 }
 
 function MiniBarChart({ data, color, period }: { data: { label: string; count: number }[]; color: string; period: Period }) {
@@ -2803,9 +2810,11 @@ function InfraTooltip({ text }: { text: string }) {
 }
 
 function AnalyticsTab() {
-  const [chartPeriod, setChartPeriod] = useState<'month' | 'year'>('month');
+  const [chartPeriod, setChartPeriod] = useState<'week' | 'month' | 'year'>('month');
   const [targetYear, setTargetYear] = useState(String(new Date().getFullYear()));
   const [targetMonth, setTargetMonth] = useState(String(new Date().getMonth() + 1).padStart(2, '0'));
+  // null = 이번 주(서버가 기본값으로 계산). 월요일 날짜(YYYY-MM-DD)를 직접 지정하면 해당 주로 이동
+  const [weekTarget, setWeekTarget] = useState<string | null>(null);
   const [sidePanel, setSidePanel] = useState<'online' | 'visitors' | 'newusers' | 'quizzes' | null>(null);
 
   const availableYears = Array.from({ length: 5 }, (_, i) => String(new Date().getFullYear() - i));
@@ -2825,15 +2834,25 @@ function AnalyticsTab() {
     staleTime: 15_000,
   });
 
-  // 기간별 차트 조회 (월 / 년)
-  const chartTarget = chartPeriod === 'month' ? `${targetYear}-${targetMonth}` : targetYear;
+  // 기간별 차트 조회 (주 / 월 / 년). 주별은 weekTarget이 null이면 서버가 이번 주를 기본값으로 계산
+  const chartTarget: string | null =
+    chartPeriod === 'month' ? `${targetYear}-${targetMonth}`
+    : chartPeriod === 'year' ? targetYear
+    : weekTarget;
   const { data: chartData, isLoading: chartLoading } = useQuery<AnalyticsData>({
-    queryKey: ['admin', 'analytics', chartPeriod, chartTarget],
+    queryKey: ['admin', 'analytics', chartPeriod, chartTarget ?? 'current'],
     queryFn: () =>
-      fetch(`/api/admin/analytics?period=${chartPeriod}&target=${chartTarget}`).then((r) => r.json()),
+      fetch(`/api/admin/analytics?period=${chartPeriod}${chartTarget ? `&target=${chartTarget}` : ''}`).then((r) => r.json()),
     refetchInterval: 60_000,
     staleTime: 30_000,
   });
+
+  // 주별 이전/다음 이동 — 현재 로드된 주의 월요일(chartVisits[0].label) 기준으로 ±7일
+  const shiftWeek = (deltaWeeks: number) => {
+    const baseMonday = weekTarget ?? chartData?.chartVisits[0]?.label;
+    if (!baseMonday) return;
+    setWeekTarget(addDaysToDateStr(baseMonday, deltaWeeks * 7));
+  };
 
   const { onlineUsers } = useRealtime();
   const onlineCount = onlineUsers.length;
@@ -2850,10 +2869,15 @@ function AnalyticsTab() {
   const popularCat = sortedCats[0]?.category;
   const leastCat = sortedCats.length > 1 ? sortedCats[sortedCats.length - 1]?.category : null;
 
+  const weekVisits = chartData?.chartVisits;
   const chartPeriodLabel =
     chartPeriod === 'month'
       ? `${targetYear}년 ${parseInt(targetMonth)}월`
-      : `${targetYear}년`;
+      : chartPeriod === 'year'
+      ? `${targetYear}년`
+      : weekVisits && weekVisits.length > 0
+      ? `${formatChartLabel(weekVisits[0].label, 'week')} ~ ${formatChartLabel(weekVisits[weekVisits.length - 1].label, 'week')}`
+      : '이번 주';
 
   const todayVisitorList = todayData?.todayVisitorList ?? [];
   const todayNewUserList = todayData?.todayNewUserList ?? [];
@@ -2998,7 +3022,7 @@ function AnalyticsTab() {
         <div className="bg-[#111111] border border-neutral-800 rounded-xl px-4 py-4 space-y-3 mb-3">
           <div className="flex items-center gap-3 flex-wrap">
             <div className="flex gap-1">
-              {(['month', 'year'] as const).map((p) => (
+              {(['week', 'month', 'year'] as const).map((p) => (
                 <button
                   key={p}
                   onClick={() => setChartPeriod(p)}
@@ -3008,19 +3032,47 @@ function AnalyticsTab() {
                       : 'text-neutral-400 hover:text-white border border-neutral-800 hover:border-neutral-600'
                   }`}
                 >
-                  {p === 'month' ? '월별' : '연도별'}
+                  {p === 'week' ? '주별' : p === 'month' ? '월별' : '연도별'}
                 </button>
               ))}
             </div>
-            <select
-              value={targetYear}
-              onChange={(e) => setTargetYear(e.target.value)}
-              className="bg-[#1a1a1a] border border-neutral-700 text-xs text-neutral-300 rounded-lg px-3 py-1.5 focus:outline-none focus:border-neutral-500 cursor-pointer"
-            >
-              {availableYears.map((y) => (
-                <option key={y} value={y}>{y}년</option>
-              ))}
-            </select>
+            {chartPeriod === 'week' ? (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => shiftWeek(-1)}
+                  disabled={chartLoading}
+                  className="px-2 py-1 text-xs text-neutral-400 hover:text-white border border-neutral-800 hover:border-neutral-600 rounded-lg transition-colors disabled:opacity-40"
+                >
+                  ← 이전 주
+                </button>
+                <span className="text-xs text-neutral-300 min-w-[90px] text-center">{chartPeriodLabel}</span>
+                <button
+                  onClick={() => shiftWeek(1)}
+                  disabled={chartLoading}
+                  className="px-2 py-1 text-xs text-neutral-400 hover:text-white border border-neutral-800 hover:border-neutral-600 rounded-lg transition-colors disabled:opacity-40"
+                >
+                  다음 주 →
+                </button>
+                {weekTarget !== null && (
+                  <button
+                    onClick={() => setWeekTarget(null)}
+                    className="px-2 py-1 text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
+                  >
+                    이번 주로
+                  </button>
+                )}
+              </div>
+            ) : (
+              <select
+                value={targetYear}
+                onChange={(e) => setTargetYear(e.target.value)}
+                className="bg-[#1a1a1a] border border-neutral-700 text-xs text-neutral-300 rounded-lg px-3 py-1.5 focus:outline-none focus:border-neutral-500 cursor-pointer"
+              >
+                {availableYears.map((y) => (
+                  <option key={y} value={y}>{y}년</option>
+                ))}
+              </select>
+            )}
           </div>
           {chartPeriod === 'month' && (
             <div className="flex gap-1 flex-wrap">

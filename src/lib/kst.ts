@@ -29,6 +29,17 @@ export function getKSTWeekStart(): Date {
   return new Date(getKSTMidnight().getTime() - daysToMonday * 86400_000);
 }
 
+// 이번 주 월요일의 KST 날짜 문자열(YYYY-MM-DD). 주간 리포트 등 "월~일을 한 주"로 보는
+// 기능의 기본값으로 사용 — getKSTWeekStart()는 Date(UTC 인스턴트)라 날짜 문자열로 그대로
+// slice하면 하루 어긋나므로 getKSTDateStr()와 같은 방식(시프트 후 UTC 필드로 조립)으로 계산.
+export function getKSTWeekStartStr(): string {
+  const nowKST = new Date(Date.now() + 9 * 3600_000);
+  const dayOfWeek = nowKST.getUTCDay(); // 0=Sun, 1=Mon, ..., 6=Sat
+  const daysToMonday = (dayOfWeek + 6) % 7;
+  const monday = new Date(Date.UTC(nowKST.getUTCFullYear(), nowKST.getUTCMonth(), nowKST.getUTCDate() - daysToMonday));
+  return monday.toISOString().slice(0, 10);
+}
+
 export function getKSTISOWeek(): string {
   const nowKST = new Date(Date.now() + 9 * 3600_000);
   const d = new Date(Date.UTC(nowKST.getUTCFullYear(), nowKST.getUTCMonth(), nowKST.getUTCDate()));
