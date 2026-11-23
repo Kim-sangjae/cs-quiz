@@ -132,3 +132,7 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({ ok: true, date: yesterdayStr });
 }
+
+// Vercel Cron Jobs는 GET으로 호출함(vercel.json의 crons 설정). GitHub Actions 수동/재시도
+// 호출은 기존처럼 POST도 계속 지원
+export const GET = POST;
