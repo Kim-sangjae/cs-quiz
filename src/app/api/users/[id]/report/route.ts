@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { isRateLimited } from '@/lib/rate-limit';
-import { sendMail, ADMIN_EMAIL, escapeHtml } from '@/lib/mailer';
+import { sendMailSafe, ADMIN_EMAIL, escapeHtml } from '@/lib/mailer';
 
 const VALID_REASONS = ['INAPPROPRIATE_NICKNAME', 'HARASSMENT', 'SPAM', 'OTHER'] as const;
 type Reason = typeof VALID_REASONS[number];
@@ -45,7 +45,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     data: { reporterId: session.user.id, reportedId, reason, description },
   });
 
-  sendMail({
+  await sendMailSafe({
     to: ADMIN_EMAIL(),
     subject: `[CSORA] 유저 신고: ${reported.nickname ?? reportedId}`,
     html: `
@@ -58,7 +58,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       </table>
       <p style="margin-top:16px"><a href="${process.env.NEXTAUTH_URL ?? 'https://csora.co.kr'}/admin?tab=reports" style="color:#6366f1">관리자 패널에서 확인 →</a></p>
     `,
-  }).catch(() => {});
+    path: `/api/users/${reportedId}/report`,
+    userId: session.user.id,
+  });
 
   return NextResponse.json({ ok: true });
 }

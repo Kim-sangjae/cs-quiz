@@ -4,7 +4,7 @@ import { getServerUser } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { awardBadges } from '@/lib/award-badges';
 import { writeLog } from '@/lib/audit';
-import { sendMail, ADMIN_EMAIL, escapeHtml } from '@/lib/mailer';
+import { sendMailSafe, ADMIN_EMAIL, escapeHtml } from '@/lib/mailer';
 import { isRateLimited, getClientIp } from '@/lib/rate-limit';
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -156,7 +156,7 @@ export async function POST(req: NextRequest) {
 
   writeLog({ actorId: user.id, actorRole: user.role, action: 'QUESTION_SUBMIT', targetType: 'Question', targetId: created.id, payload: { category, questionTitle: (question as string).slice(0, 50) } });
 
-  sendMail({
+  await sendMailSafe({
     to: ADMIN_EMAIL(),
     subject: `[CSORA] 새 문제 요청: [${CATEGORY_LABELS[category] ?? category}] ${(question as string).slice(0, 40)}`,
     html: `
@@ -168,7 +168,9 @@ export async function POST(req: NextRequest) {
       </table>
       <p style="margin-top:16px"><a href="${process.env.NEXTAUTH_URL ?? 'https://csora.co.kr'}/admin?tab=pending" style="color:#6366f1">관리자 패널에서 확인 →</a></p>
     `,
-  }).catch(() => {});
+    path: '/api/questions',
+    userId: user.id,
+  });
 
   // 첫 문제 등록 뱃지 체크
   const submitCount = await prisma.question.count({ where: { authorId: user.id } });

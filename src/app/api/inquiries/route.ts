@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerUser } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import type { InquiryType } from '@prisma/client';
-import { sendMail, ADMIN_EMAIL, escapeHtml } from '@/lib/mailer';
+import { sendMailSafe, ADMIN_EMAIL, escapeHtml } from '@/lib/mailer';
 import { isRateLimited } from '@/lib/rate-limit';
 
 const TITLE_MAX = 100;
@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
     data: { userId: user.id, type: type as InquiryType, title: trimmedTitle, content: trimmedContent },
   });
 
-  sendMail({
+  await sendMailSafe({
     to: ADMIN_EMAIL(),
     subject: `[CSORA] 새 문의: ${trimmedTitle}`,
     html: `
@@ -72,7 +72,9 @@ export async function POST(req: NextRequest) {
       </table>
       <p style="margin-top:16px"><a href="${process.env.NEXTAUTH_URL ?? 'https://csora.co.kr'}/admin?tab=inquiries" style="color:#6366f1">관리자 패널에서 확인 →</a></p>
     `,
-  }).catch(() => {});
+    path: '/api/inquiries',
+    userId: user.id,
+  });
 
   return NextResponse.json({ id: inquiry.id }, { status: 201 });
 }
